@@ -72,8 +72,7 @@ ZSH_THEME="robbyrussell"
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(git alias-tips z)
 
-source $ZSH/oh-my-zsh.sh
-source ~/.zsh/alias-tips/alias-tips.plugin.zsh
+source $ZSH/oh-my-zsh.sh                                                                                      source ~/.zsh/alias-tips/alias-tips.plugin.zsh
 
 # User configuration
 
@@ -103,18 +102,25 @@ source ~/.zsh/alias-tips/alias-tips.plugin.zsh
 
 alias lg="lazygit"
 alias gup="git pull --rebase"
-alias llama="ollama run llama3.2"
-alias llama-code="ollama run codeqwen"
+alias agent="ollama launch claude --model qwen2.5-coder"
 alias brew-uuc="brew update && brew upgrade && brew cleanup"
+alias yt-dlp="~/Desktop/code/yt-dlp/yt-dlp -x --audio-format mp3 --audio-quality 0 --embed-thumbnail --add-metadata --no-abort-on-error -o './playlist/%(playlist_index)s - %(title)s.%(ext)s'"
+alias repolicense="~/Desktop/code/repolicense-cli/zig-out/bin/repolicense"
 
-eval "$(starship init zsh)"
+                                    eval "$(starship init zsh)"
 export PATH=/usr/local/anaconda3/bin:$PATH
 export PATH=/Users/lucasfreytorreshanson/.cargo/bin:$PATH
+export PATH="~/.dotnet/tools:$PATH"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-export PATH="/opt/homebrew/opt/gradle@7/bin:$PATH"
+[[ -s "~/.sdkman/bin/sdkman-init.sh" ]] && source "~/.sdkman/bin/sdkman-init.sh"export PATH="/opt/homebrew/opt/gradle@7/bin:$PATH"
 
 # bun completions
 [ -s "/Users/lucasfreytorreshanson/.bun/_bun" ] && source "/Users/lucasfreytorreshanson/.bun/_bun"
+
+# Mole shell completion
+if output="$(mole completion zsh 2>/dev/null)"; then eval "$output"; fi
+
+# Time format for the `time` command
+TIMEFMT=$'\n================\nCPU\t%P\nuser\t%*U\nsystem\t%*S\ntotal\t%*E'

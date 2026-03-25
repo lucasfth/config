@@ -1,0 +1,32 @@
+theme = Dark Modern
+background-blur-radius = 20
+keybind = global:shift+alt+cmd+n=toggle_quick_terminal
+window-decoration = true
+macos-titlebar-style = hidden
+background-opacity = 0.85
+background-blur-radius = 4
+window-padding-x = 5
+window-padding-y = 5
+split-divider-color = #fefefe
+unfocused-split-opacity = 0.85
+unfocused-split-fill = #1529FD
+
+
+keybind = ctrl+n=new_window
+
+keybind = shift+cmd+f=toggle_split_zoom
+
+keybind = shift+cmd+h=resize_split:left,10
+keybind = shift+cmd+l=resize_split:right,10
+keybind = shift+cmd+j=resize_split:down,10
+keybind = shift+cmd+k=resize_split:up,10
+
+keybind = ctrl+a>h=new_split:left
+keybind = ctrl+a>j=new_split:down
+keybind = ctrl+a>k=new_split:up
+keybind = ctrl+a>l=new_split:right
+
+keybind = ctrl+a>n=next_tab
+keybind = ctrl+a>p=previous_tab
+
+window-save-state = always
