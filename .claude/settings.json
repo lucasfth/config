@@ -1,0 +1,53 @@
+{
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "bunx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "sh /Users/lucasfreytorreshanson/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "Hallucinating responsibly",
+      "Pretending to think",
+      "Blaming the context window",
+      "Consulting my imagination",
+      "Speed-running your tech debt",
+      "Overthinking this",
+      "Apologizing in advance",
+      "Vibing with your codebase",
+      "Guessing unreliably",
+      "Making shit up",
+      "Making it work on my machine",
+      "Dialing a friend",
+      "Ignoring the documentation",
+      "Hiding the console logs",
+      "Testing in prod",
+      "Eating all the tokens",
+      "Arguing that the bug is a feature",
+      "Drinking coffee"
+    ]
+  },
+  "model": "haiku"
+}

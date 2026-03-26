@@ -1,0 +1,10 @@
+backups/*
+cache/*
+plans/*
+plugins/cache/*
+plugins/marketplaces/claude-plugins-official/.gcs-sha
+projects/*
+sessions-env/*
+sessions/*
+history.jsonl
+mcp-needs-auth-cache.json
