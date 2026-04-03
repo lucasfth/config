@@ -8,3 +8,6 @@ sessions-env/*
 sessions/*
 history.jsonl
 mcp-needs-auth-cache.json
+/file-history/*
+/paste-cache/*
+/tasks/*
