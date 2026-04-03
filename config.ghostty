@@ -21,11 +21,6 @@ keybind = shift+cmd+l=resize_split:right,10
 keybind = shift+cmd+j=resize_split:down,10
 keybind = shift+cmd+k=resize_split:up,10
 
-keybind = ctrl+a>h=new_split:left
-keybind = ctrl+a>j=new_split:down
-keybind = ctrl+a>k=new_split:up
-keybind = ctrl+a>l=new_split:right
-
 keybind = ctrl+a>n=next_tab
 keybind = ctrl+a>p=previous_tab
 
