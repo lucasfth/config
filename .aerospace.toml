@@ -238,6 +238,11 @@ shift-down = ['volume set 0', 'mode main']
   if.app-id = 'com.apple.Safari.WebApp.3557BE24-05EB-4617-8125-5EDD2F073737'
   run = 'move-node-to-workspace C'
 
+# Apple Calendar
+[[on-window-detected]]
+  if.app-id = 'com.apple.iCal'
+  run = 'move-node-to-workspace C'
+
 # Notion
 [[on-window-detected]]
   if.app-id = 'notion.id'
@@ -272,3 +277,8 @@ shift-down = ['volume set 0', 'mode main']
 [[on-window-detected]]
   if.app-id = 'com.tdesktop.Telegram'
   run = 'move-node-to-workspace A'
+
+# Slack
+[[on-window-detected]]
+  if.app-id = 'com.tinyspeck.slackmacgap'
+  run = 'move-node-to-workspace W'
