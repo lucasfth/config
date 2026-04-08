@@ -71,7 +71,7 @@ description: >-
   </commentary>
 
   </example>
-model: "xai/grok-4-1-fast-reasoning"
+model: "xai/grok-4-1-fast"
 mode: primary
 tools:
   write: false
