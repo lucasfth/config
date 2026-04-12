@@ -5,5 +5,11 @@
   },
   "agent": {
   },
+  "formatter": {
+    "biome": {
+      "command": ["bunx", "biome", "format", "--write", "$FILE"],
+      "extensions": [".js", ".jsx", ".ts", ".tsx", ".json", ".jsonc"]
+    }
+  },
   "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
 }
