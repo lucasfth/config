@@ -1,0 +1,141 @@
+{
+  "explorer.confirmDelete": false,
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": true,
+    "scminput": false,
+    "fsharp": true,
+    "scala": true,
+    "csharp": true,
+    "java": true
+  },
+  "files.autoSave": "afterDelay",
+  "[java]": {
+      "editor.defaultFormatter": "georgewfraser.vscode-javac"
+  },
+  "files.associations": {
+      "*.java": "java"
+  },
+  "editor.accessibilitySupport": "off",
+
+  "flake8.args": [
+      "--max-line-length=100"
+  ],
+  "security.workspace.trust.untrustedFiles": "open",
+  "terminal.integrated.enableMultiLinePasteWarning": false,
+  "explorer.confirmDragAndDrop": false,
+  "editor.formatOnSave": true,
+  "window.titleBarStyle": "custom",
+  "vscode_vibrancy.imports": [
+
+      "/path/to/file"
+  ],
+  "vscode_vibrancy.theme": "Default Dark",
+  "eslint.codeActionsOnSave.rules": null,
+
+  "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+  },
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "github.copilot.editor.enableAutoCompletions": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false,
+  "workbench.colorCustomizations": {
+    "terminal.background": "#00000000"
+  },
+  "workbench.settings.applyToAllProfiles": [
+    "workbench.colorCustomizations"
+  ],
+  "files.watcherExclude": {
+    "**/.bloop": true,
+    "**/.metals": true,
+    "**/.ammonite": true
+  },
+  "editor.indentSize": "tabSize",
+  "[python]": {
+      "editor.tabSize": 4,
+      "editor.wordBasedSuggestions": "off"
+  },
+  "[csharp]": {
+      "editor.tabSize": 4
+  },
+  // "editor.glyphMargin": false,
+  "markdown-preview-enhanced.previewTheme": "github-dark.css",
+  "markdown-preview-enhanced.enablePreviewZenMode": true,
+  "json.schemas": [
+
+  ],
+  "material-icon-theme.folders.theme": "specific",
+  "jupyter.askForKernelRestart": false,
+  "C_Cpp.default.customConfigurationVariables": {},
+  "cSpell.userWords": [
+    "denoise",
+    "Nuxt",
+    "supabase"
+  ],
+  "zig.zls.enabled": "on",
+    "[javascript]": {
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+    "eslint.validate": [
+      "javascript",
+      "javascriptreact",
+      "typescript",
+      "typescriptreact"
+    ],
+    "eslint.experimental.useFlatConfig": false,
+    "grammarly.files.include": [
+      "**/readme.md",
+      "**/README.md",
+      "**/*.txt",
+      "**/*.latex"
+    ],
+    "github.copilot.advanced": {
+      "authPermissions": "minimal"
+    },
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "FSharp.suggestGitignore": false,
+    "gitlens.ai.model": "vscode",
+    "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+    "python.analysis.typeCheckingMode": "standard",
+    "chat.tools.urls.autoApprove": {
+      "https://docs.polymarket.com": true,
+      "file:///Users/lucasfreytorreshanson/Desktop/code/osws/OSWS.Performance.Tests/Measurements/Measurement1ColdWideRangeRequest.cs": {
+        "approveRequest": true,
+        "approveResponse": false
+      },
+      "https://g-research.github.io": true
+    },
+    "github.experimental.multipleAccounts": true,
+    "chat.tools.terminal.autoApprove": {
+      "dotnet run": true,
+      "dotnet test": true
+    },
+    "chat.mcp.gallery.enabled": true,
+    "chat.viewSessions.orientation": "stacked",
+    "chat.autopilot.enabled": true,
+    "roo-cline.debug": false,
+    "roo-cline.allowedCommands": [
+      "git log",
+      "git diff",
+      "git show"
+    ],
+    "roo-cline.deniedCommands": [],
+    "[html]": {
+      "editor.defaultFormatter": "rvest.vs-code-prettier-eslint"
+    }
+}

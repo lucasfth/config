@@ -1,3 +1,49 @@
+# MacOS
 .DS_Store
+
+# Claude
 */shell-snapshots/*
+
+# LazyGit
 lazygit/state.yml
+
+# VS Code (maybe others too?)
+*/Cache/*
+*/Cached*/*
+*/Code\ Cache/*
+*/Cookies
+*/Cookies-journal
+*/Crashpad/*
+*/DIPS*
+*/DawnCache/*
+*/DawnGraphiteCache/*
+*/DawnWebGPUCache/*
+*/GPUCache/*
+*/Local\ Storage/*
+*/Network\ Persistent\ State
+*/*/*/Cache/*
+*/*/*/Code\ Cache/*
+*/Partitions/*
+*/Service\ Worker/*
+*/Session\ Storage/*
+*/Preferences
+*/Shared\ Dictionary/*
+*/SharedStorage
+*/SharedStorage-wal
+*/TransportSecurity
+*/Trust\ Tokens
+*/Trust\ Tokens-journal
+*/blob_storage/*
+*/code.lock
+*/languagepacks.json
+*/logs/*
+*/machineid
+*/VideoDecodeStats/*
+*/WebStorage/*
+*/Backups/*
+*/User/History/*
+*/User/globalStorage/*
+*/User/workspaceStorage/*
+*/User/sync/*
+*/User/profiles/*/globalStorage/*
+*/shared_proto_db/*
