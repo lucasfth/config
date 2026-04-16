@@ -5,11 +5,11 @@
   },
   "agent": {
   },
-  "formatter": {
-    "biome": {
-      "command": ["bunx", "biome", "format", "--write", "$FILE"],
-      "extensions": [".js", ".jsx", ".ts", ".tsx", ".json", ".jsonc"]
-    }
-  },
-  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
+  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
+  "skills": {
+    "paths": [
+      "/Users/lucasfreytorreshanson/.cache/opencode/packages/skills",
+      "/Users/lucasfreytorreshanson/.cache/opencode/packages/superpowers@git+https:/github.com/obra/superpowers.git/node_modules/superpowers/skills"
+    ]
+  }
 }
