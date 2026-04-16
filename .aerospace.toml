@@ -282,3 +282,8 @@ shift-down = ['volume set 0', 'mode main']
 [[on-window-detected]]
   if.app-id = 'com.tinyspeck.slackmacgap'
   run = 'move-node-to-workspace W'
+
+# Notes
+[[on-window-detected]]
+	if.app-id = 'com.apple.Notes'
+	run = 'layout floating'
