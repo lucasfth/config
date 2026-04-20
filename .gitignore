@@ -1,3 +1,5 @@
+.env
+
 # MacOS
 .DS_Store
 
@@ -47,3 +49,52 @@ lazygit/state.yml
 */User/sync/*
 */User/profiles/*/globalStorage/*
 */shared_proto_db/*
+
+# Hermes local runtime/state
+/.hermes/*
+!/.hermes/hermes-agent/
+!/.hermes/hermes-agent/**
+!/.hermes/skills/
+!/.hermes/skills/**
+
+# Local sensitive runtime files
+/.hermes/.env
+/.hermes/config.yaml
+/.hermes/.hermes_history
+/.hermes/auth.json
+/.hermes/auth.lock
+/.hermes/logs/
+/.hermes/sessions/
+/.hermes/checkpoints/
+/.hermes/cache/
+/.hermes/audio_cache/
+/.hermes/image_cache/
+/.hermes/memories/
+/.hermes/channel_directory.json
+/.hermes/gateway_state.json
+/.hermes/gateway.pid
+/.hermes/.skills_prompt_snapshot.json
+/.hermes/state.db*
+/.hermes/.update_check
+/.hermes/models_dev_cache.json
+/.hermes/ollama_cloud_models_cache.json
+/.hermes/pairing/
+/.hermes/processes.json
+/.hermes/sandboxes/
+/.hermes/hermes-agent/venv/
+/.hermes/hermes-agent/.venv
+/.hermes/hermes-agent/**/__pycache__
+/.hermes/hermes-agent/**/*.pyc
+/.hermes/hermes-agent/**/*.pyo
+/.hermes/hermes-agent/**/*.pyd
+/.hermes/hermes-agent/.pytest_cache/
+/.hermes/hermes-agent/.mypy_cache/
+/.hermes/hermes-agent/.ruff_cache/
+/.hermes/hermes-agent/.coverage
+/.hermes/hermes-agent/htmlcov/
+/.hermes/hermes-agent/build/
+/.hermes/hermes-agent/dist/
+/.hermes/hermes-agent/**/node_modules/
+
+# zsh secrets
+.zsh/.zshrc_secrets
