@@ -106,6 +106,7 @@ alias agent="ollama launch claude --model qwen2.5-coder"
 alias brew-uuc="brew update && brew upgrade && brew cleanup"
 alias yt-dlp="~/Desktop/code/yt-dlp/yt-dlp -x --audio-format mp3 --audio-quality 0 --embed-thumbnail --add-metadata --no-abort-on-error -o './playlist/%(playlist_index)s - %(title)s.%(ext)s'"
 alias repolicense="~/Desktop/code/repolicense-cli/zig-out/bin/repolicense"
+alias hermes-subprocess="ps aux | grep hermes | grep -v grep"
 
                                     eval "$(starship init zsh)"
 export PATH=/usr/local/anaconda3/bin:$PATH
@@ -152,3 +153,10 @@ fi
 
 # Time format for the `time` command
 TIMEFMT=$'\n================\nCPU\t%P\nuser\t%*U\nsystem\t%*S\ntotal\t%*E'
+
+. "$HOME/.local/bin/env"
+
+# zsh secrets
+if [ -f ~/.zsh/.zshrc_secrets ]; then
+  source ~/.zsh/.zshrc_secrets
+fi
