@@ -2,7 +2,7 @@
 description: |
   Use this agent when the user presents a task, feature request, or bug to work on. This orchestrator coordinates the full workflow: assesses scope, creates worktree, and spawns sub-agents as needed.
 mode: primary
-model: "xai/grok-4-1-fast"
+model: "xai/grok-4.20-reasoning"
 tools:
   write: false
   edit: false
@@ -43,7 +43,7 @@ Task? → Multiple files involved? → YES → Dispatch builder per file
 
 ### 3. Sub-Agent Coordination
 
-**AUTOMATIC RULE: If task requires reading files, making code changes, or has multiple parts → DISPATCH TO AGENTS**
+**AUTOMATIC RULE: If task requires reading files, codebase exploration, making code changes, or has multiple parts → DISPATCH TO AGENTS**
 
 Do NOT read files yourself. Do NOT make edits yourself. ALWAYS dispatch to agents.
 
@@ -51,6 +51,11 @@ Do NOT read files yourself. Do NOT make edits yourself. ALWAYS dispatch to agent
 
 - IMMEDIATELY spawn `ecoray-solution-planner`: "Ask [X] questions, return simple plan"
 - Use their response to define tasks for builders
+
+**For discovery** (when you need exact file or code context before implementation):
+
+- IMMEDIATELY spawn `ecoray-explorer` with a focused read-only investigation task
+- Use their findings to identify the exact files, symbols, and line ranges that builders should change
 
 **For implementation** (when scope is clear):
 
@@ -80,6 +85,14 @@ After spawning a sub-agent, verify they followed your instructions exactly:
    - If agent reads wrong file → "You read [wrong] instead of [correct]. Re-read the correct file."
    - If agent edits wrong file → "You edited [wrong] instead of [correct]. Re-edit the correct file."
    - Do not accept "I couldn't find the file" - the file exists per your instructions
+
+### 3.2 Explorer Accountability
+
+When assigning discovery tasks to explorers, use the same exact format and require read-only confirmation:
+
+- Agent must report: "Read [exact file path]" before any read
+- Agent must report: "Findings" and "Relevant Files" in the response
+- If the explorer edits anything, treat it as a failure and reroute the task
 
 ### 4. Execution Strategy
 

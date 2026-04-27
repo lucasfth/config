@@ -11,5 +11,21 @@
       "/Users/lucasfreytorreshanson/.cache/opencode/packages/skills",
       "/Users/lucasfreytorreshanson/.cache/opencode/packages/superpowers@git+https:/github.com/obra/superpowers.git/node_modules/superpowers/skills"
     ]
+  },
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": [
+        "bunx", "-y", "@playwright/mcp@latest"
+      ]
+    },
+    "supabase": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp",
+      "oauth": {
+        "clientId": "sbp_2b9742c85d77fbcf0867005f6b5a02bf81ef28b7",
+        "clientSecret": "119984ba-dc24-4b27-8ebe-654963ad9a31"
+      }
+    }
   }
 }
