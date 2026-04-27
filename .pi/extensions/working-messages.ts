@@ -12,27 +12,30 @@
  *   .pi/extensions/working-messages.ts
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@mariozechner/pi-coding-agent";
 
 const MESSAGES = [
-	"🤔 Hallucinating responsibly",
-	"🧠 Pretending to think",
-	"📋 Blaming the context window",
-	"💭 Consulting my imagination",
-	"⚡ Speed-running your tech debt",
-	"🤔 Overthinking this",
-	"🙏 Apologizing in advance",
-	"✨ Vibing with your codebase",
-	"🎲 Guessing unreliably",
-	"💩 Making shit up",
-	"🔧 Making it work on my machine",
-	"📞 Dialing a friend",
-	"📚 Ignoring the documentation",
-	"🕵️ Hiding the console logs",
-	"🧪 Testing in prod",
-	"🍪 Eating all the tokens",
-	"🐛 Arguing that the bug is a feature",
-	"☕ Drinking coffee",
+  "🤔 Hallucinating responsibly",
+  "🧠 Pretending to think",
+  "📋 Blaming the context window",
+  "💭 Consulting my imagination",
+  "⚡ Speed-running your tech debt",
+  "🤔 Overthinking this",
+  "🙏 Apologizing in advance",
+  "✨ Vibing with your codebase",
+  "🎲 Guessing unreliably",
+  "💩 Making shit up",
+  "🔧 Making it work on my machine",
+  "📞 Dialing a friend",
+  "📚 Ignoring the documentation",
+  "🕵️ Hiding the console logs",
+  "🧪 Testing in prod",
+  "🍪 Eating all the tokens",
+  "🐛 Arguing that the bug is a feature",
+  "☕ Drinking coffee",
   "😴 Taking a break",
   "🗑️ Deleting useful code",
   "🔌 Turning it off and on again",
@@ -44,49 +47,58 @@ const MESSAGES = [
 
 const FRAME_DISPLAY_TIME_MIN = 1500;
 const FRAME_DISPLAY_TIME_MAX = 5000;
+const BRAILLE_SPINNER_FRAMES = ["⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇"];
+const BRAILLE_SPINNER_INTERVAL = 90;
 
 export default function (pi: ExtensionAPI) {
-	let messageTimeout: ReturnType<typeof setTimeout> | null = null;
+  let messageTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	function stopMessages(ctx: ExtensionContext) {
-		if (messageTimeout) {
-			clearTimeout(messageTimeout);
-			messageTimeout = null;
-		}
+  function stopMessages(ctx: ExtensionContext) {
+    if (messageTimeout) {
+      clearTimeout(messageTimeout);
+      messageTimeout = null;
+    }
 
-		ctx.ui.setWorkingIndicator(undefined);
-	}
+    ctx.ui.setWorkingMessage();
+    ctx.ui.setWorkingIndicator();
+  }
 
-	function startMessages(ctx: ExtensionContext) {
-		stopMessages(ctx);
+  function startMessages(ctx: ExtensionContext) {
+    stopMessages(ctx);
 
-		const showFrame = () => {
-			const message = MESSAGES[randomIntFromInterval(0, MESSAGES.length - 1)];
-			ctx.ui.setWorkingIndicator({
-				frames: [message],
-			});
+    ctx.ui.setWorkingIndicator({
+      frames: BRAILLE_SPINNER_FRAMES,
+      intervalMs: BRAILLE_SPINNER_INTERVAL,
+    });
 
-			messageTimeout = setTimeout(() => {
-				showFrame();
-			}, randomIntFromInterval(FRAME_DISPLAY_TIME_MIN, FRAME_DISPLAY_TIME_MAX));
-		};
+    const showFrame = () => {
+      const message = MESSAGES[randomIntFromInterval(0, MESSAGES.length - 1)];
+      ctx.ui.setWorkingMessage(message);
 
-		showFrame();
-	}
+      messageTimeout = setTimeout(
+        () => {
+          showFrame();
+        },
+        randomIntFromInterval(FRAME_DISPLAY_TIME_MIN, FRAME_DISPLAY_TIME_MAX),
+      );
+    };
 
-	pi.on("agent_start", async (_event, ctx) => {
-		startMessages(ctx);
-	});
+    showFrame();
+  }
 
-	pi.on("agent_end", async (_event, ctx) => {
-		stopMessages(ctx);
-	});
+  pi.on("agent_start", async (_event, ctx) => {
+    startMessages(ctx);
+  });
 
-	pi.on("session_shutdown", async (_event, ctx) => {
-		stopMessages(ctx);
-	});
+  pi.on("agent_end", async (_event, ctx) => {
+    stopMessages(ctx);
+  });
 
-  function randomIntFromInterval(min, max) {
+  pi.on("session_shutdown", async (_event, ctx) => {
+    stopMessages(ctx);
+  });
+
+  function randomIntFromInterval(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1) + min);
-}
+  }
 }

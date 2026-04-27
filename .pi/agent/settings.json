@@ -5,9 +5,14 @@
     "npm:@tmustier/pi-usage-extension",
     "npm:pi-subagents",
     "npm:@a5c-ai/babysitter-pi",
-    "npm:pi-cmux"
+    "npm:pi-cmux",
+    "npm:@kmiyh/pi-undo-redo",
+    "npm:pi-web-access"
   ],
   "defaultProvider": "opencode",
   "defaultModel": "big-pickle",
-  "defaultThinkingLevel": "medium"
+  "defaultThinkingLevel": "medium",
+  "extensions": [
+    "~/.pi/agent/extensions/session-stats.ts"
+  ]
 }
