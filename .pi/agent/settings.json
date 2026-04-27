@@ -1,0 +1,13 @@
+{
+  "lastChangelogVersion": "0.70.2",
+  "packages": [
+    "npm:pi-btw",
+    "npm:@tmustier/pi-usage-extension",
+    "npm:pi-subagents",
+    "npm:@a5c-ai/babysitter-pi",
+    "npm:pi-cmux"
+  ],
+  "defaultProvider": "opencode",
+  "defaultModel": "big-pickle",
+  "defaultThinkingLevel": "medium"
+}

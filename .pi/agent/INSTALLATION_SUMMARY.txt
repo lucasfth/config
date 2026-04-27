@@ -1,0 +1,170 @@
+================================================================================
+                    PI APPROVAL SYSTEM - INSTALLATION SUMMARY
+================================================================================
+
+INSTALLATION DATE: April 27, 2025
+PI VERSION: 0.70.2
+CMUX VERSION: cmux 0.63.2 (79) [179b16ce6]
+
+--------------------------------------------------------------------------------
+FILES CREATED
+--------------------------------------------------------------------------------
+
+EXTENSIONS (~/.pi/agent/extensions/)
+  ✓ command-approval.ts       (14KB) - Main approval with cmux notifications
+  ✓ agent-spec-enforcer.ts    (14KB) - Agent spec validation
+
+CONFIGURATION
+  ✓ approval-config.json      (742B) - Dangerous patterns & protected paths
+
+GLOBAL AGENTS (~/.pi/agent/agents/)
+  ✓ deploy-agent.md           (1.8KB) - Deployment operations
+  ✓ db-migration-agent.md     (3.8KB) - Database migrations
+
+PROJECT AGENTS (.pi/agents/)
+  ✓ config-agent.md           (3.4KB) - Configuration management
+
+DOCUMENTATION (~/.pi/agent/)
+  ✓ APPROVAL_SYSTEM.md        (7.7KB) - Complete documentation
+  ✓ APPROVAL_QUICKREF.md      (3.9KB) - Quick reference
+  ✓ test-approval-system.sh   (2.9KB) - Verification script
+
+PROJECT DOCS
+  ✓ SETUP_COMPLETE.md         (5.4KB) - Setup guide
+
+--------------------------------------------------------------------------------
+FEATURES ENABLED
+--------------------------------------------------------------------------------
+
+✓ Dangerous command approval with cmux notifications
+✓ Protected path protection
+✓ Agent-level approval requirements
+✓ Agent specification enforcement
+✓ Interactive approval prompts
+✓ Command editing before execution
+✓ Real-time spec violation tracking
+✓ Session statistics
+
+--------------------------------------------------------------------------------
+DEFAULT PROTECTIONS
+--------------------------------------------------------------------------------
+
+DANGEROUS COMMANDS (15 patterns):
+  - rm -rf, rm -r, rm --recursive
+  - sudo
+  - chmod 777, chown 777
+  - dd, mkfs.*
+  - Redirects to /dev/sd*, /dev/nvme*, /dev/vd*
+  - git clean -fd, git reset --hard, git branch -D
+  - npm uninstall, yarn remove, pip uninstall
+  - rm -rf node_modules, rm -rf ../, rm -rf ./
+
+PROTECTED PATHS (11 patterns):
+  - .env, .env.*
+  - credentials.*, secrets.*
+  - package.json, package-lock.json, yarn.lock, pnpm-lock.yaml
+  - tsconfig.json, tsconfig.*.json
+  - .git/, node_modules/
+
+APPROVAL-REQUIRED AGENTS (3):
+  - deploy-agent
+  - db-migration-agent
+  - config-agent
+
+--------------------------------------------------------------------------------
+COMMANDS AVAILABLE
+--------------------------------------------------------------------------------
+
+/approval-manage         - Interactive approval configuration
+/approval-agent <name>   - Toggle agent approval
+/agent-specs             - List agent specifications
+/agent-stats             - Session compliance stats
+
+--------------------------------------------------------------------------------
+TOOLS AVAILABLE
+--------------------------------------------------------------------------------
+
+validate_agent_spec      - Validate agent follows its spec
+
+--------------------------------------------------------------------------------
+CMUX INTEGRATION
+--------------------------------------------------------------------------------
+
+NOTIFICATION TYPES:
+  ⚠️ Dangerous Command    - When dangerous bash command detected
+  🔒 Protected Path        - When writing to protected file
+  🤖 Subagent Launch       - When approval-required agent starts
+  ⚠️ Spec Violation        - When agent breaks its spec
+
+--------------------------------------------------------------------------------
+NEXT STEPS
+--------------------------------------------------------------------------------
+
+1. Start pi:
+   $ pi
+
+2. Load extensions:
+   /reload
+
+3. Test approval:
+   !rm -rf test-dir
+
+4. Explore:
+   /approval-manage
+   /agent-specs
+
+5. Read documentation:
+   ~/.pi/agent/APPROVAL_SYSTEM.md
+
+6. Verify installation:
+   ~/.pi/agent/test-approval-system.sh
+
+--------------------------------------------------------------------------------
+CUSTOMIZATION
+--------------------------------------------------------------------------------
+
+ADD DANGEROUS PATTERN:
+  /approval-manage → Add dangerous pattern → Enter regex
+
+ADD PROTECTED PATH:
+  /approval-manage → Add protected path → Enter path
+
+TOGGLE AGENT APPROVAL:
+  /approval-agent <agent-name>
+
+CREATE NEW AGENT:
+  Edit ~/.pi/agent/agents/my-agent.md
+  Add requiresApproval: true to frontmatter
+  /reload
+
+--------------------------------------------------------------------------------
+SECURITY NOTES
+--------------------------------------------------------------------------------
+
+⚠️  Extensions run with full system permissions
+⚠️  Review code before use
+⚠️  Approval is a safety net, not a replacement for care
+⚠️  Keep secrets in secure locations
+⚠️  Use environment variables, not hardcoded secrets
+
+--------------------------------------------------------------------------------
+SUPPORT FILES
+--------------------------------------------------------------------------------
+
+Documentation:     ~/.pi/agent/APPROVAL_SYSTEM.md
+Quick Reference:   ~/.pi/agent/APPROVAL_QUICKREF.md
+Test Script:       ~/.pi/agent/test-approval-system.sh
+Setup Guide:       ./SETUP_COMPLETE.md
+
+--------------------------------------------------------------------------------
+VERIFICATION
+--------------------------------------------------------------------------------
+
+Run test script:
+  $ ~/.pi/agent/test-approval-system.sh
+
+All checks passed ✓
+
+================================================================================
+                         SETUP COMPLETE ✓
+================================================================================
