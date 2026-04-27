@@ -5,6 +5,7 @@
 
 # Claude
 */shell-snapshots/*
+/.claude/anthropic_key.sh
 
 # LazyGit
 lazygit/state.yml
@@ -98,3 +99,7 @@ lazygit/state.yml
 
 # zsh secrets
 .zsh/.zshrc_secrets
+
+# Pi
+/.pi/agent/auth.json
+/.pi/agent/sessions/*
