@@ -33,7 +33,11 @@
     ".local/share/raycast-scripts/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
 
     # ── Raycast (v1 extensions dir) ───────────────────────────────
-    "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
+    "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript"
+# ── Raycast Script Commands (v2) ────────────────────────────────
+".local/share/raycast-scripts/nix-rebuild.sh".source = "${flakeDir.outPath}/raycast-scripts/nix-rebuild.sh";
+".local/share/raycast-scripts/quick-note.sh".source = "${flakeDir.outPath}/raycast-scripts/quick-note.sh";
+.source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
 
 };
 }

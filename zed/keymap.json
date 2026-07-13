@@ -1,0 +1,44 @@
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "cmd-b": "project_panel::ToggleFocus",
+      "cmd-j": "outline_panel::ToggleFocus",
+      "cmd-shift-b": "project_panel::Toggle",
+      "cmd-shift-x": "collaboration_panel::ToggleFocus",
+      "cmd-shift-g": "git_panel::ToggleFocus",
+      "cmd-shift-`": "terminal_panel::ToggleFocus",
+      "ctrl-`": "terminal_panel::ToggleFocus",
+      "cmd-w": "pane::CloseActiveItem",
+      "cmd-shift-t": "pane::ReopenClosedItem",
+      "ctrl-tab": "pane::ActivateNextItem",
+      "ctrl-shift-tab": "pane::ActivatePrevItem"
+    }
+  },
+  {
+    "context": "Editor && !VimControl && !menu",
+    "bindings": {
+      "cmd-d": "editor::SelectNext",
+      "cmd-shift-l": "editor::SplitSelectionIntoLines",
+      "cmd-alt-up": "editor::AddSelectionAbove",
+      "cmd-alt-down": "editor::AddSelectionBelow",
+      "f2": "editor::Rename",
+      "f12": "editor::GoToDefinition",
+      "cmd-.": "editor::ToggleCodeActions",
+      "cmd-k cmd-i": "editor::ShowHover",
+      "shift-f12": "editor::GoToTypeDefinition",
+      "alt-f12": "editor::GoToImplementation",
+      "cmd-shift-o": "editor::OpenSymbol",
+      "cmd-t": "file_finder::Toggle",
+      "f8": "diagnostics::GoToNextDiagnostic",
+      "shift-f8": "diagnostics::GoToPrevDiagnostic",
+      "cmd-i": "assistant::InlineAssist"
+    }
+  },
+  {
+    "context": "Terminal",
+    "bindings": {
+      "cmd-k": "terminal_panel::Clear"
+    }
+  }
+]

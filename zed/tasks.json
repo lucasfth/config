@@ -1,0 +1,82 @@
+[
+  {
+    "label": "Nuxt: dev server",
+    "command": "bun run dev",
+    "tags": ["nuxt", "vue", "web"]
+  },
+  {
+    "label": "Nuxt: build",
+    "command": "bun run build",
+    "tags": ["nuxt", "vue", "web"]
+  },
+  {
+    "label": "Nuxt: type-check",
+    "command": "bun run typecheck",
+    "tags": ["nuxt", "vue", "typecheck"]
+  },
+  {
+    "label": "Nuxt: lint",
+    "command": "bun run lint",
+    "tags": ["nuxt", "vue", "lint"]
+  },
+  {
+    "label": "Python: run script",
+    "command": "python3 $ZED_FILE",
+    "tags": ["python"]
+  },
+  {
+    "label": "Python: pytest (file)",
+    "command": "python3 -m pytest $ZED_FILE -v",
+    "tags": ["python", "test"]
+  },
+  {
+    "label": "Python: pytest (project)",
+    "command": "python3 -m pytest -v",
+    "tags": ["python", "test"]
+  },
+  {
+    "label": "Nix: flake check",
+    "command": "nix flake check --flake ~/config",
+    "tags": ["nix"]
+  },
+  {
+    "label": "Nix: rebuild",
+    "command": "sudo darwin-rebuild switch --flake ~/config && exec zsh",
+    "tags": ["nix", "darwin"]
+  },
+  {
+    "label": "Typst: compile",
+    "command": "typst compile $ZED_FILE",
+    "tags": ["typst", "pdf"]
+  },
+  {
+    "label": "Typst: watch",
+    "command": "typst watch $ZED_FILE",
+    "tags": ["typst", "pdf"]
+  },
+  {
+    "label": "Rust: cargo check",
+    "command": "cargo check",
+    "tags": ["rust"]
+  },
+  {
+    "label": "Rust: cargo test",
+    "command": "cargo test",
+    "tags": ["rust", "test"]
+  },
+  {
+    "label": "Zig: zig build",
+    "command": "zig build",
+    "tags": ["zig"]
+  },
+  {
+    "label": "Zig: zig test",
+    "command": "zig test $ZED_FILE",
+    "tags": ["zig", "test"]
+  },
+  {
+    "label": "Firebase: deploy",
+    "command": "firebase deploy",
+    "tags": ["firebase", "deploy"]
+  }
+]

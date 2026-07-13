@@ -67,6 +67,21 @@ flake.nix (entry) → darwin.lib.darwinSystem
 - **Never** run `darwin-rebuild` without `sudo` after the initial bootstrap
 - **Never** remove `nixpkgs.config.allowUnfree = true` from home.nix (needed for slack)
 
+
+## Zed config
+Zed editor config lives under `zed/`:
+- `zed/settings.json` — editor settings (theme, fonts, autosave, AI agent)
+- `zed/keymap.json` — keybindings extending VSCode base (panel toggles, LSP actions, terminal, diagnostics, inline assist)
+- `zed/tasks.json` — 17 project tasks (Nuxt, Python, Nix, Typst, Rust, Zig, Firebase)
+
+## Raycast Script Commands
+Scripts in `raycast-scripts/`, symlinked by `dotfiles.nix`:
+- `ask-huginn.sh` — prompt Huginn in Ghostty
+- `invert-scroll.applescript` — toggle scroll direction
+- `nix-rebuild.sh` — rebuild nix config (opens Ghostty, runs darwin-rebuild)
+- `quick-note.sh` — append timestamped note to daily Obsidian note
+
+
 ## Remaining TODOs (see MIGRATION.md)
 
 - Postgres & Redis: still brew services (not Nix services)
