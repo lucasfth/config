@@ -10,6 +10,10 @@
 # not combat. A fitting namesake for a dev/LLM workstation that gives up
 # conventional gaming power for a different kind of prosperity.
 {
+  imports = [
+    ../../modules/klaus-inference.nix
+  ];
+
   system = "x86_64-linux";          # Custom build PC — change if not x86_64
   username = "lucas";               # User on NixOS
   hostname = "freyr";
