@@ -17,10 +17,12 @@
   nixpkgs.config.allowUnfree = true;
 
   # Packages
+  # NOTE: tmux NOT from Nix — Nix tmux 3.6a has ioctl incompatibility on Ubuntu.
+  # Use Ubuntu system tmux (/usr/bin/tmux) instead.
   home.packages = with pkgs; [
     git gh curl wget
     htop btop nvitop
-    tmux
+    # tmux removed — see note above
     ripgrep fd fzf bat eza jq tree
     cmake gcc gnumake python3
     zsh starship direnv delta zoxide
@@ -54,16 +56,9 @@
     extraConfig = "colorscheme catppuccin_mocha";
   };
 
-  # Tmux
-  programs.tmux = {
-    enable = true;
-    shell = "${pkgs.zsh}/bin/zsh";
-    terminal = "tmux-256color";
-    historyLimit = 50000;
-    keyMode = "vi";
-    mouse = true;
-    prefix = "C-b";
-  };
+  # Tmux — disabled: Nix tmux 3.6a has ioctl incompatibility on Ubuntu.
+  # Use Ubuntu system tmux (/usr/bin/tmux) instead.
+  programs.tmux.enable = false;
 
   # Git (no GPG)
   programs.git = {
