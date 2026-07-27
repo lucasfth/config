@@ -1,0 +1,26 @@
+# Herdr configuration — managed by nix/home-manager.
+# Defaults that match the tmux config are left explicit for clarity.
+
+onboarding = false
+
+[terminal]
+default_shell = "zsh"
+
+[theme]
+name = "catppuccin"
+
+[ui.toast]
+delivery = "system"
+
+[keys]
+prefix = "ctrl+b"
+
+# ── Split panes (match tmux: bind | / bind -) ──
+split_vertical = "prefix+|"
+split_horizontal = "prefix+-"
+
+# ── Reload (match tmux: bind r source-file) ──
+reload_config = "prefix+r"
+
+# ── Detach (match tmux: prefix+d) ──
+detach = "prefix+d"

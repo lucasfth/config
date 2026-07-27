@@ -19,6 +19,7 @@
     ./common/shell
     ./common/git.nix
     ./common/tmux.nix
+    ./common/herdr.nix
     ./common/vim.nix
     ./common/desktop
     ./common/dotfiles.nix

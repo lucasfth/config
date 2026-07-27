@@ -21,6 +21,7 @@
 
     "remindctl"
     "sdkman-cli"
+    "herdr"
     "apfel"
   ];
 }
