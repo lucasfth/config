@@ -9,5 +9,6 @@
     ./media.nix
     ./apps.nix
     ./extras.nix
+    ./herdr.nix
   ];
 }

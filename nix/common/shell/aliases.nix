@@ -3,25 +3,20 @@
 {
   content = ''
 
-    # ── SSH aliases (defined in ~/config/nix_secrets) ────────
-    alias ssh-termux='ssh "$TERMUX_USER@$TERMUX_IP" -p "$TERMUX_PORT"'
-    alias ssh-windows='ssh "$WINDOWS_USER@$WINDOWS_IP"'
-    alias ecoray-mimer='ssh "$ECORAY_MIMER_USER@$ECORAY_MIMER_IP"'
-    alias mimer='ecoray-mimer'
-    alias ecoray-vps1='ssh "$ECORAY_VPS1_USER@$ECORAY_VPS1_IP"'
-    alias se1='ecoray-vps1'
-    alias se1lv='ssh -t "$ECORAY_VPS1_USER@$ECORAY_VPS1_IP" "cd .openclaw/workspace-louise && exec \$SHELL --login"'
-    alias ecoray-vps2='ssh "$ECORAY_VPS2_USER@$ECORAY_VPS2_IP"'
-    alias se2='ecoray-vps2'
-    alias ecoray-vps3='ssh "$ECORAY_VPS3_USER@$ECORAY_VPS3_IP"'
-    alias se3='ecoray-vps3'
-    alias ecoray-mac-mini='ssh "$ECORAY_MAC_MINI_USER@$ECORAY_MAC_MINI_IP"'
-    alias sem='ecoray-mac-mini'
-    alias semd='ssh -t "$ECORAY_MAC_MINI_USER@$ECORAY_MAC_MINI_IP" "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
-    alias ecoray-pi='ssh "$ECORAY_PI_USER@$ECORAY_PI_IP"'
-    alias sep='ecoray-pi'
-    alias ecoray-freyr='ssh "$ECORAY_FREYR_USER@$ECORAY_FREYR_IP"'
-    alias freyr='ecoray-freyr'
+    # ── SSH aliases ───────────────────────────────────────────
+    # Host resolution (user + IP + port) is handled by ~/.ssh/config,
+    # generated from env vars in ~/config/nix_secrets by nix/common/ssh.nix.
+    alias ssh-termux='ssh termux'
+    alias ssh-windows='ssh windows'
+    alias se1='ssh se1'
+    alias se2='ssh se2'
+    alias se3='ssh se3'
+    alias mimer='ssh mimer'
+    alias freyr='ssh freyr'
+    alias sem='ssh sem'
+    alias sep='ssh sep'
+    alias se1lv='ssh -t se1 "cd .openclaw/workspace-louise && exec \$SHELL --login"'
+    alias semd='ssh -t sem "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
 
     # ── General aliases ──────────────────────────────────────
     alias lg="lazygit"

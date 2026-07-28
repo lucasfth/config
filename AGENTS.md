@@ -32,6 +32,8 @@ flake.nix (entry) → darwin.lib.darwinSystem
           ├── common/git.nix      git config, gh, GPG, gpg-agent
           ├── common/tmux.nix     tmux binary
           ├── common/vim.nix      vim config + catppuccin theme
+          ├── common/herdr.nix    herdr terminal workspace manager config
+          ├── common/ssh.nix      SSH client config, host aliases from nix_secrets
           └── common/dotfiles.nix symlinks for dotfiles (starship, ghostty, tmux, zed, etc.)
 ```
 

@@ -35,14 +35,17 @@ All commands and aliases defined in this config, grouped by category.
 
 | Command | Target |
 |---------|--------|
-| `sel` | Ecoray Linux server |
 | `se1` / `se1lv` | Ecoray VPS1 (lv = Louise workspace) |
 | `se2` | Ecoray VPS2 |
 | `se3` | Ecoray VPS3 |
+| `mimer` | Ecoray mimer (Ubuntu) |
+| `freyr` | Ecoray freyr (NixOS GPU server) |
 | `sem` / `semd` | Ecoray Mac Mini (d = dev branch) |
 | `sep` | Ecoray Pi |
 | `ssh-termux` | Android (Termux) |
 | `ssh-windows` | Windows machine |
+
+Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `nix_secrets`.
 
 ## Tools
 

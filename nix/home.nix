@@ -22,6 +22,7 @@
     ./common/herdr.nix
     ./common/vim.nix
     ./common/desktop
+    ./common/ssh.nix
     ./common/dotfiles.nix
     # ./common/services/gpu-services.nix  # DEPRECATED — superseded by tmux (see nix/hosts/freyr/gpu-services.md)
   ];
