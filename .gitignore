@@ -137,3 +137,7 @@ lazygit/state.yml
 
 # Fylgje standalone clone (temporary)
 omp-fylgje/
+
+# Worktrees and brainstorm artifacts
+.worktrees/
+.superpowers/
