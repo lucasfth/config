@@ -4,18 +4,18 @@ All commands and aliases defined in this config, grouped by category.
 
 ## Rebuild & System
 
-| Command | Does |
-|---------|------|
-| `nrs` | Rebuild system + reload shell |
+| `nrs` | Rebuild system + reload shell (switch only, no GC) |
+| `nix-clean` | Garbage collect old generations (user + system) |
 | `nix-update` | Update flake.lock + rebuild + reload |
 | `nix-rollback` | List generations, show rollback command |
+| `nix-diff <N>` | Show package changes between current and generation N |
 | `nix-search <pkg>` | Search nixpkgs |
 | `nix-which <cmd>` | Show path + Nix/Brew source |
 | `config-add <name>` | Auto-detect and add package (nixpkgs → brew formula → cask) |
 | `config-add --cat <cat> <name>` | Add nix package to specific category |
 | `config-add --alias <name>=<value>` | Add shell alias |
 | `config-add --mas <Name> <ID>` | Add Mac App Store app |
-
+| `, <pkg>` | Run any nixpkgs binary on-demand (comma) — also auto-suggests after unknown commands |
 ## Navigation
 
 | Command | Does |
@@ -58,6 +58,7 @@ Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `
 | `direnv` | Per-project env auto-loading |
 | `omp` | OMP agent (auto-saves session to vault) |
 | `heic2tiff <file...>` | Batch HEIC → TIFF conversion |
+| `, <cmd>` | Run any nixpkgs binary on-demand (auto-suggests after unknown commands) |
 
 ## Local (not Nix-managed)
 

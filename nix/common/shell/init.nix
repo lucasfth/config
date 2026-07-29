@@ -1,6 +1,8 @@
-{ config, pkgs, lib }:
-
 {
+  config,
+  pkgs,
+  lib,
+}: {
   content = ''
 
     # ── direnv (per-project env auto-loading) ──────────────────
@@ -33,22 +35,42 @@
     if [ -f "$HOME/.zshrc_local" ]; then
       source "$HOME/.zshrc_local"
     fi
+    # ── Comma: auto-run missing commands via nix (e.g. ffmpeg → , ffmpeg) ──
+    if command -v comma >/dev/null 2>&1; then
+      source <(comma --zsh 2>/dev/null)
+    fi
+
 
     # ── Shortcuts ──────────────────────────────────────────────
     if command -v darwin-rebuild >/dev/null 2>&1; then
-      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && nix-collect-garbage -d && { sudo -n nix-collect-garbage -d 2>/dev/null & } && exec zsh; }
+      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
+      nix-clean() {
+        echo "→ User GC..."
+        nix-collect-garbage -d
+        echo "→ System GC..."
+        sudo nix-collect-garbage -d
+        echo "✓ Done. Old generations removed."
+      }
     else
-      rebuild() { sudo nixos-rebuild switch --flake ~/config#"$(hostname)" && nix-collect-garbage -d && { sudo -n nix-collect-garbage -d 2>/dev/null & } && exec zsh; }
+      rebuild() { sudo nixos-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
+      nix-clean() {
+        echo "→ User GC..."
+        nix-collect-garbage -d
+        echo "→ System GC..."
+        sudo nix-collect-garbage -d
+        echo "✓ Done. Old generations removed."
+      }
     fi
     alias nrs="rebuild"
     alias nix-search="nix search nixpkgs"
     nix-which() { local p; p="$(which "$1")"; case "$p" in */nix/store/*|*/.nix-profile/*|*/run/current-system/*) echo "$p  ← Nix" ;; /opt/homebrew/*) echo "$p  ← Brew" ;; *) echo "$p" ;; esac; }
     if command -v darwin-rebuild >/dev/null 2>&1; then
-      nix-update() { nix flake update --flake ~/config && sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && nix-collect-garbage -d && { sudo -n nix-collect-garbage -d 2>/dev/null & } && exec zsh; }
+      nix-update() { nix flake update --flake ~/config && sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
       nix-rollback() { sudo darwin-rebuild --list-generations --flake ~/config; echo "Pick: sudo darwin-rebuild --switch-generation <N> --flake ~/config"; }
     else
-      nix-update() { nix flake update --flake ~/config && sudo nixos-rebuild switch --flake ~/config#"$(hostname)" && nix-collect-garbage -d && { sudo -n nix-collect-garbage -d 2>/dev/null & } && exec zsh; }
+      nix-update() { nix flake update --flake ~/config && sudo nixos-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
       nix-rollback() { sudo nixos-rebuild --list-generations --flake ~/config; echo "Pick: sudo nixos-rebuild --switch-generation <N> --flake ~/config"; }
     fi
+    nix-diff() { nix profile diff-closures --profile /nix/var/nix/profiles/system --profile "/nix/var/nix/profiles/system-$1-link"; }
   '';
 }
