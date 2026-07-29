@@ -37,14 +37,12 @@ Then dump data, stop brew services, rebuild. See original MIGRATION.md step 2.1 
 
 ### Dock apps
 
-`nix/darwin/system.nix` has empty `persistent-apps`. Fill in:
-```bash
-defaults read com.apple.dock persistent-apps | grep -o '".*\.app"'
-```
+Dock is fully declarative: `dock.persistent-apps` and `dock.persistent-others` in `nix/darwin/system.nix`.
+To change, edit the array and rebuild.
 
 ### SDKMAN
 
-Commented out in `shell/` init. If you use `sdk` to manage Java versions, uncomment the two lines. Otherwise `pkgs.jdk21` from Nix covers you.
+Removed — `pkgs.jdk21` from Nix covers Java.
 
 ### Anaconda
 

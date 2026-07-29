@@ -1,6 +1,9 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   # ──────────────────────────────────────────────────────────────
   # macOS System Defaults
   # ──────────────────────────────────────────────────────────────
@@ -31,6 +34,11 @@
       show-recents = false;
       minimize-to-application = true;
       magnification = true;
+      persistent-apps = [
+        "/Applications/Zen.app"
+        "/System/Applications/Mail.app"
+        "/System/Applications/Calendar.app"
+      ];
       persistent-others = [
         "/Users/${config.system.primaryUser}/Downloads"
       ];
