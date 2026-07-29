@@ -1,7 +1,10 @@
 # NixOS system modules — imports nixos/ submodules and hardware config.
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
     ./desktop.nix
@@ -39,13 +42,13 @@
   ];
   users.users.lucas = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "docker" "networkmanager" ];
+    extraGroups = ["wheel" "docker" "networkmanager"];
     shell = pkgs.zsh;
   };
 
   # ── Nix settings ───────────────────────────────────────────────
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = ["nix-command" "flakes"];
     auto-optimise-store = true;
     substituters = [
       "https://cache.nvidia.com"
@@ -81,6 +84,9 @@
       PermitRootLogin = "no";
     };
   };
+
+  # Ghostty terminfo for SSH clients (headless — just the terminfo, not the GUI)
+  environment.systemPackages = [pkgs.ghostty];
 
   # ── Firmware / State ───────────────────────────────────────────
   hardware.enableRedistributableFirmware = true;
