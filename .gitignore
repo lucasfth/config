@@ -128,7 +128,6 @@ lazygit/state.yml
 /.omp/agent/memories/*
 /.omp/agent/blobs/*
 /.omp/agent/cache/*
-/.omp/skills/
 /.omp/cache/
 /.omp/logs/
 /.omp/puppeteer/
