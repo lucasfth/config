@@ -1,6 +1,8 @@
-{ config, pkgs, ... }:
-
 {
+  config,
+  pkgs,
+  ...
+}: {
   home.packages = with pkgs; [
     git
     gh
@@ -20,5 +22,8 @@
     figlet
     libheif
     btop
+    alejandra
+    comma
+    nix-index
   ];
 }

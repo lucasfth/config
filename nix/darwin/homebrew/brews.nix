@@ -1,27 +1,20 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   homebrew.brews = [
-    "apache-spark"
+    "apfel"
     "bun"
     "container"
     "firebase-cli"
-    "gradle@7"
-    "mas"                  # Mac App Store CLI
-    "minio-warp"
+    "mas" # Mac App Store CLI
     "mole"
-    "multica"
-    "nightlight"
     "opencode"
-    "openvino"
-    "parquet-cli"
-    "python@3.12"
     "postgresql@14"
     "redis"
-
     "remindctl"
-    "sdkman-cli"
     "herdr"
-    "apfel"
   ];
 }
