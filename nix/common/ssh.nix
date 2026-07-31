@@ -45,11 +45,14 @@
     # Host definitions — env vars (ECORAY_*_USER, ECORAY_*_IP, etc.) are set in ~/config/nix_secrets
 
     emit "se1 ecoray-vps1"     ECORAY_VPS1_USER     ECORAY_VPS1_IP
+    echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "se2 ecoray-vps2"     ECORAY_VPS2_USER     ECORAY_VPS2_IP
+    echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "se3 ecoray-vps3"     ECORAY_VPS3_USER     ECORAY_VPS3_IP
+    echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "mimer ecoray-mimer"  ECORAY_MIMER_USER    ECORAY_MIMER_IP
+    echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "freyr ecoray-freyr"  ECORAY_FREYR_USER    ECORAY_FREYR_IP
-    # freyr doesn't have ghostty terminfo (yet) — force xterm-256color
     echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "sem ecoray-mac-mini" ECORAY_MAC_MINI_USER ECORAY_MAC_MINI_IP
     emit "sep ecoray-pi"       ECORAY_PI_USER       ECORAY_PI_IP

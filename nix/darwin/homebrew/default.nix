@@ -1,6 +1,9 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   imports = [
     ./brews.nix
     ./casks.nix
@@ -11,17 +14,17 @@
   homebrew = {
     enable = true;
     onActivation = {
-      autoUpdate = true;
-      upgrade = true;
+      autoUpdate = false;
+      upgrade = false;
     };
 
     taps = [
-      "homebrew/services"   # brew services (postgres, redis)
-      "minio/stable"        # minio-warp
-      "multica-ai/tap"      # multica
-      "sdkman/tap"          # sdkman-cli
-      "smudge/smudge"       # nightlight
-      "steipete/tap"        # remindctl
+      "homebrew/services" # brew services (postgres, redis)
+      "minio/stable" # minio-warp
+      "multica-ai/tap" # multica
+      "sdkman/tap" # sdkman-cli
+      "smudge/smudge" # nightlight
+      "steipete/tap" # remindctl
     ];
   };
 }
