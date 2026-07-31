@@ -5,6 +5,12 @@
 }: {
   content = ''
 
+    # ── SSH: use ASCII-only configs (mobile clients lack Nerd Fonts) ─
+    if [[ -n ''${SSH_CONNECTION-} || -n ''${SSH_TTY-} ]]; then
+      export STARSHIP_CONFIG="$HOME/config/starship-ssh.toml"
+      alias tmux='tmux -f ~/config/.tmux-ssh.conf'
+    fi
+
     # ── direnv (per-project env auto-loading) ──────────────────
     if command -v direnv >/dev/null 2>&1; then
       eval "$(direnv hook zsh)"
