@@ -1,6 +1,9 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   launchd.user.agents.borders = {
     serviceConfig = {
       ProgramArguments = [
@@ -37,6 +40,20 @@
       RunAtLoad = true;
       StandardOutPath = "/tmp/tailwind-cleanup.out";
       StandardErrorPath = "/tmp/tailwind-cleanup.err";
+    };
+  };
+
+  # Sketchybar — macOS status bar replacement
+  launchd.user.agents.sketchybar = {
+    serviceConfig = {
+      ProgramArguments = [
+        "${pkgs.sketchybar}/bin/sketchybar"
+      ];
+      KeepAlive = true;
+      RunAtLoad = true;
+      EnvironmentVariables = {
+        PATH = "${pkgs.sketchybar}/bin:/Users/lucasfreytorreshanson/.nix-profile/bin:/opt/homebrew/bin:/usr/bin:/bin";
+      };
     };
   };
 }

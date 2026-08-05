@@ -22,10 +22,15 @@
     fi
 
     # ── fzf history search (Ctrl+R) ─────────────────────────────
-    if command -v fzf >/dev/null 2>&1; then
-      source "$(fzf-share)/key-bindings.zsh"
+    # Guard: fzf 0.73 key-bindings.zsh has an "always" block that tries to
+    # restore the "zle" option even when non-interactive, producing:
+    #   (eval):1: can't change option: zle
+    # Zed/JetBrains spawn "zsh -ic" to read env, triggering this.
+    if [[ -o interactive ]] && [[ -t 0 ]]; then
+      if command -v fzf >/dev/null 2>&1; then
+        source "$(fzf-share)/key-bindings.zsh"
+      fi
     fi
-    export ZSH="$HOME/.oh-my-zsh"
 
     # ── Alias-tips plugin (vendored in ~/.zsh/) ────────────
     if [ -f "$HOME/.zsh/alias-tips/alias-tips.plugin.zsh" ]; then
@@ -58,7 +63,7 @@
 
     # ── Shortcuts ──────────────────────────────────────────────
     if command -v darwin-rebuild >/dev/null 2>&1; then
-      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
+      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && launchctl kickstart -k gui/$(id -u)/org.nixos.sketchybar 2>/dev/null; exec zsh; }
       nix-clean() {
         echo "→ User GC..."
         nix-collect-garbage -d

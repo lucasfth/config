@@ -1,6 +1,9 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   homebrew.casks = [
     # ── Development ─────────────────────────────────────────
     "temurin"
@@ -14,6 +17,9 @@
 
     # ── Terminals & shells ──────────────────────────────────
     "ghostty"
+
+    # ── Fonts ───────────────────────────────────────────────
+    "font-jetbrains-mono-nerd-font"
 
     # ── Communication ───────────────────────────────────────
     "discord"

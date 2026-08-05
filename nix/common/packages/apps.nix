@@ -1,15 +1,22 @@
-{ config, pkgs, lib, ... }:
-
 {
-  home.packages = with pkgs; [
-    docker
-  ] ++ lib.optionals stdenv.isDarwin [
-    zed-editor
-    sioyek
-    jankyborders
-    lmstudio
-  ] ++ lib.optionals stdenv.isLinux [
-    nvidia-docker
-    ollama
-  ];
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
+  home.packages = with pkgs;
+    [
+      docker
+    ]
+    ++ lib.optionals stdenv.isDarwin [
+      sketchybar
+      sketchybar-app-font
+      sioyek
+      jankyborders
+      lmstudio
+    ]
+    ++ lib.optionals stdenv.isLinux [
+      nvidia-docker
+      ollama
+    ];
 }

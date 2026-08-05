@@ -33,6 +33,9 @@
       # ── btop ────────────────────────────────────────────────────
       ".config/btop/btop.conf".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/btop/btop.conf";
       ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/btop/themes/catppuccin_mocha.theme";
+
+      # ── Sketchybar ──────────────────────────────────────────────
+      ".config/sketchybar".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/sketchybar";
     };
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────

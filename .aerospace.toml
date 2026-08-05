@@ -9,7 +9,9 @@ after-login-command = []
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
-after-startup-command = []
+
+# Notify sketchybar on workspace changes (dynamic workspace display)
+exec-on-workspace-change = ['/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE']
 
 # Start AeroSpace at login
 start-at-login = true
@@ -61,7 +63,7 @@ inner.horizontal = 10
 inner.vertical =   10
 outer.left =       7
 outer.bottom =     7
-outer.top =        7
+outer.top =        [{ monitor."^Built-in Retina Display$" = 6 }, 44]
 outer.right =      7
 
 
