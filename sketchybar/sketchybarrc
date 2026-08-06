@@ -120,6 +120,7 @@ sketchybar --add item battery right \
 sketchybar --add item spotify right \
   --subscribe spotify media_change \
   --set spotify \
+    updates=always \
     update_freq=5 \
     background.drawing=on \
     background.color="$TEAL" \
