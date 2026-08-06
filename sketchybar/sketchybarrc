@@ -4,7 +4,10 @@
 # Icon reference: https://www.nerdfonts.com/cheat-sheet
 
 CONFIG_DIR="$HOME/.config/sketchybar"
+# Theme detection: once at startup, export so scripts skip osascript
 source "$CONFIG_DIR/plugins/colors.sh"
+export BAR_COLOR SURFACE0 SURFACE1 OVERLAY0 TEXT SUBTEXT0
+export MAUVE BLUE GREEN YELLOW PEACH RED TEAL LAVENDER
 
 sketchybar --bar \
   height=30 \
@@ -46,36 +49,33 @@ sketchybar --add item theme_handler left \
     drawing=off \
     label.drawing=off \
     icon.drawing=off \
-    script="sleep 1 && pkill -x sketchybar"
-sketchybar --add event aerospace_workspace_change
+# ── LEFT: Workspaces (dynamic, controller-driven) ───────────────
 
-# ── LEFT: Workspaces (dynamic, aerospace-driven) ────────────────
-
+# Space items: no script, no timer — controller updates them
 for sid in $(aerospace list-workspaces --all 2>/dev/null); do
   sketchybar --add item "space.$sid" left \
-    --subscribe "space.$sid" aerospace_workspace_change \
     --set "space.$sid" \
-      drawing=off \
+      drawing=on \
       icon="$sid" \
       icon.padding_left=10 \
       icon.padding_right=10 \
       background.drawing=on \
       background.color="$SURFACE0" \
       label.drawing=off \
-      click_script="aerospace workspace $sid" \
-      script="$CONFIG_DIR/plugins/aerospace.sh $sid"
+      click_script="aerospace workspace $sid"
 done
 
+# Controller: always visible (drawing=on), visually hidden, drives all space updates
 sketchybar --add item ws_controller left \
-  --subscribe ws_controller aerospace_workspace_change \
   --set ws_controller \
-    drawing=off \
-    label.drawing=off \
+    drawing=on \
     icon.drawing=off \
-    script="$CONFIG_DIR/plugins/update_workspaces.sh"
+    label.drawing=off \
+    background.drawing=off \
+    update_freq=2 \
+    script="$CONFIG_DIR/plugins/aerospace_controller.sh"
 
-# ── RIGHT: Widgets (ordered right to left) ──────────────────────
-# Pill colors: surface0 = interactive/clickable, surface1 = display-only
+
 
 # Clock (display-only, non-interactive)
 sketchybar --add item clock right \
@@ -118,10 +118,8 @@ sketchybar --add item battery right \
 
 # Spotify (interactive — click to open)
 sketchybar --add item spotify right \
-  --subscribe spotify media_change \
   --set spotify \
-    updates=always \
-    update_freq=5 \
+    update_freq=10 \
     background.drawing=on \
     background.color="$TEAL" \
     icon="" \

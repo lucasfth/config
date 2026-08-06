@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Catppuccin color palettes — auto-switch on dark/light mode
-# Triggered by: sketchybar --add event theme_change AppleInterfaceThemeChangedNotification
+# Catppuccin colors — read from env if set, else detect (one-shot for standalone use)
 
+if [ -n "$BAR_COLOR" ]; then
+  return 0 2>/dev/null || exit 0  # already set by sketchybarrc
+fi
+
+# Standalone fallback: detect once
 is_dark() {
   [[ $(osascript -e 'tell application "System Events" to tell appearance preferences to get dark mode') = "true" ]]
 }
