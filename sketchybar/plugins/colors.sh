@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-# Catppuccin colors — read from env if set, else detect (one-shot for standalone use)
-
-if [ -n "$BAR_COLOR" ]; then
-  return 0 2>/dev/null || exit 0  # already set by sketchybarrc
-fi
-
-# Standalone fallback: detect once
+# Catppuccin colors — detects dark/light mode on every invocation.
 is_dark() {
   [[ $(osascript -e 'tell application "System Events" to tell appearance preferences to get dark mode') = "true" ]]
 }

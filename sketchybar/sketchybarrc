@@ -4,10 +4,7 @@
 # Icon reference: https://www.nerdfonts.com/cheat-sheet
 
 CONFIG_DIR="$HOME/.config/sketchybar"
-# Theme detection: once at startup, export so scripts skip osascript
 source "$CONFIG_DIR/plugins/colors.sh"
-export BAR_COLOR SURFACE0 SURFACE1 OVERLAY0 TEXT SUBTEXT0
-export MAUVE BLUE GREEN YELLOW PEACH RED TEAL LAVENDER
 
 sketchybar --bar \
   height=30 \
@@ -46,9 +43,13 @@ sketchybar --add event theme_change AppleInterfaceThemeChangedNotification
 sketchybar --add item theme_handler left \
   --subscribe theme_handler theme_change \
   --set theme_handler \
-    drawing=off \
-    label.drawing=off \
+    drawing=on \
     icon.drawing=off \
+    label.drawing=off \
+    background.drawing=off \
+    padding_left=0 \
+    padding_right=0 \
+    script="$CONFIG_DIR/plugins/theme_change.sh"
 # ── LEFT: Workspaces (dynamic, controller-driven) ───────────────
 
 # Space items: no script, no timer — controller updates them
