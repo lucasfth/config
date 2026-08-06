@@ -4,9 +4,10 @@
 source "$CONFIG_DIR/plugins/colors.sh"
 
 SID="$1"
+FOCUSED="${FOCUSED_WORKSPACE:-$(aerospace list-workspaces --focused 2>/dev/null)}"
 HAS_WINDOWS=$(aerospace list-windows --workspace "$SID" 2>/dev/null | wc -l | tr -d ' ')
 
-if [ "$SID" = "$FOCUSED_WORKSPACE" ]; then
+if [ "$SID" = "$FOCUSED" ]; then
   sketchybar --set "$NAME" \
     background.color="$MAUVE" \
     icon.color="$BAR_COLOR" \

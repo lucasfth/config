@@ -56,4 +56,20 @@
       };
     };
   };
+
+  # Appearance change watcher — restarts sketchybar when macOS light/dark mode toggles
+  launchd.user.agents.sketchybar-appearance-watcher = {
+    serviceConfig = {
+      ProgramArguments = [
+        "${pkgs.bash}/bin/bash"
+        "/Users/lucasfreytorreshanson/config/sketchybar/plugins/watch_appearance.sh"
+      ];
+      WatchPaths = [
+        "/Users/lucasfreytorreshanson/Library/Preferences/.GlobalPreferences.plist"
+      ];
+      RunAtLoad = false;
+      StandardOutPath = "/tmp/sketchybar-appearance-watcher.out";
+      StandardErrorPath = "/tmp/sketchybar-appearance-watcher.err";
+    };
+  };
 }

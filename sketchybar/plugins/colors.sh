@@ -3,7 +3,7 @@
 # Triggered by: sketchybar --add event theme_change AppleInterfaceThemeChangedNotification
 
 is_dark() {
-  defaults read -g AppleInterfaceStyle &>/dev/null
+  [[ $(osascript -e 'tell application "System Events" to tell appearance preferences to get dark mode') = "true" ]]
 }
 
 if is_dark; then

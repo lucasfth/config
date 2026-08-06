@@ -15,7 +15,7 @@ if [ "$STATE" = "playing" ]; then
       icon="" \
       icon.color="$GREEN" \
       label="$LABEL" \
-      label.color="$TEXT"
+      label.color="$BAR_COLOR"
   fi
 elif [ "$STATE" = "paused" ]; then
   TRACK=$(osascript -e 'tell application "Spotify" to name of current track' 2>/dev/null)
@@ -26,7 +26,7 @@ elif [ "$STATE" = "paused" ]; then
       icon="" \
       icon.color="$OVERLAY0" \
       label="$LABEL" \
-      label.color="$SUBTEXT0"
+      label.color="$BAR_COLOR"
   fi
 else
   sketchybar --set "$NAME" drawing=off

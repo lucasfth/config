@@ -46,7 +46,7 @@ sketchybar --add item theme_handler left \
     drawing=off \
     label.drawing=off \
     icon.drawing=off \
-    script="pkill -9 sketchybar"
+    script="sleep 1 && pkill -x sketchybar"
 sketchybar --add event aerospace_workspace_change
 
 # ── LEFT: Workspaces (dynamic, aerospace-driven) ────────────────
