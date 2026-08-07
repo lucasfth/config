@@ -1,6 +1,9 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   imports = [
     ./darwin/system.nix
     ./darwin/hostname.nix
@@ -10,5 +13,5 @@
   ];
 
   # macOS-only: aerospace is defined here, not in shared packages
-  home-manager.users.${config.system.primaryUser}.home.packages = with pkgs; [ pkgs.aerospace ];
+  home-manager.users.${config.system.primaryUser}.home.packages = with pkgs; [pkgs.aerospace];
 }

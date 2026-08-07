@@ -63,7 +63,7 @@
 
     # ── Shortcuts ──────────────────────────────────────────────
     if command -v darwin-rebuild >/dev/null 2>&1; then
-      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && launchctl kickstart -k gui/$(id -u)/org.nixos.sketchybar 2>/dev/null; exec zsh; }
+      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
       nix-clean() {
         echo "→ User GC..."
         nix-collect-garbage -d

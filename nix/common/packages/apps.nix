@@ -9,8 +9,7 @@
       docker
     ]
     ++ lib.optionals stdenv.isDarwin [
-      sketchybar
-      sketchybar-app-font
+      swiftbar
       sioyek
       jankyborders
       lmstudio

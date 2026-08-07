@@ -79,8 +79,9 @@
     # Trackpad speed (0=slow, 3=fast)
     defaults write -g com.apple.trackpad.scaling -float 2.5
 
-    # Auto-hide menu bar
-    defaults write -g _HIHideMenuBar -bool true
+    # Show menu bar — macOS 26 uses WindowManager AutoHide, not _HIHideMenuBar
+    defaults write com.apple.WindowManager AutoHide -bool false
+    defaults write -g _HIHideMenuBar -bool false
 
     # Disable click-wallpaper-to-show-desktop (conflicts with Stage Manager)
     defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
