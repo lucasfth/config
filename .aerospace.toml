@@ -314,5 +314,5 @@ shift-down = ['volume set 0', 'mode main']
 
 # Yaak
 [[on-window-detected]]
-  if.app-id = 'com.yaak.desktop'
+  if.app-name-regex-substring = 'Yaak'
   run = 'move-node-to-workspace Q'
