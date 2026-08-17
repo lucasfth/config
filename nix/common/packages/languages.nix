@@ -18,10 +18,8 @@
     cargo
     ruby
     zig
-    jdk21
     gradle
     mono
-    dotnet-sdk
     yarn
     bazel
     scala-cli

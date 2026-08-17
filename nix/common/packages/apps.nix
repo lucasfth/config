@@ -10,7 +10,6 @@
     ]
     ++ lib.optionals stdenv.isDarwin [
       swiftbar
-      sioyek
       jankyborders
       lmstudio
     ]

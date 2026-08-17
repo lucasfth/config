@@ -1,10 +1,14 @@
-{ config, pkgs, lib }:
-
 {
+  config,
+  pkgs,
+  lib,
+}: {
   content = ''
 
     # ── Mole shell completion ────────────────────────────────
-    if output="$(mole completion zsh 2>/dev/null)"; then eval "$output"; fi
+    if [ -r "$HOME/.cache/zsh/mole-completion.zsh" ]; then
+      source "$HOME/.cache/zsh/mole-completion.zsh"
+    fi
 
     # ── Opencode completions ─────────────────────────────────
     ###-begin-opencode-completions-###

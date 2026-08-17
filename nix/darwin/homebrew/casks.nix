@@ -10,6 +10,8 @@
     "android-platform-tools"
     "claude-code@latest"
     "cmux"
+    "codex"
+    "codexbar"
     "copilot-cli"
     "dotnet-sdk"
     "visual-studio-code"
@@ -34,6 +36,7 @@
     "obsidian"
     "raycast"
     "zotero"
+    "onlyoffice"
 
     # ── Browsers ────────────────────────────────────────────
     "google-chrome"
@@ -49,6 +52,7 @@
     "syntax-highlight"
 
     # ── Utilities ───────────────────────────────────────────
+    "jordanbaird-ice"
     "the-unarchiver"
     "typewhisper"
     "wave"

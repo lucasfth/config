@@ -6,6 +6,22 @@
 }: let
   user = config.system.primaryUser;
   tapNames = map (tap: tap.name) config.homebrew.taps;
+  homeDirectory = config.home-manager.users.${user}.home.homeDirectory;
+  moleCompletionCache = "${homeDirectory}/.cache/zsh/mole-completion.zsh";
+
+  moleCompletionScript = ''
+    if [ -x /opt/homebrew/bin/mole ]; then
+      install -d -m 0755 -o ${user} -g staff "$(dirname "${moleCompletionCache}")"
+      if cache=$(sudo -u ${user} -H mktemp "${moleCompletionCache}.XXXXXX"); then
+        if sudo -u ${user} -H /bin/sh -c '/opt/homebrew/bin/mole completion zsh > "$1"' -- "$cache"; then
+          chmod 0644 "$cache"
+          mv -f "$cache" "${moleCompletionCache}"
+        else
+          rm -f "$cache"
+        fi
+      fi
+    fi
+  '';
 
   brewTrustScript = lib.concatStringsSep "\n" (map (tap: ''
       /opt/homebrew/bin/brew tap "${tap}" 2>/dev/null || true
@@ -52,6 +68,7 @@ in {
     if command -v /opt/homebrew/bin/brew >/dev/null 2>&1; then
       ${brewCleanupScript}
       ${brewVulnsScript}
+      ${moleCompletionScript}
     fi
   '';
 }

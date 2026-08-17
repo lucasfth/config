@@ -98,6 +98,7 @@
     # Disable press-and-hold for keys (enable key repeat)
     defaults write -g ApplePressAndHoldEnabled -bool false
 
+
     # Hot corners:
     #  0 = nothing, 2 = Mission Control, 3 = App Windows,
     #  4 = Desktop, 5 = Screensaver, 6 = Sleep, 7 = Notifications
@@ -111,5 +112,10 @@
 
     # Save screenshots as PNG
     defaults write com.apple.screencapture type -string "png"
+  '';
+
+  # `postActivation` is an active nix-darwin hook; `extra` is not.
+  system.activationScripts.postActivation.text = ''
+    sudo pmset -b powernap 0
   '';
 }
