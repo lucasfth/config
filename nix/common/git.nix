@@ -1,28 +1,47 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  hostname,
+  ...
+}: {
   # ──────────────────────────────────────────────────────────────
   # Git
   # ──────────────────────────────────────────────────────────────
   programs.git = {
     enable = true;
-    signing = {
+    # Identity and signing are host-specific; shared settings must not select an account.
+    signing = lib.mkIf (hostname == "lucas-macbook-pro") {
       key = "E8DE72E441853146";
       signByDefault = true;
     };
-    settings = {
-      user = {
-        name = lib.mkForce "lucasfth";
-        email = lib.mkForce "online@lucashanson.dk";
-      };
-      init.defaultBranch = "main";
-      pull.rebase = true;
-      core.pager = "${pkgs.delta}/bin/delta";
-      diff.colorMoved = "default";
-      interactive.diffFilter = "${pkgs.delta}/bin/delta --color-only";
-      delta.navigate = true;
-      merge.conflictstyle = "zdiff3";
-    };
+    settings =
+      {
+        init.defaultBranch = "main";
+        pull.rebase = true;
+        core.pager = "${pkgs.delta}/bin/delta";
+        diff.colorMoved = "default";
+        interactive.diffFilter = "${pkgs.delta}/bin/delta --color-only";
+        delta.navigate = true;
+        merge.conflictstyle = "zdiff3";
+      }
+      // (
+        if hostname == "lucas-macbook-pro"
+        then {
+          user = {
+            name = lib.mkForce "lucasfth";
+            email = lib.mkForce "online@lucashanson.dk";
+          };
+        }
+        else if lib.hasPrefix "Alexanders-Mac-mini" hostname
+        then {
+          user = {
+            name = "KlimaKlaus";
+            email = "klaus@ecoray.dk";
+          };
+        }
+        else {}
+      );
   };
 
   # ──────────────────────────────────────────────────────────────
