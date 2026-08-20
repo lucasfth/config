@@ -132,6 +132,11 @@ lazygit/state.yml
 /.omp/logs/
 /.omp/puppeteer/
 /.omp/ssh-control/
+
+# OMP local installation state
+/.omp/*.db*
+/.omp/install-id
+/.omp/agent/*.lock
 # Tmux
 /.tmux/*
 
