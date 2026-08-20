@@ -2,7 +2,7 @@ symbolPreset: nerd
 theme: 
   dark: titanium
   light: light
-setupVersion: 1
+setupVersion: 2
 modelRoles: 
   default: openai-codex/gpt-5.6-terra
   plan: openai-codex/gpt-5.6-sol
@@ -31,3 +31,5 @@ advisor:
   syncBacklog: "3"
 dev: 
   autoqaConsent: granted
+composer:
+  shape: box

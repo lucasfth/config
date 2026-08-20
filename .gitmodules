@@ -1,3 +1,6 @@
 [submodule "omp"]
 	path = omp
 	url = https://github.com/lucasfth/omp-fylgje.git
+[submodule ".omp/skills/unslop"]
+	path = .omp/skills/unslop
+	url = https://github.com/theclaymethod/unslop.git
