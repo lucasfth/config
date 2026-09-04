@@ -2,12 +2,12 @@
 """Mokka — procedurally generated Catppuccin dynamic wallpaper."""
 
 import json
-import math
+from datetime import datetime
 import os
 import random
 import subprocess
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 # ── Configuration ─────────────────────────────────────────────
 
@@ -41,51 +41,32 @@ LATTE = {
     "blue":      "#1e66f5",  "lavender":  "#7287fd",
 }
 
-# (HH:MM:SS, phase, glow_x, glow_y, glow_color, palette)
-# palette: "mocha" for dark phases, "latte" for light phases
+# latte_mix: 0.0 = Mocha, 1.0 = Latte. Dawn and dusk blend both palettes.
+# Shape values evolve gently without moving the light source across the screen.
 SLOTS = [
-    ("04:00:00", "night",     0.85, 0.25, "mauve",     "mocha"),
-    ("06:00:00", "dawn",      0.15, 0.60, "rosewater", "mocha"),
-    ("08:00:00", "morning",   0.30, 0.30, "peach",     "latte"),
-    ("10:00:00", "morning",   0.45, 0.15, "yellow",    "latte"),
-    ("12:00:00", "noon",      0.50, 0.05, "yellow",    "latte"),
-    ("14:00:00", "afternoon", 0.55, 0.12, "yellow",    "latte"),
-    ("16:00:00", "afternoon", 0.65, 0.30, "peach",     "latte"),
-    ("18:00:00", "evening",   0.78, 0.55, "rosewater", "latte"),
-    ("20:00:00", "dusk",      0.88, 0.72, "maroon",    "mocha"),
-    ("21:00:00", "night",     0.90, 0.85, "mauve",     "mocha"),
-    ("22:00:00", "night",     0.50, 0.92, "mauve",     "mocha"),
-    ("00:00:00", "night",     0.20, 0.90, "blue",      "mocha"),
+    {"time": "04:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.98, "scale_y": 1.02, "intensity": 0.88},
+    {"time": "06:00:00", "phase": "dawn",      "latte_mix": 0.38, "scale_x": 1.01, "scale_y": 1.00, "intensity": 0.91},
+    {"time": "08:00:00", "phase": "morning",   "latte_mix": 1.00, "scale_x": 1.04, "scale_y": 0.98, "intensity": 0.94},
+    {"time": "10:00:00", "phase": "morning",   "latte_mix": 1.00, "scale_x": 1.06, "scale_y": 0.97, "intensity": 0.97},
+    {"time": "12:00:00", "phase": "noon",      "latte_mix": 1.00, "scale_x": 1.08, "scale_y": 0.96, "intensity": 1.00},
+    {"time": "14:00:00", "phase": "afternoon", "latte_mix": 1.00, "scale_x": 1.07, "scale_y": 0.97, "intensity": 0.98},
+    {"time": "16:00:00", "phase": "afternoon", "latte_mix": 1.00, "scale_x": 1.05, "scale_y": 0.99, "intensity": 0.96},
+    {"time": "18:00:00", "phase": "evening",   "latte_mix": 1.00, "scale_x": 1.03, "scale_y": 1.01, "intensity": 0.94},
+    {"time": "20:00:00", "phase": "dusk",      "latte_mix": 0.52, "scale_x": 1.01, "scale_y": 1.03, "intensity": 0.92},
+    {"time": "21:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.99, "scale_y": 1.04, "intensity": 0.90},
+    {"time": "22:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.97, "scale_y": 1.05, "intensity": 0.88},
+    {"time": "00:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.96, "scale_y": 1.04, "intensity": 0.86},
 ]
 
-# Sky gradients: (top, bottom) palette keys
-SKY = {
-    "night":     ("crust",    "base"),
-    "dawn":      ("surface0", "surface2"),
-    "morning":   ("crust",    "base"),
-    "noon":      ("surface0", "base"),
-    "afternoon": ("surface0", "base"),
-    "evening":   ("surface1", "base"),
-    "dusk":      ("surface2", "maroon"),
+PHASES = {
+    "night",
+    "dawn",
+    "morning",
+    "noon",
+    "afternoon",
+    "evening",
+    "dusk",
 }
-
-GRAIN_ALPHA = {
-    "night": 0.08, "dawn": 0.05, "morning": 0.03, "noon": 0.02,
-    "afternoon": 0.03, "evening": 0.04, "dusk": 0.06,
-}
-
-SNOWFLAKE_COLORS = ["green", "teal", "blue", "lavender"]
-CONSTELLATION_COLORS = ["peach", "rosewater", "sapphire", "yellow"]
-
-
-def motif_opacity(phase):
-    return {"night": 0.22, "dawn": 0.16, "morning": 0.18, "noon": 0.14,
-            "afternoon": 0.18, "evening": 0.20, "dusk": 0.20}[phase]
-
-
-def palette_for(phase):
-    """Return MOCHA or LATTE based on phase."""
-    return LATTE if phase in {"morning", "noon", "afternoon", "evening"} else MOCHA
 
 
 # ── Helpers ───────────────────────────────────────────────────
@@ -98,233 +79,201 @@ def hex_to_rgb(h):
 def lerp3(a, b, t):
     return tuple(int(va + (vb - va) * t) for va, vb in zip(a, b))
 
-
-# ── Layer 1: Sky gradient ─────────────────────────────────────
-
-def draw_sky(img, phase):
-    w, h = img.width, img.height
-    pal = palette_for(phase)
-    top_rgb = hex_to_rgb(pal[SKY[phase][0]])
-    bot_rgb = hex_to_rgb(pal[SKY[phase][1]])
-    draw = ImageDraw.Draw(img)
-    for y in range(h):
-        t = (y / (h - 1)) ** 0.8 if h > 1 else 0
-        draw.line([(0, y), (w, y)], fill=lerp3(top_rgb, bot_rgb, t))
+def rgb_to_hex(rgb):
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
 
 
-# ── Layer 2: Sun glow ─────────────────────────────────────────
-
-def draw_sun_glow(img, sun_x, sun_y, glow_key, phase):
-    w, h = img.width, img.height
-    px, py = sun_x * w, sun_y * h
-    pal = palette_for(phase)
-    glow_rgb = hex_to_rgb(pal[glow_key])
-    max_r = max(w, h) * 0.7
-    draw = ImageDraw.Draw(img, "RGBA")
-    alpha_base = 100 if pal is MOCHA else 80
-    for i in range(60, 0, -1):
-        rf = i / 60
-        r = max_r * rf
-        a = int((1 - rf) ** 2.5 * alpha_base)
-        if a < 2:
-            break
-        draw.ellipse([px - r, py - r, px + r, py + r], fill=(*glow_rgb, a))
+def palette_for_mix(latte_mix):
+    if latte_mix == 0.0:
+        return MOCHA
+    if latte_mix == 1.0:
+        return LATTE
+    return {
+        key: rgb_to_hex(lerp3(hex_to_rgb(MOCHA[key]), hex_to_rgb(LATTE[key]), latte_mix))
+        for key in MOCHA
+    }
 
 
-# ── Layer 3: Atmosphere ───────────────────────────────────────
-
-def draw_atmosphere(img, phase):
-    w, h = img.width, img.height
-    pal = palette_for(phase)
-    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    cx, cy = w / 2, h / 2
-    max_d = math.hypot(cx, cy)
-    vs = 0.15 if phase in ("night",) else 0.08 if pal is MOCHA else 0.04
-    for y in range(0, h, 6):
-        for x in range(0, w, 6):
-            d = math.hypot(x - cx, y - cy) / max_d
-            a = int(d ** 3 * vs * 255)
-            if a > 0:
-                draw.rectangle([x, y, x + 5, y + 5], fill=(0, 0, 0, a))
-    for _ in range(random.randint(2, 4)):
-        gx = random.randint(0, w)
-        gy = random.randint(0, h)
-        gr = random.randint(200, 600)
-        gc = pal[random.choice(["mauve", "sapphire", "peach", "lavender"])]
-        grgb = hex_to_rgb(gc)
-        for r in range(gr, 0, -20):
-            t = r / gr
-            a = int(t ** 3 * 10)
-            draw.ellipse([gx - r, gy - r, gx + r, gy + r], fill=(*grgb, a))
-    base = img.convert("RGBA")
-    return Image.alpha_composite(base, overlay).convert("RGB")
+def validate_slots(slots):
+    seen = set()
+    for slot in slots:
+        try:
+            datetime.strptime(slot["time"], "%H:%M:%S")
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(f"invalid timestamp: {slot.get('time')!r}") from error
+        if slot["time"] in seen:
+            raise ValueError(f"duplicate timestamp: {slot['time']}")
+        seen.add(slot["time"])
+        if slot.get("phase") not in PHASES:
+            raise ValueError(f"invalid phase: {slot.get('phase')!r}")
+        if not 0.0 <= slot.get("latte_mix", -1.0) <= 1.0:
+            raise ValueError(f"invalid latte_mix: {slot.get('latte_mix')!r}")
+        for key in ("scale_x", "scale_y", "intensity"):
+            if not isinstance(slot.get(key), (int, float)) or slot[key] <= 0:
+                raise ValueError(f"invalid {key}: {slot.get(key)!r}")
 
 
-# ── Layer 4: Grain ────────────────────────────────────────────
+# ── Light field ────────────────────────────────────────────────
 
-def make_grain_texture(size=256):
-    grain = Image.new("L", (size, size))
-    px = grain.load()
-    rng = random.Random(42)
-    for y in range(size):
-        for x in range(size):
-            px[x, y] = rng.randint(0, 255)
-    return grain.filter(ImageFilter.GaussianBlur(radius=1.5))
+FIELD_DIVISOR = 4
 
 
-def apply_grain(img, tex, alpha):
-    tiled = Image.new("L", img.size)
-    gw, gh = tex.size
-    for y in range(0, img.height, gh):
-        for x in range(0, img.width, gw):
-            tiled.paste(tex, (x, y))
-    ga = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    ga.putalpha(tiled.point(lambda v: int(v * alpha)))
-    return Image.alpha_composite(img.convert("RGBA"), ga).convert("RGB")
+def scaled_box(box, width, height, scale_x, scale_y):
+    cx, cy, rx, ry = box
+    return (
+        int((cx - rx * scale_x) * width),
+        int((cy - ry * scale_y) * height),
+        int((cx + rx * scale_x) * width),
+        int((cy + ry * scale_y) * height),
+    )
 
 
-# ── Layer 5: Motifs ───────────────────────────────────────────
-
-def draw_terminal(draw, w, h, pal):
-    """Terminal-inspired: arrows (➜), dot clusters, bracket marks."""
-    color = pal[random.choice(["green", "sapphire", "lavender", "teal"])]
-    crgb = hex_to_rgb(color)
-    for _ in range(random.randint(6, 12)):
-        ax = random.randint(30, w - 30)
-        ay = random.randint(30, h - 30)
-        sz = random.randint(8, 28)
-        angle = random.uniform(0, 2 * math.pi)
-        dx = sz * math.cos(angle)
-        dy = sz * math.sin(angle)
-        draw.line([(ax, ay), (ax + dx, ay + dy)], fill=color,
-                  width=max(1, random.randint(1, 2)))
-        hx, hy = ax + dx, ay + dy
-        hs = sz * 0.35
-        p1 = (hx - hs * math.cos(angle), hy - hs * math.sin(angle))
-        p2 = (hx - hs * math.cos(angle + 2.2), hy - hs * math.sin(angle + 2.2))
-        p3 = (hx - hs * math.cos(angle - 2.2), hy - hs * math.sin(angle - 2.2))
-        draw.polygon([p1, p2, p3], fill=(*crgb, random.randint(25, 55)))
-    for _ in range(random.randint(8, 15)):
-        cx = random.randint(30, w - 30)
-        cy = random.randint(30, h - 30)
-        cr = random.randint(3, 8)
-        hr = cr * random.uniform(2, 4)
-        draw.ellipse([cx - hr, cy - hr, cx + hr, cy + hr],
-                     fill=(*crgb, random.randint(4, 12)))
-        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr],
-                     fill=(*crgb, random.randint(35, 75)))
-    for _ in range(random.randint(3, 6)):
-        bx = random.randint(40, w - 80)
-        by = random.randint(40, h - 80)
-        bh = random.randint(15, 50)
-        bw = random.randint(4, 10)
-        draw.line([(bx, by), (bx, by + bh)], fill=color, width=1)
-        draw.line([(bx, by), (bx + bw, by)], fill=color, width=1)
-        draw.line([(bx, by + bh), (bx + bw, by + bh)], fill=color, width=1)
+def make_light_mask(size, slot, box, strength, blur_factor):
+    width, height = size
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse(
+        scaled_box(box, width, height, slot["scale_x"], slot["scale_y"]),
+        fill=int(strength * slot["intensity"]),
+    )
+    return mask.filter(
+        ImageFilter.GaussianBlur(max(width, height) * blur_factor)
+    )
 
 
-def draw_snowflakes(draw, w, h, pal):
-    """15-25 snowflakes, varied sizes, filled centres."""
-    color = pal[random.choice(SNOWFLAKE_COLORS)]
-    crgb = hex_to_rgb(color)
-    for _ in range(random.randint(15, 25)):
-        cx = random.randint(20, w - 20)
-        cy = random.randint(20, h - 20)
-        sz = random.randint(8, 60)
-        arms = random.randint(4, 8)
-        ao = random.uniform(0, math.pi)
-        cr = max(2, sz * 0.18)
-        draw.ellipse([cx - cr, cy - cr, cx + cr, cy + cr],
-                     fill=(*crgb, random.randint(40, 80)))
-        for i in range(arms):
-            rad = ao + (2 * math.pi * i / arms)
-            dx = sz * math.cos(rad)
-            dy = sz * math.sin(rad)
-            draw.line([(cx, cy), (cx + dx, cy + dy)],
-                      fill=color, width=max(1, random.randint(1, 3)))
-            for frac in [0.45, 0.7]:
-                mx = cx + dx * frac
-                my = cy + dy * frac
-                br = sz * 0.22 * random.uniform(0.7, 1.3)
-                ba = rad + random.choice([-1, 1]) * math.pi / random.uniform(2.5, 4)
-                draw.line([(mx, my), (mx + br * math.cos(ba), my + br * math.sin(ba))],
-                          fill=color, width=1)
+def make_density_mask(size, slot):
+    small_size = (
+        max(1, size[0] // FIELD_DIVISOR),
+        max(1, size[1] // FIELD_DIVISOR),
+    )
+    density = Image.new("L", small_size, 0)
+    layers = (
+        ((0.40, 0.54, 0.42, 0.66), 120, 0.115),
+        ((0.38, 0.51, 0.30, 0.49), 190, 0.100),
+        ((0.40, 0.49, 0.18, 0.34), 245, 0.085),
+    )
+    for box, strength, blur_factor in layers:
+        layer = make_light_mask(
+            small_size,
+            slot,
+            box,
+            strength,
+            blur_factor,
+        )
+        density = ImageChops.lighter(density, layer)
+    return density.resize(size, Image.Resampling.LANCZOS)
 
 
-def draw_constellation(draw, w, h, pal):
-    """Glowing nodes with halo rings, connected by faint lines."""
-    color = pal[random.choice(CONSTELLATION_COLORS)]
-    crgb = hex_to_rgb(color)
-    n = random.randint(15, 25)
-    pts = [(random.randint(30, w - 30), random.randint(30, h - 30)) for _ in range(n)]
-    for x, y in pts:
-        sz = random.randint(3, 8)
-        hr = sz * random.uniform(3, 6)
-        draw.ellipse([x - hr, y - hr, x + hr, y + hr],
-                     fill=(*crgb, random.randint(8, 20)))
-    md = min(w, h) * random.uniform(0.25, 0.45)
-    for i, p1 in enumerate(pts):
-        for j in range(i + 1, len(pts)):
-            p2 = pts[j]
-            d = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
-            if d < md:
-                a = int((1 - d / md) * 40)
-                draw.line([p1, p2], fill=(*crgb, a), width=random.randint(1, 2))
-    for x, y in pts:
-        sz = random.randint(3, 8)
-        draw.ellipse([x - sz, y - sz, x + sz, y + sz],
-                     fill=(*crgb, random.randint(45, 95)))
+def make_base(size, palette, latte_mix):
+    base_key = "base" if latte_mix >= 0.5 else "crust"
+    return Image.new("RGB", size, palette[base_key])
 
 
-# ── Compositing ───────────────────────────────────────────────
+DOT_SPACING = 7
+DOT_RADIUS = 2
+DOT_OPACITY = 0.55
+DOT_COLOURS = ("surface0", "blue", "lavender", "mauve", "rosewater")
+BAYER_4 = (
+    (0, 8, 2, 10),
+    (12, 4, 14, 6),
+    (3, 11, 1, 9),
+    (15, 7, 13, 5),
+)
 
-def pick_motifs():
-    return random.sample(["terminal", "snowflakes", "constellation"],
-                         random.randint(1, 2))
+
+def muted_dot_colour(base, accent):
+    return lerp3(base, accent, DOT_OPACITY)
 
 
-def generate_slot_image(phase, sun_x, sun_y, glow_key, motifs, pal):
-    img = Image.new("RGB", (WIDTH, HEIGHT))
-    draw_sky(img, phase)
-    draw_sun_glow(img, sun_x, sun_y, glow_key, phase)
-    img = draw_atmosphere(img, phase)
-    img = apply_grain(img, make_grain_texture(), GRAIN_ALPHA[phase])
-    mop = motif_opacity(phase)
-    mc = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    md = ImageDraw.Draw(mc)
-    for m in motifs:
-        {"terminal": draw_terminal, "snowflakes": draw_snowflakes,
-         "constellation": draw_constellation}[m](md, WIDTH, HEIGHT, pal)
-    a = mc.split()[-1].point(lambda v: int(v * mop))
-    mr = Image.merge("RGBA", (*mc.split()[:3], a))
-    return Image.alpha_composite(img.convert("RGBA"), mr).convert("RGB")
+def ordered_dot_colour(palette, density, column, row):
+    position = density / 255 * (len(DOT_COLOURS) - 1)
+    lower = min(int(position), len(DOT_COLOURS) - 1)
+    if lower == len(DOT_COLOURS) - 1:
+        return palette[DOT_COLOURS[lower]]
+    fraction = position - lower
+    threshold = BAYER_4[row % 4][column % 4] / 16
+    index = lower + 1 if fraction > threshold else lower
+    return palette[DOT_COLOURS[index]]
+
+
+def draw_dot_field(base, palette, slot):
+    density = make_density_mask(base.size, slot)
+    image = base.copy()
+    draw = ImageDraw.Draw(image)
+    base_colour = image.getpixel((0, 0))
+    offset = DOT_SPACING // 2
+    for row, y in enumerate(range(offset, image.height, DOT_SPACING)):
+        for column, x in enumerate(range(offset, image.width, DOT_SPACING)):
+            accent = hex_to_rgb(
+                ordered_dot_colour(
+                    palette,
+                    density.getpixel((x, y)),
+                    column,
+                    row,
+                )
+            )
+            colour = muted_dot_colour(base_colour, accent)
+            draw.ellipse(
+                (
+                    x - DOT_RADIUS,
+                    y - DOT_RADIUS,
+                    x + DOT_RADIUS,
+                    y + DOT_RADIUS,
+                ),
+                fill=colour,
+            )
+    return image
+
+
+def generate_slot_image(slot, size=(WIDTH, HEIGHT)):
+    palette = palette_for_mix(slot["latte_mix"])
+    image = make_base(size, palette, slot["latte_mix"])
+    return draw_dot_field(image, palette, slot)
 
 
 # ── Pipeline ──────────────────────────────────────────────────
 
+def wallpapper_entries(slots):
+    entries = []
+    for index, slot in enumerate(slots):
+        timestamp = slot["time"]
+        entry = {
+            "fileName": f"{index:02d}_{timestamp.replace(':', '')}.png",
+            "time": timestamp,
+        }
+        if index == 0:
+            entry["isPrimary"] = True
+        entries.append(entry)
+    return entries
+
+
 def generate():
+    validate_slots(SLOTS)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    wj = []
-    for i, (ts, phase, sx, sy, gk, pk) in enumerate(SLOTS):
-        pal = LATTE if pk == "latte" else MOCHA
-        motifs = pick_motifs()
-        print(f"  [{ts}]  {phase:9s}  {pk:5s}  glow=({sx:.1f},{sy:.1f})  motifs: {motifs}")
-        img = generate_slot_image(phase, sx, sy, gk, motifs, pal)
-        fn = f"{i:02d}_{ts.replace(':', '')}.png"
-        img.save(OUTPUT_DIR / fn)
-        e = {"fileName": fn, "time": ts}
-        if i == 0:
-            e["isPrimary"] = True
-        wj.append(e)
-    jp = OUTPUT_DIR / "wallpapper.json"
-    with open(jp, "w") as f:
-        json.dump(wj, f, indent=2)
-    hp = OUTPUT_DIR / "mokka.heic"
-    wallpapper = os.path.expanduser("~/.local/bin/wallpapper")
-    subprocess.run([wallpapper, "-i", str(jp), "-o", str(hp)],
-                   cwd=OUTPUT_DIR, check=True)
-    print(f"\n  -> {hp}")
+    entries = wallpapper_entries(SLOTS)
+
+    for slot, entry in zip(SLOTS, entries):
+        print(
+            f"  [{slot['time']}]  {slot['phase']:9s}  "
+            f"latte={slot['latte_mix']:.2f}  "
+            f"shape=({slot['scale_x']:.2f},{slot['scale_y']:.2f})"
+        )
+        generate_slot_image(slot).save(OUTPUT_DIR / entry["fileName"])
+
+    metadata_path = OUTPUT_DIR / "wallpapper.json"
+    with metadata_path.open("w") as metadata_file:
+        json.dump(entries, metadata_file, indent=2)
+
+    wallpaper_path = OUTPUT_DIR / "mokka.heic"
+    wallpapper = Path.home() / ".local/bin/wallpapper"
+    if not wallpapper.is_file():
+        raise FileNotFoundError(f"wallpapper binary not found: {wallpapper}")
+    subprocess.run(
+        [str(wallpapper), "-i", str(metadata_path), "-o", str(wallpaper_path)],
+        cwd=OUTPUT_DIR,
+        check=True,
+    )
+    print(f"\n  -> {wallpaper_path}")
 
 
 if __name__ == "__main__":

@@ -55,10 +55,10 @@
     # ── Mokka wallpaper reload (flag-based, only after nrs) ───
     if [ -f "$HOME/.mokka-reload" ]; then
       LATEST=$(ls -t "$HOME/Pictures/wallpapers/mokka-"*.heic 2>/dev/null | head -1)
-      if [ -n "$LATEST" ]; then
-        osascript -e "tell application \"Finder\" to set desktop picture to POSIX file \"$LATEST\"" 2>/dev/null
+      if [ -n "$LATEST" ] &&
+        osascript -e "tell application \"System Events\" to set picture of every desktop to \"$LATEST\"" 2>/dev/null; then
+        rm -f "$HOME/.mokka-reload"
       fi
-      rm -f "$HOME/.mokka-reload"
     fi
 
     # ── Shortcuts ──────────────────────────────────────────────
