@@ -30,7 +30,7 @@
     tapNames);
 
   brewCleanupScript = ''
-    BREWFILE=$(find /nix/store -maxdepth 1 -name "*-Brewfile" -newer /run/current-system -print -quit 2>/dev/null)
+    BREWFILE=$(find /nix/store -maxdepth 1 -name "*-Brewfile" -newer /run/current-system -print -quit 2>/dev/null || true)
     if [ -n "$BREWFILE" ] && [ -f "$BREWFILE" ]; then
       HOMEBREW_BUNDLE_FORCE_CLEANUP=1 /opt/homebrew/bin/brew bundle cleanup --force --file "$BREWFILE" || true
     fi

@@ -12,6 +12,6 @@
     ./darwin/homebrew
   ];
 
-  # macOS-only: aerospace is defined here, not in shared packages
-  home-manager.users.${config.system.primaryUser}.home.packages = with pkgs; [pkgs.aerospace];
+  # macOS-only GUI tools are kept out of shared packages.
+  home-manager.users.${config.system.primaryUser}.home.packages = with pkgs; [aerospace jankyborders];
 }

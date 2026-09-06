@@ -3,18 +3,28 @@
   pkgs,
   lib,
   ...
-}: {
-  launchd.user.agents.borders = {
+}: let
+  nixStoreVolume = "80E0083A-0110-4200-B7ED-C88ED7B9A6D4";
+in {
+  # AeroSpace is Nix-installed, so macOS has no application login item for it.
+  launchd.user.agents.aerospace = {
     serviceConfig = {
       ProgramArguments = [
-        "${pkgs.jankyborders}/bin/borders"
-        "style=round"
-        "width=8.0"
-        "active_color=0xff74c7ec"
-        "inactive_color=0xffcba6f7"
-        "hidpi=on"
+        "${pkgs.aerospace}/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
       ];
       KeepAlive = true;
+      RunAtLoad = true;
+    };
+  };
+
+  # Nix installer volume must unlock before nix-daemon starts at boot.
+  launchd.daemons.darwin-store = {
+    serviceConfig = {
+      ProgramArguments = [
+        "/bin/sh"
+        "-c"
+        "/usr/bin/security find-generic-password -s '${nixStoreVolume}' -w | /usr/sbin/diskutil apfs unlockVolume '${nixStoreVolume}' -mountpoint '/nix' -stdinpassphrase"
+      ];
       RunAtLoad = true;
     };
   };

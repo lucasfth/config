@@ -77,9 +77,8 @@ with open('$LATEST_JSONL') as f:
 " 2>/dev/null)
 
 if [ -n "$CONVO" ]; then
-  DS_KEY=$(sqlite3 "$HOME/.omp/agent/agent.db" \
-    "SELECT json_extract(data, '$.key') FROM auth_credentials WHERE provider='deepseek' LIMIT 1;" 2>/dev/null || echo "")
-  if [ -n "$DS_KEY" ]; then
+  XAI_KEY="${XAI_API_KEY:-}"
+  if [ -n "$XAI_KEY" ]; then
     if [ -r "$PROMPT_FILE" ]; then
       SUMMARY_PROMPT=$(cat "$PROMPT_FILE")
     else
@@ -91,25 +90,33 @@ import json, sys
 convo = sys.stdin.read()
 prompt = sys.argv[1]
 payload = json.dumps({
-  'model': 'deepseek-chat',
-  'messages': [
+  'model': 'grok-4.3',
+  'input': [
     {'role': 'system', 'content': prompt},
     {'role': 'user', 'content': convo}
   ],
-  'max_tokens': 400,
-  'temperature': 0.3
+  'max_output_tokens': 1000,
 })
 print(payload)
-" "$SUMMARY_PROMPT" <<< "$CONVO" 2>/dev/null | curl -s https://api.deepseek.com/v1/chat/completions \
+" "$SUMMARY_PROMPT" <<< "$CONVO" 2>/dev/null | curl -sS https://api.x.ai/v1/responses \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $DS_KEY" \
+      -H "Authorization: Bearer $XAI_KEY" \
       -d @- 2>/dev/null | python3 -c "
 import json, sys
 try:
-    d = json.load(sys.stdin)
-    print(d['choices'][0]['message']['content'])
-except: pass
+    response = json.load(sys.stdin)
+    texts = [
+        content.get('text', '')
+        for output in response.get('output', [])
+        for content in output.get('content', [])
+        if content.get('type') == 'output_text'
+    ]
+    if texts:
+        print(texts[0])
+except (json.JSONDecodeError, AttributeError, TypeError):
+    pass
 " 2>/dev/null)
+    SUMMARY="$SUMMARY_RAW"
 
     SUMMARY_DATA=$(python3 -c "
 import json, sys
@@ -148,39 +155,45 @@ print(json.dumps(normalized, ensure_ascii=False))
 import json, sys
 convo = sys.stdin.read()
 payload = json.dumps({
-  'model': 'deepseek-v4-flash',
-  'messages': [
-    {'role': 'system', 'content': 'Return a JSON object with a "tags" key: an array of 2-7 short lowercase-hyphenated strings. Each tag must describe a concrete technology, tool, file, or action from the session (e.g. nix, brew, ghostty, homebrew-nix, darwin-rebuild, shell-config, vault-hook, prompt-engineering). NEVER include project or branch names. Example: {"tags": ["nix", "homebrew-nix", "ghostty"]}'},
+  'model': 'grok-4.3',
+  'input': [
+    {'role': 'system', 'content': 'Return a JSON object with a \"tags\" key: an array of 2-7 short lowercase-hyphenated strings. Each tag must describe a concrete technology, tool, file, or action from the session (e.g. nix, brew, ghostty, homebrew-nix, darwin-rebuild, shell-config, vault-hook, prompt-engineering). NEVER include project or branch names. Example: {\"tags\": [\"nix\", \"homebrew-nix\", \"ghostty\"]}'},
     {'role': 'user', 'content': convo}
   ],
-  'max_tokens': 500,
-  'temperature': 0.1,
-  'response_format': {'type': 'json_object'}
+  'max_output_tokens': 300,
 })
 print(payload)
-" <<< "$CONVO" 2>/dev/null | curl -s https://api.deepseek.com/v1/chat/completions \
+" <<< "$CONVO" 2>/dev/null | curl -sS https://api.x.ai/v1/responses \
       -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $DS_KEY" \
+      -H "Authorization: Bearer $XAI_KEY" \
       -d @- 2>/dev/null | python3 -c "
 import json, sys
 try:
-    d = json.load(sys.stdin)
-    print(d['choices'][0]['message']['content'])
-except: pass
+    response = json.load(sys.stdin)
+    texts = [
+        content.get('text', '')
+        for output in response.get('output', [])
+        for content in output.get('content', [])
+        if content.get('type') == 'output_text'
+    ]
+    if texts:
+        print(texts[0])
+except (json.JSONDecodeError, AttributeError, TypeError):
+    pass
 " 2>/dev/null)
     TAG_DATA=$(python3 -c "
 import json, sys
 raw = sys.stdin.read().strip()
 
 if not raw:
-  sys.stderr.write('[vault] tags: flash model returned empty response\n')
+  sys.stderr.write('[vault] tags: xAI returned empty response\n')
   print('[]')
   raise SystemExit(0)
 
 try:
   data = json.loads(raw)
 except json.JSONDecodeError:
-  sys.stderr.write(f'[vault] tags: failed to parse JSON from flash model: {raw[:200]}\n')
+  sys.stderr.write(f'[vault] tags: failed to parse JSON from xAI: {raw[:200]}\n')
   print('[]')
   raise SystemExit(0)
 
@@ -189,9 +202,11 @@ if isinstance(tags, str):
   tags = [tags]
 clean = [str(item).strip() for item in tags if str(item).strip()]
 if not clean:
-  sys.stderr.write('[vault] tags: flash model returned no usable tags\n')
+  sys.stderr.write('[vault] tags: xAI returned no usable tags\n')
 print(json.dumps(clean, ensure_ascii=False))
 " <<< "$TAG_RAW" 2>/dev/null)
+  else
+    echo "[vault] xAI API key missing; session was not summarized" >&2
   fi
 fi
 
@@ -270,10 +285,18 @@ mkdir -p "$DIR"
   fi
 
   if [ -n "$MSG_COUNT" ]; then
-    echo "*$MSG_COUNT messages — auto-summarized at $(date +%H:%M)*"
+    if [ -n "$SUMMARY" ]; then
+      echo "*$MSG_COUNT messages — auto-summarized at $(date +%H:%M)*"
+    else
+      echo "*$MSG_COUNT messages — summary unavailable at $(date +%H:%M)*"
+    fi
   fi
 } > "$FILE"
 
 echo "[vault] $FILE"
-[ -n "$SESSION_TITLE" ] && echo "[vault]   $SESSION_TITLE"
-[ -n "$SUMMARY" ] && echo "[vault]   summarized"
+if [ -n "$SESSION_TITLE" ]; then
+  echo "[vault]   $SESSION_TITLE"
+fi
+if [ -n "$SUMMARY" ]; then
+  echo "[vault]   summarized"
+fi

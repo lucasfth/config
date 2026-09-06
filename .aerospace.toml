@@ -9,9 +9,9 @@ after-login-command = []
 # You can use it to add commands that run after AeroSpace startup.
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
-
-
-
+after-startup-command = [
+  "exec-and-forget /bin/sh -c '$HOME/.nix-profile/bin/borders style=round width=8.0 active_color=0xff74c7ec inactive_color=0xffcba6f7 hidpi=on'",
+]
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true

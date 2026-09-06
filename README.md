@@ -92,7 +92,7 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
   nix/darwin/              # macOS-only modules
     system.nix             # macos settings (dock, finder, trackpad)
     hostname.nix           # nix daemon, GC
-    launchd.nix            # launchd agents (borders, tailwind cleanup)
+    launchd.nix            # launchd services (Nix Store unlock, AeroSpace, cleanup)
     services.nix           # Nix services stubs (postgres, redis)
     homebrew/
       brews.nix            # brew formulas
