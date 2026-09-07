@@ -1,6 +1,6 @@
 ---
 name: writing-ecoray-release-notes
-description: Use when Lucas asks for EcoRay release notes, a changelog, a main-to-dev summary, sales-facing deployment communication, or copy-paste-ready Slack release notes.
+description: Use when Lucas asks for EcoRay release notes, a changelog, a main-to-dev summary, or sales-facing deployment communication.
 ---
 
 # Writing EcoRay Release Notes
@@ -26,15 +26,24 @@ Produce Danish release notes that explain commercial impact before implementatio
 
 Keep internal optimization and test-only commits out of the sales section unless they alter visible behavior.
 
-## Slack delivery
+## Default Slack delivery
 
-When Lucas asks for a file that can be pasted into Slack with formatting preserved:
+Every EcoRay release-note request is a Slack-delivery request unless Lucas explicitly asks for another format.
 
-- Create `release-notes-slack.html` in the repository root.
+- Create `release-notes-slack.html` in the repository root before replying, even when Lucas only says “Write release notes.”
 - Use semantic HTML: `<strong>` for emphasis, `<ul><li>` for bullets, and `<code>` for commit IDs.
-- Never create a plaintext `.md` or `.txt` file for formatted Slack pasting. Slack does not render pasted Markdown and will show literal asterisks.
+- Never return only Markdown/plaintext or ask whether Slack format is wanted. Slack does not render pasted Markdown and will show literal asterisks.
+- Never create a plaintext `.md` or `.txt` release-note file.
+- Remove a prior generated `release-notes-slack.md` file if present; do not leave the broken alternative behind.
 - Tell Lucas to open the HTML file in Chrome or Safari, then press **⌘A**, **⌘C**, and paste into Slack.
-- Replace a prior generated `release-notes-slack.md` file; do not leave the broken alternative behind.
+
+### Delivery red flags
+
+- “They did not ask for a file, so inline Markdown is the smallest deliverable.”
+- “Creating HTML is slower under a deadline.”
+- “I will create the file only after Lucas says the notes are for Slack.”
+
+All three violate the default. Create the HTML artifact first.
 
 ## Checklist
 
@@ -42,4 +51,4 @@ When Lucas asks for a file that can be pasted into Slack with formatting preserv
 - [ ] Every sales-facing consequence, changed customer talking point, and no-workflow-change claim is explicit.
 - [ ] No unsupported test or deployment claims.
 - [ ] Complete selected-range commit list.
-- [ ] HTML rich-text file, if Slack-ready output was requested.
+- [ ] `release-notes-slack.html` created with rich-text HTML, regardless of whether Slack was named.

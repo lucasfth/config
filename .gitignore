@@ -137,6 +137,9 @@ lazygit/state.yml
 /.omp/*.db*
 /.omp/install-id
 /.omp/agent/*.lock
+/.omp/natives/
+/.omp/write-test
+/.omp/agent/last-changelog-version
 # Tmux
 /.tmux/*
 
