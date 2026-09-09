@@ -76,11 +76,11 @@ function readRecentNotes(project: { org: string; repo: string; branch: string })
 }
 
 export default function vaultHook(pi: HookAPI): void {
-  // Inject vault context on every session start
+  // Session start: ensure today's vault stub exists, then inject context
   pi.on("context", async () => {
     const project = detectProject();
     if (!project) return;
-
+    createStub(project);
     const sections: string[] = [];
 
     const tech = readTechDocs(project);
@@ -96,11 +96,8 @@ export default function vaultHook(pi: HookAPI): void {
     };
   });
 
-  // Shared: create vault stub (idempotent — one per day)
-  const createStub = () => {
-    const project = detectProject();
-    if (!project) return;
-
+  // Create vault stub (idempotent — one per day)
+  const createStub = (project: { org: string; repo: string; branch: string }) => {
     const timestamp = new Date().toISOString();
     const dateStr = timestamp.slice(0, 10);
     const dir = join(PROJECTS, project.org, project.repo, project.branch);
@@ -123,48 +120,4 @@ export default function vaultHook(pi: HookAPI): void {
     pi.log?.(`Vault stub: ${file}`);
   };
 
-  const summaryScript = join(process.env.HOME ?? homedir(), ".omp/agent/hooks/post/save-to-vault.sh");
-  const summarize = () => {
-    if (!existsSync(summaryScript)) return;
-    try {
-      execSync(`bash "${summaryScript}"`, {
-        cwd: process.env.INIT_CWD ?? process.cwd(),
-        encoding: "utf-8",
-        timeout: 60000,
-        stdio: "pipe",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      pi.log?.(`[vault] summarize failed: ${message.slice(0, 200)}`);
-    }
-  };
-
-  const summarizeAfterShutdown = () => {
-    if (!existsSync(summaryScript)) return;
-    try {
-      const child = Bun.spawn(["bash", summaryScript], {
-        cwd: process.env.INIT_CWD ?? process.cwd(),
-        detached: true,
-        stdout: "ignore",
-        stderr: "ignore",
-      });
-      child.unref();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      pi.log?.(`[vault] summarize failed: ${message.slice(0, 200)}`);
-    }
-  };
-
-  // On /new: create stub + summarize the session we're leaving behind
-  pi.on("session_before_switch", async (event) => {
-    if ((event as any).reason !== "new") return;
-    createStub();
-    summarize();
-  });
-
-  // On shutdown: create stub, then let the summary worker finish independently.
-  pi.on("session_shutdown", async () => {
-    createStub();
-    summarizeAfterShutdown();
-  });
 }

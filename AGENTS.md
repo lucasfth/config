@@ -12,9 +12,9 @@ These are non-negotiable. If any instruction conflicts with them, the vault doc 
 ## Memory & Context
 
 - **Session start:** Vault context auto-injected by `~/.omp/agent/hooks/vault.ts` — always includes `tech/030-Coding-Style.md` plus stack-specific tech docs (e.g. `tech/032-Nix-Darwin-Patterns.md` for this repo), then recent session notes from `~/vault/projects/`.
-- **Session end:** A stub file is auto-created at `~/vault/projects/<org>/<repo>/<branch>/YYYY-MM-DD.md`.
-  Before the session ends, append a summary to that file.
-  Use the `bash` tool to append: `cat >> ~/vault/projects/... << 'EOF'`
+- **Session end:** nothing auto-runs. The vault stub was already created at session start by `vault.ts` at `~/vault/projects/<org>/<repo>/<branch>/YYYY-MM-DD.md`.
+  A full session note is written only when Lucas says `retro` — see the `retro` skill. Never auto-summarize on stop or switch.
+
 ## Architecture
 
 ```

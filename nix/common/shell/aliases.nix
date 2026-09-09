@@ -1,6 +1,8 @@
-{ config, pkgs, lib }:
-
 {
+  config,
+  pkgs,
+  lib,
+}: {
   content = ''
 
     # ── SSH aliases ───────────────────────────────────────────
@@ -38,15 +40,6 @@
       echo "Done."
     }
     fi
-
-    # ── OMP wrapper (auto-saves session to vault after exit) ──
-    omp() {
-      command omp "$@"; local rc=$?
-      case "$rc:$1" in
-        0:|0:--resume|0:--continue) ~/.omp/agent/hooks/post/save-to-vault.sh "$(pwd)" 2>/dev/null ;;
-      esac
-      return $rc
-    }
 
     # ── Local binary aliases (not Nix-packaged) ──────────────
     if [ -x "$HOME/Desktop/code/yt-dlp/yt-dlp" ]; then
