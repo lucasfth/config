@@ -51,4 +51,20 @@
       fi
     ''}
   '');
+
+  # ── Sioyek: install into /Applications (macOS only) ──────────
+  # Copy (not symlink) so Spotlight indexes it — the nix store is
+  # excluded from Spotlight, and Raycast searches Spotlight.
+  home.activation.installSioyek = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+    $DRY_RUN_CMD ${pkgs.writeShellScript "install-sioyek" ''
+      set -euo pipefail
+      SRC="${pkgs.sioyek}/Applications/sioyek.app"
+      DST="/Applications/sioyek.app"
+      if [ ! -f "$DST/Contents/MacOS/sioyek" ] || ! cmp -s "$SRC/Contents/MacOS/sioyek" "$DST/Contents/MacOS/sioyek"; then
+        rm -rf "$DST"
+        cp -R "$SRC" "$DST"
+        echo "sioyek: installed $DST"
+      fi
+    ''}
+  '');
 }

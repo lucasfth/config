@@ -12,6 +12,7 @@
       swiftbar
       jankyborders
       lmstudio
+      sioyek
     ]
     ++ lib.optionals stdenv.isLinux [
       nvidia-docker
