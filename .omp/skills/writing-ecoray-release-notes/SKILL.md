@@ -35,7 +35,7 @@ Every EcoRay release-note request is a Slack-delivery request unless Lucas expli
 - Never return only Markdown/plaintext or ask whether Slack format is wanted. Slack does not render pasted Markdown and will show literal asterisks.
 - Never create a plaintext `.md` or `.txt` release-note file.
 - Remove a prior generated `release-notes-slack.md` file if present; do not leave the broken alternative behind.
-- Tell Lucas to open the HTML file in Chrome or Safari, then press **⌘A**, **⌘C**, and paste into Slack.
+- Open `release-notes-slack.html` automatically with `open release-notes-slack.html` from the repository root. Do not ask Lucas to open it; tell them it is open and to press **⌘A**, **⌘C**, then paste into Slack.
 
 ### Delivery red flags
 
@@ -45,10 +45,22 @@ Every EcoRay release-note request is a Slack-delivery request unless Lucas expli
 
 All three violate the default. Create the HTML artifact first.
 
+## Retrospective
+
+After delivering every EcoRay release note, run the `retro` skill and record the session outcome. Include any Lucas correction in the session note.
+
+### Retrospective red flags
+
+- “A release note is too small to warrant a retro.”
+- “There were no code changes, so no session note is needed.”
+
+Both violate the default.
+
 ## Checklist
 
 - [ ] Danish prose; operational impact before technical detail.
 - [ ] Every sales-facing consequence, changed customer talking point, and no-workflow-change claim is explicit.
 - [ ] No unsupported test or deployment claims.
 - [ ] Complete selected-range commit list.
-- [ ] `release-notes-slack.html` created with rich-text HTML, regardless of whether Slack was named.
+- [ ] `release-notes-slack.html` created and opened with rich-text HTML, regardless of whether Slack was named.
+- [ ] `retro` completed after delivery.
