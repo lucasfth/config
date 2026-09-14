@@ -56,6 +56,7 @@
     echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "sem ecoray-mac-mini" ECORAY_MAC_MINI_USER ECORAY_MAC_MINI_IP
     emit "sep ecoray-pi"       ECORAY_PI_USER       ECORAY_PI_IP
+    emit "plato"               PLATO_USER           PLATO_IP
     emit "termux"              TERMUX_USER          TERMUX_IP          TERMUX_PORT
     emit "windows"             WINDOWS_USER         WINDOWS_IP
 

@@ -42,6 +42,7 @@ All commands and aliases defined in this config, grouped by category.
 | `freyr` | Ecoray freyr (NixOS GPU server) |
 | `sem` / `semd` | Ecoray Mac Mini (d = dev branch) |
 | `sep` | Ecoray Pi |
+| `plato` | Plato |
 | `ssh-termux` | Android (Termux) |
 | `ssh-windows` | Windows machine |
 

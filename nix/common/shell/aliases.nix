@@ -17,6 +17,7 @@
     alias freyr='ssh freyr'
     alias sem='ssh sem'
     alias sep='ssh sep'
+    alias plato='ssh plato'
     alias se1lv='ssh -t se1 "cd .openclaw/workspace-louise && exec \$SHELL --login"'
     alias semd='ssh -t sem "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
 
