@@ -13,6 +13,9 @@ modelRoles:
   designer: openai/gpt-5.6-terra
   tiny: openai-codex/gpt-5.6-luna
   slow: mimer/Qwen3.5-122B-A10B-Q4_K_M.gguf:off
+task:
+  agentModelOverrides:
+    scout: "@task"
 defaultThinkingLevel: auto
 steeringMode: all
 memory: 
