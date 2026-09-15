@@ -18,15 +18,7 @@
       trusted-users = ["${config.system.primaryUser}" "@admin"];
       auto-optimise-store = true;
     };
-    gc = {
-      automatic = true;
-      interval = {
-        Weekday = 0;
-        Hour = 3;
-        Minute = 0;
-      };
-      options = "--delete-older-than 30d";
-    };
+    # GC is managed by Determinate Nix; nix-darwin's gc requires nix.enable.
   };
 
   environment.systemPackages = with pkgs; [
