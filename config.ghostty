@@ -5,7 +5,7 @@ macos-titlebar-style = hidden
 window-padding-x = 5
 window-padding-y = 5
 split-divider-color = #fefefe
-unfocused-split-fill = #1529FD
+unfocused-split-fill = #6c7086
 
 keybind = ctrl+n=new_window
 
