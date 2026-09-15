@@ -67,7 +67,7 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
 
   scripts/
     config-add             # helper: add packages/aliases to the right file
-
+    nix-health             # detects a missing Nix store, profile, or login shell
   starship.toml            # prompt
   config.ghostty           # terminal
   .aerospace.toml          # window manager
@@ -76,7 +76,8 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
   zed/settings.json        # zed editor
   sioyek/prefs_user.config # PDF reader
   raycast-scripts/         # Raycast script commands
-
+  docs/
+    nix-recovery.md         # recovery runbook after a macOS update
   nix/hosts/               # per-machine config (hostname, username, system)
     lucas-macbook-pro/
     lucas-nixos/           # NixOS placeholder
@@ -90,10 +91,10 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
     dotfiles.nix           # symlinks (starship, ghostty, tmux, zed, sioyek, etc.)
 
   nix/darwin/              # macOS-only modules
-    system.nix             # macos settings (dock, finder, trackpad)
-    hostname.nix           # nix daemon, GC
-    launchd.nix            # launchd services (Nix Store unlock, AeroSpace, cleanup)
-    services.nix           # Nix services stubs (postgres, redis)
+    system.nix              # macOS defaults (dock, finder, trackpad)
+    hostname.nix            # Determinate Nix compatibility
+    launchd.nix             # launchd services (AeroSpace, Nix health, cleanup)
+    services.nix            # Nix services stubs (postgres, redis)
     homebrew/
       brews.nix            # brew formulas
       casks.nix            # brew casks (GUI apps)

@@ -1,0 +1,33 @@
+#!/bin/bash
+set -euo pipefail
+
+mode=${1:---check}
+if [[ $mode != --check && $mode != --notify ]]; then
+  echo "Usage: $(basename "$0") [--check|--notify]" >&2
+  exit 64
+fi
+
+profile_zsh="$HOME/.nix-profile/bin/zsh"
+store_dir="/nix/store"
+nix_binary="/nix/var/nix/profiles/default/bin/nix"
+config_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+runbook="$config_dir/docs/nix-recovery.md"
+failures=()
+
+[[ -x $profile_zsh ]] || failures+=("missing Nix zsh: $profile_zsh")
+[[ -d $store_dir ]] || failures+=("missing Nix store: $store_dir")
+[[ -x $nix_binary ]] || failures+=("missing Determinate Nix binary: $nix_binary")
+
+if ((${#failures[@]})); then
+  printf 'Nix health check failed:\n'
+  printf '  - %s\n' "${failures[@]}"
+  printf 'Recovery runbook: %s\n' "$runbook"
+
+  if [[ $mode == --notify ]]; then
+    /usr/bin/osascript -e 'display notification "Nix is unavailable. Open the recovery runbook in ~/config/docs/nix-recovery.md." with title "Nix health check failed"' || true
+  fi
+
+  exit 1
+fi
+
+echo "Nix health check passed."

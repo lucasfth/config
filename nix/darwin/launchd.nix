@@ -1,10 +1,16 @@
 {
-  config,
   pkgs,
-  lib,
+  homeDirectory,
   ...
 }: let
-  nixStoreVolume = "80E0083A-0110-4200-B7ED-C88ED7B9A6D4";
+  nixHealthCheck = ''
+    profile_zsh="$HOME/.nix-profile/bin/zsh"
+    if [[ ! -x "$profile_zsh" || ! -d /nix/store || ! -x /nix/var/nix/profiles/default/bin/nix ]]; then
+      /usr/bin/logger -t nix-health "Nix is unavailable. Read $HOME/config/docs/nix-recovery.md."
+      /usr/bin/osascript -e 'display notification "Nix is unavailable. Open ~/config/docs/nix-recovery.md." with title "Nix health check failed"' || true
+      exit 1
+    fi
+  '';
 in {
   # AeroSpace is Nix-installed, so macOS has no application login item for it.
   launchd.user.agents.aerospace = {
@@ -17,15 +23,18 @@ in {
     };
   };
 
-  # Nix installer volume must unlock before nix-daemon starts at boot.
-  launchd.daemons.darwin-store = {
+  # This script and its launchd plist survive a Nix store loss, so it detects
+  # the broken profile/login-shell state immediately after a macOS update.
+  launchd.user.agents.nix-health = {
     serviceConfig = {
       ProgramArguments = [
-        "/bin/sh"
+        "/bin/bash"
         "-c"
-        "/usr/bin/security find-generic-password -s '${nixStoreVolume}' -w | /usr/sbin/diskutil apfs unlockVolume '${nixStoreVolume}' -mountpoint '/nix' -stdinpassphrase"
+        nixHealthCheck
       ];
+      EnvironmentVariables.HOME = homeDirectory;
       RunAtLoad = true;
+      StartInterval = 86400;
     };
   };
 

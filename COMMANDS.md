@@ -16,6 +16,7 @@ All commands and aliases defined in this config, grouped by category.
 | `config-add --alias <name>=<value>` | Add shell alias |
 | `config-add --mas <Name> <ID>` | Add Mac App Store app |
 | `, <pkg>` | Run any nixpkgs binary on-demand (comma) — also auto-suggests after unknown commands |
+| `~/config/scripts/nix-health --check` | Validate the Nix store, profile, and login shell; see `docs/nix-recovery.md` if it fails |
 ## Navigation
 
 | Command | Does |

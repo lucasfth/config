@@ -13,15 +13,24 @@
     };
   };
 
-  outputs = { self, nixpkgs, darwin, home-manager, ... }:
-    let
-      lib = nixpkgs.lib;
-      mkHost = path: import path;
+  outputs = {
+    self,
+    nixpkgs,
+    darwin,
+    home-manager,
+    ...
+  }: let
+    lib = nixpkgs.lib;
+    mkHost = path: import path;
 
-      mkDarwin = hostname: let
-        host = mkHost ./nix/hosts/${hostname};
-      in darwin.lib.darwinSystem {
+    mkDarwin = hostname: let
+      host = mkHost ./nix/hosts/${hostname};
+    in
+      darwin.lib.darwinSystem {
         inherit (host) system;
+        specialArgs = {
+          inherit (host) homeDirectory;
+        };
         modules = [
           ./nix/darwin.nix
           home-manager.darwinModules.home-manager
@@ -32,8 +41,8 @@
             home-manager.backupFileExtension = "before-nix";
             # Set home.stateVersion at home-manager top level (required by aerospace module)
             home-manager.sharedModules = [
-              { home.stateVersion = host.stateVersion; }
-              ({ lib, ... }: {
+              {home.stateVersion = host.stateVersion;}
+              ({lib, ...}: {
                 home.homeDirectory = lib.mkForce host.homeDirectory;
               })
             ];
@@ -47,9 +56,10 @@
         ];
       };
 
-      mkNixOS = hostname: let
-        host = mkHost ./nix/hosts/${hostname};
-      in nixpkgs.lib.nixosSystem {
+    mkNixOS = hostname: let
+      host = mkHost ./nix/hosts/${hostname};
+    in
+      nixpkgs.lib.nixosSystem {
         inherit (host) system;
         modules = [
           ./nix/nixos.nix
@@ -60,7 +70,7 @@
             home-manager.backupFileExtension = "before-nix";
             # Set home.stateVersion at home-manager top level (required by aerospace module)
             home-manager.sharedModules = [
-              { home.stateVersion = host.stateVersion; }
+              {home.stateVersion = host.stateVersion;}
             ];
             home-manager.extraSpecialArgs = {
               flakeDir = self;
@@ -71,21 +81,22 @@
           }
         ];
       };
-      mkHome = hostname: let
-        host = mkHost ./nix/hosts/${hostname};
-        pkgs = nixpkgs.legacyPackages.${host.system};
-      in home-manager.lib.homeManagerConfiguration {
+    mkHome = hostname: let
+      host = mkHost ./nix/hosts/${hostname};
+      pkgs = nixpkgs.legacyPackages.${host.system};
+    in
+      home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [
-          { home.stateVersion = host.stateVersion or "25.05"; }
+          {home.stateVersion = host.stateVersion or "25.05";}
           ./nix/hosts/${hostname}/home.nix
         ];
       };
-    in {
-      darwinConfigurations."lucas-macbook-pro" = mkDarwin "lucas-macbook-pro";
+  in {
+    darwinConfigurations."lucas-macbook-pro" = mkDarwin "lucas-macbook-pro";
 
-      nixosConfigurations."freyr" = mkNixOS "freyr";
+    nixosConfigurations."freyr" = mkNixOS "freyr";
 
-      homeConfigurations."ecoray-admin@mimer" = mkHome "mimer";
-    };
+    homeConfigurations."ecoray-admin@mimer" = mkHome "mimer";
+  };
 }
