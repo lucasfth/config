@@ -51,7 +51,6 @@
     "syntax-highlight"
 
     # ── Utilities ───────────────────────────────────────────
-    "jordanbaird-ice"
     "the-unarchiver"
     "typewhisper"
     "wave"
