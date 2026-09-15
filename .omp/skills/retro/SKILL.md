@@ -1,17 +1,17 @@
 ---
 name: retro
-description: Use when Lucas says "retro" or asks to review a session — writes a vault note with a summary, what went well, and corrections from the current session
+description: Use when Lucas says "retro" or asks to review a session — writes a Muninn session note with a summary, what went well, and corrections from the current session
 ---
 
 # Retro
 
 ## Overview
 
-Write a session note to the vault capturing what was worked on, what went well, and where Lucas had to correct the assistant.
+Write a Muninn session note capturing what was worked on, what went well, and where Lucas had to correct the assistant.
 
 **Core principle:** Honest and specific — corrections are the point, not an embarrassment.
 
-**Announce at start:** "Running retro — writing today's session note to the vault."
+**Announce at start:** "Running retro — writing today's session note to Muninn."
 
 ## The Process
 
@@ -23,12 +23,24 @@ REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 # org/repo from remote, else _local/<dirname>
 ```
 
-Directory: `~/vault/projects/<org>/<repo>/<branch>/`
-File: `YYYY-MM-DD.md` (today; a stub with frontmatter may already exist from session start).
+Set `filename` to `projects/<org>/<repo>/<branch>/YYYY-MM-DD.md`.
 
-### Step 2: Write the note
+### Step 2: Read and update the note
 
-Append (or write, if the file is just a stub header):
+Call Muninn `vault_read` with `filename`. If it does not exist, start `content` with:
+
+```markdown
+---
+project: <org>/<repo>
+branch: <branch>
+date: <ISO-8601 timestamp>
+tags: [<org>/<repo>, <branch>]
+---
+
+# <org>/<repo> — <branch> — <YYYY-MM-DD>
+```
+
+Append this structured entry to `content`:
 
 ```markdown
 ## Summary
@@ -44,16 +56,18 @@ Append (or write, if the file is just a stub header):
 - <1-4 bullets: mistakes, wrong assumptions, fixes, places Lucas had to correct the assistant>
 ```
 
+Call Muninn `vault_write` with `{ filename, content }`. If the read or write fails, report the failure and do not claim the note was stored.
+
 ### Step 3: Report
 
-Reply with the file path and the Corrections bullets inline, so Lucas sees them without opening the file.
+Reply with the Muninn filename and the Corrections bullets inline, so Lucas sees them without opening the note.
 
 ## Rules
 
 - **Be specific about the actual work** — files, decisions, outcomes. No generic filler.
 - **Corrections must be real.** If Lucas corrected nothing, write `No corrections this session.` — never invent any, never pad with trivialities.
 - **Same bar for wins.** Empty array if nothing worth noting, not participation trophies.
-- One note per day per branch — append to today's file if a retro already exists.
+- One note per day per branch — read and append to today's Muninn note if a retro already exists.
 
 ## Common Mistakes
 
@@ -63,8 +77,8 @@ Reply with the file path and the Corrections bullets inline, so Lucas sees them 
 
 **Skipping corrections to look good**
 - **Problem:** Note reads as self-praise; the most valuable signal is lost.
-- **Fix:** Corrections are the point of the retro. List every place Lucas steered you.
+- **Fix:** Corrections are the point. List every place Lucas steered you.
 
 **New file per retro**
-- **Problem:** Fragments the daily log the vault hook builds.
-- **Fix:** Always append to `YYYY-MM-DD.md`.
+- **Problem:** Fragments daily project history.
+- **Fix:** Always read and append to `YYYY-MM-DD.md`.

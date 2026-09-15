@@ -4,7 +4,37 @@
   lib,
   flakeDir,
   ...
-}: {
+}: let
+  generateOmpMcpConfig = pkgs.writeShellScript "generate-omp-mcp-config" ''
+    set -euo pipefail
+    SECRETS="$HOME/config/nix_secrets"
+    SOURCE="$HOME/config/.omp/agent/mcp.json"
+    OUT="$HOME/.omp/agent/mcp.json"
+
+    if [ ! -f "$SECRETS" ]; then
+      echo "generate-omp-mcp-config: nix_secrets not found" >&2
+      exit 1
+    fi
+    if [ ! -f "$SOURCE" ]; then
+      echo "generate-omp-mcp-config: tracked mcp.json not found" >&2
+      exit 1
+    fi
+
+    set -a
+    # shellcheck disable=SC1090
+    source "$SECRETS"
+    set +a
+    if [ -z "''${MUNINN_MCP_URL:-}" ]; then
+      echo "generate-omp-mcp-config: MUNINN_MCP_URL is not set" >&2
+      exit 1
+    fi
+
+    mkdir -p "$(dirname "$OUT")"
+    ${pkgs.jq}/bin/jq --arg url "$MUNINN_MCP_URL" \
+      '.mcpServers.muninn = { type: "http", url: $url }' "$SOURCE" > "$OUT.tmp"
+    mv "$OUT.tmp" "$OUT"
+  '';
+in {
   home.file =
     {
       # ── Vault (Obsidian memory — separate git repo) ─────────────
@@ -33,6 +63,10 @@
       ".config/btop/btop.conf".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/btop/btop.conf";
       ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/btop/themes/catppuccin_mocha.theme";
     };
+
+  home.activation.generateOmpMcpConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    $DRY_RUN_CMD ${generateOmpMcpConfig}
+  '';
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────
   home.activation.generateMokka = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
