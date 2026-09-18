@@ -1,6 +1,6 @@
 ---
 name: mokka-wallpaper
-description: Use when modifying the Mokka procedural dynamic wallpaper generator — adding motifs, changing palettes, adjusting time slots, fixing generation or reload issues. Covers generate.py, activation hook, flag-based reload mechanism, and wallpapper binary management.
+description: Use when modifying the Mokka procedural dynamic wallpaper generator — adding motifs, changing palettes, adjusting time slots, fixing generation or reload issues, or exporting iPhone 16e dark/light PNGs from slot output. Covers generate.py, activation hook, flag-based reload mechanism, wallpapper binary management, and phone wallpaper exports.
 tags: [mokka, wallpaper, nix, catppuccin, macos]
 ---
 
@@ -79,3 +79,41 @@ This runs AFTER `exec zsh` restarts the shell, in terminal context where osascri
 | `Cannot decode date string` | Time format missing seconds | Use `HH:MM:SS` in SLOTS |
 | `ModuleNotFoundError: PIL` | Pillow not in Nix | Check `languages.nix` has `pillow` |
 | Wallpaper flickers then reverts | Something fighting the flag approach | Ensure `rebuild()` in init.nix does NOT set wallpaper |
+## Exporting iPhone 16e Wallpapers
+
+Use this when the Mac-generated backgrounds need matching phone wallpapers. This is an export step; do not modify `generate.py` or commit generated images.
+
+- Native target: `1170×2532` pixels, portrait PNG.
+- Dark source: `scripts/mokka/output/00_040000.png` (`latte_mix: 0.00`, pure Mocha).
+- Light source: `scripts/mokka/output/06_160000.png` (`latte_mix: 1.00`, pure Latte).
+- Preserve the composition with a centered aspect-ratio crop, then resize with `Image.Resampling.LANCZOS`.
+- Write only these files:
+  - `~/Downloads/mokka-iphone-16e-dark.png`
+  - `~/Downloads/mokka-iphone-16e-light.png`
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+from PIL import Image
+
+source_dir = Path("scripts/mokka/output")
+output_dir = Path.home() / "Downloads"
+output_dir.mkdir(exist_ok=True)
+target = (1170, 2532)
+sources = {
+    "mokka-iphone-16e-dark.png": "00_040000.png",
+    "mokka-iphone-16e-light.png": "06_160000.png",
+}
+
+for output_name, source_name in sources.items():
+    image = Image.open(source_dir / source_name).convert("RGB")
+    crop_width = round(image.height * target[0] / target[1])
+    left = (image.width - crop_width) // 2
+    image = image.crop((left, 0, left + crop_width, image.height))
+    image.resize(target, Image.Resampling.LANCZOS).save(
+        output_dir / output_name, format="PNG", optimize=True
+    )
+PY
+```
+
+Verify both files exist, are `1170×2532`, and visually inspect them before reporting completion. If the generator changes its output naming or slot order, select sources by the slot's `latte_mix` value rather than blindly reusing filenames.

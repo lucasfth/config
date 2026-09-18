@@ -1,4 +1,4 @@
-import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -124,9 +124,14 @@ export async function buildSessionContext(project: Project, client: VaultClient)
   }
 }
 
-export default function muninnHook(pi: HookAPI): void {
-  pi.on("context", async () => {
+export default function muninnExtension(pi: ExtensionAPI): void {
+  let injected = false;
+
+  pi.on("before_agent_start", async () => {
+    if (injected) return;
+    injected = true;
+
     const content = await buildSessionContext(detectProject(), new McpVaultClient());
-    return { messages: [{ role: "user" as const, content }] };
+    return { message: { customType: "muninn-context", content } };
   });
 }

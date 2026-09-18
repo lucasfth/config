@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildSessionContext, readMuninnEndpoint, type Project, type VaultClient } from "./muninn";
+import muninnExtension, { buildSessionContext, readMuninnEndpoint, type Project, type VaultClient } from "../extensions/muninn";
 
 const project: Project = { org: "lucasfth", repo: "config", branch: "main" };
 const client: VaultClient = {
@@ -54,4 +54,16 @@ test("reads the endpoint from generated MCP configuration", () => {
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("injects Muninn context before the agent starts without replacing the conversation", () => {
+  const handlers: Record<string, unknown> = {};
+  muninnExtension({
+    on: (event: string, handler: unknown) => {
+      handlers[event] = handler;
+    },
+  } as never);
+
+  expect(handlers.before_agent_start).toBeDefined();
+  expect(handlers.context).toBeUndefined();
 });
