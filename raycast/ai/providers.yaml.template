@@ -1,0 +1,20 @@
+providers:
+  - id: mimer
+    name: Mimer
+    base_url: ${MIMER_BASE_URL}/v1
+    models:
+      - id: Qwen3.8-27B-UD-Q6_K_L.gguf
+        name: Qwen3.8-27B (Mimer)
+        description: Qwen3.8-27B served by Mimer
+        context: 262144
+        abilities:
+          temperature:
+            supported: true
+          vision:
+            supported: false
+          system_message:
+            supported: true
+          tools:
+            supported: true
+          reasoning_effort:
+            supported: false

@@ -34,6 +34,37 @@
       '.mcpServers.muninn = { type: "http", url: $url }' "$SOURCE" > "$OUT.tmp"
     mv "$OUT.tmp" "$OUT"
   '';
+
+  generateRaycastAiProviders = pkgs.writeShellScript "generate-raycast-ai-providers" ''
+    set -euo pipefail
+    SECRETS="$HOME/config/nix_secrets"
+    SOURCE="$HOME/config/raycast/ai/providers.yaml.template"
+    OUT="$HOME/.local/state/raycast-ai/providers.yaml"
+
+    if [ ! -f "$SECRETS" ]; then
+      echo "generate-raycast-ai-providers: nix_secrets not found" >&2
+      exit 1
+    fi
+    if [ ! -f "$SOURCE" ]; then
+      echo "generate-raycast-ai-providers: tracked template not found" >&2
+      exit 1
+    fi
+
+    set -a
+    # shellcheck disable=SC1090
+    source "$SECRETS"
+    set +a
+    if [ -z "''${ECORAY_MIMER_IP:-}" ]; then
+      echo "generate-raycast-ai-providers: ECORAY_MIMER_IP is not set" >&2
+      exit 1
+    fi
+
+    umask 077
+    mkdir -p "$(dirname "$OUT")"
+    export MIMER_BASE_URL="http://''${ECORAY_MIMER_IP}:8080"
+    ${pkgs.gettext}/bin/envsubst '$MIMER_BASE_URL' < "$SOURCE" > "$OUT.tmp"
+    mv "$OUT.tmp" "$OUT"
+  '';
 in {
   home.file =
     {
@@ -56,6 +87,12 @@ in {
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
 
+      # ── Raycast AI custom providers ────────────────────────────────
+      ".config/raycast/ai/providers.yaml" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/state/raycast-ai/providers.yaml";
+      };
+
       # ── Raycast Script Commands ───────────────────────────────────
       ".local/share/raycast-scripts/ask-huginn.sh".source = "${flakeDir.outPath}/raycast-scripts/ask-huginn.sh";
       ".local/share/raycast-scripts/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
@@ -67,6 +104,10 @@ in {
   home.activation.generateOmpMcpConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateOmpMcpConfig}
   '';
+
+  home.activation.generateRaycastAiProviders = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+    $DRY_RUN_CMD ${generateRaycastAiProviders}
+  '');
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────
   home.activation.generateMokka = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
