@@ -14,6 +14,7 @@ From the Mac:
 ```sh
 ssh sigyn
 sigyn-vnc capture /tmp/sigyn.png
+sigyn-screen
 ```
 
 From Loki:
@@ -23,7 +24,9 @@ ssh -o BatchMode=yes sigyn id -un
 ~/.local/bin/sigyn-vnc capture ~/.config/sigyn/screen.png
 ```
 
-The VNC helper creates a short-lived Unix-socket SSH tunnel. VNC listens only on iPad loopback; never connect to or expose TCP 5901 directly. SSH accepts keys for `mobile`, refuses password authentication and root login, and listens only on Sigyn's assigned Tailscale IPv4.
+`sigyn-vnc` creates a short-lived Unix-socket SSH tunnel for scripted capture and input. `sigyn-screen` opens native macOS Screen Sharing through an on-demand dynamic TCP tunnel bound only to Mac loopback; closing the Screen Sharing session or pressing `Ctrl-C` removes the tunnel. If Screen Sharing requests authentication, use the TrollVNC password stored at `~/.config/sigyn/vnc-password`; it is not the Sigyn sudo password, iPad unlock code, or Mac login password. Never print or put that credential on a command line.
+
+VNC listens only on iPad loopback; never connect to or expose TCP 5901 directly. SSH accepts keys for `mobile`, refuses password authentication and root login, and listens only on Sigyn's assigned Tailscale IPv4.
 
 A fresh screenshot is required before each new UI action. A stale frame is not proof that the display is live or unlocked. `sigyn-vnc home` can wake the display but cannot authenticate. Protected apps require local unlock; no passcode is stored for agents.
 
@@ -69,7 +72,7 @@ Do not reinstall Sileo, OpenSSH, ElleKit, PreferenceLoader, or TrollVNC merely b
 ## Durable sources
 
 - Mac alias: `nix/common/ssh.nix`, private `SIGYN_USER`/`SIGYN_IP`, and bare shell alias in `nix/common/shell/aliases.nix`.
-- Client: tracked `scripts/sigyn-vnc`, deployed as `~/.local/bin/sigyn-vnc`.
+- Clients: tracked `scripts/sigyn-vnc` and `scripts/sigyn-screen`, deployed as `~/.local/bin/sigyn-vnc` and `~/.local/bin/sigyn-screen`.
 - Patched package: `~/.local/share/sigyn/trollvnc-3.2-272-3327a3a-rootless.deb`.
 - Private credentials: Mac and Loki `~/.config/sigyn/vnc-password`; never print or record their values. Loki uses `~/.ssh/id_ed25519_sigyn`.
 - Full runbook: Muninn `tech/Sigyn-Operations-and-Recovery.md`.
