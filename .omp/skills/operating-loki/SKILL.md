@@ -16,6 +16,7 @@ ssh loki
 - Use the configured `loki` SSH alias; keep direct network identifiers out of this skill and its commands.
 - Loki is Termux, not a systemd host. Do not use `systemctl`, `journalctl`, or `ss`.
 - Gateway state and logs live under `~/.hermes/`.
+- For iPad SSH/VNC, lock-state behavior, or post-restart recovery, use **operating-sigyn**. Loki's matching runtime guide is `~/.hermes/skills/productivity/apple-device-automation/SKILL.md`.
 
 ## First triage
 

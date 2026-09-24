@@ -1,0 +1,93 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["vncdotool==1.4.2", "cryptography<48"]
+# ///
+"""Control Sigyn through a short-lived SSH tunnel; never expose a local TCP port."""
+
+import argparse
+import os
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+
+from vncdotool import api
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--capture", type=Path, help="save the screen after an input action")
+    commands = parser.add_subparsers(dest="action", required=True)
+    commands.add_parser("capture").add_argument("path", type=Path)
+    commands.add_parser("home", help="press the physical Home button (does not unlock)")
+    click = commands.add_parser("click")
+    click.add_argument("x", type=int)
+    click.add_argument("y", type=int)
+    commands.add_parser("key").add_argument("key")
+    commands.add_parser("type").add_argument("text")
+    scroll = commands.add_parser("scroll")
+    scroll.add_argument("x", type=int)
+    scroll.add_argument("y", type=int)
+    scroll.add_argument("direction", choices=["up", "down"])
+    args = parser.parse_args()
+    password = (Path.home() / ".config/sigyn/vnc-password").read_text().strip()[:8]
+
+    with tempfile.TemporaryDirectory(prefix="sigyn-vnc-") as temporary:
+        endpoint = Path(temporary) / "vnc.sock"
+        tunnel = subprocess.Popen([
+            "ssh", "-N", "-T", "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=10",
+            "-o", "ExitOnForwardFailure=yes",
+            "-L", f"{endpoint}:127.0.0.1:5901", "sigyn",
+        ])
+        try:
+            deadline = time.monotonic() + 12
+            while not endpoint.exists():
+                if tunnel.poll() is not None:
+                    raise RuntimeError("Sigyn SSH tunnel exited before becoming ready")
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("Sigyn SSH tunnel did not become ready")
+                time.sleep(0.05)
+            client = api.connect(str(endpoint), password=password, timeout=20)
+            try:
+                # Establish framebuffer geometry before sending scaled touch coordinates.
+                client.refreshScreen()
+                if args.action == "click":
+                    client.mouseMove(args.x, args.y)
+                    client.mouseDown(1)
+                    time.sleep(0.12)
+                    client.mouseUp(1)
+                elif args.action == "home":
+                    client.mouseDown(3)
+                    time.sleep(0.12)
+                    client.mouseUp(3)
+                elif args.action == "key":
+                    client.keyPress(args.key)
+                elif args.action == "type":
+                    for character in args.text:
+                        client.keyPress(character)
+                elif args.action == "scroll":
+                    client.mouseMove(args.x, args.y)
+                    # TrollVNC's default wheel mode maps deltas to finger drags.
+                    client.mousePress(4 if args.direction == "down" else 5)
+                if args.action != "capture":
+                    time.sleep(1.5)
+                destination = args.path if args.action == "capture" else args.capture
+                if destination:
+                    client.captureScreen(str(destination))
+                    print(destination)
+            finally:
+                client.disconnect()
+        finally:
+            tunnel.terminate()
+            try:
+                tunnel.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                tunnel.kill()
+                tunnel.wait()
+
+
+if __name__ == "__main__":
+    main()

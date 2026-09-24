@@ -80,6 +80,7 @@ in {
 
       # ── config-add helper (cross-platform) ────────────────────
       ".local/bin/config-add".source = "${flakeDir.outPath}/scripts/config-add";
+      ".local/bin/sigyn-vnc".source = "${flakeDir.outPath}/scripts/sigyn-vnc";
     }
     // lib.optionalAttrs pkgs.stdenv.isDarwin {
       # ── macOS-only dotfiles ─────────────────────────────────────

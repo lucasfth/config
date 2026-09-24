@@ -58,6 +58,11 @@
     emit "sep ecoray-pi"       ECORAY_PI_USER       ECORAY_PI_IP
     emit "plato"               PLATO_USER           PLATO_IP
     emit "loki"                TERMUX_USER          TERMUX_IP          TERMUX_PORT
+    if [ -n "''${SIGYN_USER:-}" ] && [ -n "''${SIGYN_IP:-}" ]; then
+      emit "sigyn" SIGYN_USER SIGYN_IP
+      echo "    IdentityFile ~/.ssh/id_ed25519" >> "$OUT"
+      echo "    StrictHostKeyChecking yes" >> "$OUT"
+    fi
     emit "windows"             WINDOWS_USER         WINDOWS_IP
 
     echo "gen-ssh-ecoray: wrote $(wc -l < "$OUT") lines to $OUT" >&2

@@ -9,6 +9,7 @@
     # Host resolution (user + IP + port) is handled by ~/.ssh/config,
     # generated from env vars in ~/config/nix_secrets by nix/common/ssh.nix.
     alias loki='ssh loki'
+    alias sigyn='ssh sigyn'
     alias ssh-windows='ssh windows'
     alias se1='ssh se1'
     alias se2='ssh se2'
