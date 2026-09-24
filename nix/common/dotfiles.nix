@@ -87,6 +87,7 @@ in {
       ".aerospace.toml".source = "${flakeDir.outPath}/.aerospace.toml";
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
+      ".local/bin/sigyn-screen".source = "${flakeDir.outPath}/scripts/sigyn-screen";
 
       # ── Raycast AI custom providers ────────────────────────────────
       ".config/raycast/ai/providers.yaml" = {

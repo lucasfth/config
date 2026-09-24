@@ -23,6 +23,10 @@ z <dirname>              # jump to frecent directory (replaced z plugin)
 delta                    # wired as git pager — git diff/show/log/blame
 #                        n/N jumps between diff sections, / searches
 
+# Sigyn
+sigyn                   # SSH shell over Tailscale
+sigyn-screen            # native Screen Sharing via an on-demand SSH tunnel
+
 # direnv — per-project env auto-loading
 echo 'use flake' > .envrc && direnv allow   # auto-load flake on cd
 echo 'use nixpkgs#python312' > .envrc        # auto-load python on cd
@@ -68,6 +72,8 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
   scripts/
     config-add             # helper: add packages/aliases to the right file
     nix-health             # detects a missing Nix store, profile, or login shell
+    sigyn-vnc             # short-lived scripted VNC actions over SSH
+    sigyn-screen          # on-demand native Screen Sharing over SSH
   starship.toml            # prompt
   config.ghostty           # terminal
   .aerospace.toml          # window manager

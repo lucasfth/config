@@ -85,7 +85,7 @@ The original plan used a Nix systemd user service (`nix/common/services/gpu-serv
 
 ## Network
 
-All services listen on `0.0.0.0` (accessible via Tailscale at `100.123.59.91`):
+All services listen on `0.0.0.0` and are reachable through Freyr's private Tailscale address:
 - Ports 22 (SSH), 8081, 8082, 9090, 5000, 8083, 11434 open via firewall
 - Tailscale provides secure connectivity for remote clients (Klaus VPS)
 

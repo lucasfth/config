@@ -46,6 +46,8 @@ All commands and aliases defined in this config, grouped by category.
 | `plato` | Plato |
 | `ssh-termux` | Android (Termux) |
 | `ssh-windows` | Windows machine |
+| `sigyn` | Sigyn iPad shell over Tailscale |
+| `sigyn-screen` | Open Sigyn in macOS Screen Sharing through a temporary SSH tunnel; close the app or press `Ctrl-C` to stop |
 
 Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `nix_secrets`.
 
