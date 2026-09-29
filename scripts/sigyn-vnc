@@ -7,12 +7,61 @@
 
 import argparse
 import os
+import plistlib
 import subprocess
 import tempfile
 import time
 from pathlib import Path
 
 from vncdotool import api
+
+MANAGED_PREFERENCES = "/var/jb/Library/PreferenceBundles/TrollVNCPrefs.bundle/Managed.plist"
+SSH_OPTIONS = (
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=yes",
+    "-o", "ConnectTimeout=10",
+)
+
+
+def refresh_vnc_password() -> str:
+    result = subprocess.run(
+        ["ssh", *SSH_OPTIONS, "sigyn", "cat", MANAGED_PREFERENCES],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"could not read Sigyn's managed TrollVNC credential (SSH exit {result.returncode})"
+        )
+    try:
+        preferences = plistlib.loads(result.stdout)
+    except plistlib.InvalidFileException as error:
+        raise RuntimeError("Sigyn's managed TrollVNC preferences are not a valid plist") from error
+    password = preferences.get("FullPassword")
+    if not isinstance(password, str) or len(password) < 8:
+        raise RuntimeError("Sigyn's managed TrollVNC credential is missing or shorter than 8 characters")
+
+    password_path = Path.home() / ".config/sigyn/vnc-password"
+    cached = password_path.read_text().strip() if password_path.exists() else None
+    if cached != password:
+        password_path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        descriptor, temporary_path = tempfile.mkstemp(
+            prefix=".vnc-password.", dir=password_path.parent
+        )
+        try:
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "w") as stream:
+                stream.write(password + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary_path, password_path)
+        finally:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
+    return password[:8]
 
 
 def main():
@@ -22,6 +71,7 @@ def main():
     commands = parser.add_subparsers(dest="action", required=True)
     commands.add_parser("capture").add_argument("path", type=Path)
     commands.add_parser("home", help="press the physical Home button (does not unlock)")
+    commands.add_parser("unlock", help="wake and unlock the passcode-free screen")
     click = commands.add_parser("click")
     click.add_argument("x", type=int)
     click.add_argument("y", type=int)
@@ -32,13 +82,12 @@ def main():
     scroll.add_argument("y", type=int)
     scroll.add_argument("direction", choices=["up", "down"])
     args = parser.parse_args()
-    password = (Path.home() / ".config/sigyn/vnc-password").read_text().strip()[:8]
+    password = refresh_vnc_password()
 
     with tempfile.TemporaryDirectory(prefix="sigyn-vnc-") as temporary:
         endpoint = Path(temporary) / "vnc.sock"
         tunnel = subprocess.Popen([
-            "ssh", "-N", "-T", "-o", "BatchMode=yes",
-            "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=10",
+            "ssh", "-N", "-T", *SSH_OPTIONS,
             "-o", "ExitOnForwardFailure=yes",
             "-L", f"{endpoint}:127.0.0.1:5901", "sigyn",
         ])
@@ -63,6 +112,26 @@ def main():
                     client.mouseDown(3)
                     time.sleep(0.12)
                     client.mouseUp(3)
+                elif args.action == "unlock":
+                    client.mouseDown(3)
+                    time.sleep(0.12)
+                    client.mouseUp(3)
+                    time.sleep(2)
+                    width, height = client.screen.size
+                    x = width // 2
+                    start_y = round(height * 15 / 16)
+                    end_y = round(height * 95 / 288)
+                    client.mouseMove(x, start_y)
+                    client.mouseDown(1)
+                    time.sleep(0.3)
+                    for step in range(1, 25):
+                        client.mouseMove(
+                            x,
+                            round(start_y + (end_y - start_y) * step / 24),
+                        )
+                        time.sleep(0.05)
+                    client.mouseUp(1)
+                    time.sleep(2)
                 elif args.action == "key":
                     client.keyPress(args.key)
                 elif args.action == "type":

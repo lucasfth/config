@@ -25,7 +25,7 @@ delta                    # wired as git pager — git diff/show/log/blame
 
 # Sigyn
 sigyn                   # SSH shell over Tailscale
-sigyn-screen            # native Screen Sharing via an on-demand SSH tunnel
+sigyn-screen            # auto-unlock + native Screen Sharing over an SSH tunnel
 
 # direnv — per-project env auto-loading
 echo 'use flake' > .envrc && direnv allow   # auto-load flake on cd
