@@ -3,6 +3,10 @@
 # MacOS
 .DS_Store
 
+# Python generated artifacts
+__pycache__/
+*.py[cod]
+
 # Claude (deleted — blanket ignore if recreated)
 /.claude/
 # Nix build artifacts

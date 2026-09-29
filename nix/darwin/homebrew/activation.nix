@@ -36,6 +36,17 @@
     fi
   '';
 
+  displayLinkUpdateScript = ''
+    if sudo -u ${user} -H /opt/homebrew/bin/brew list --cask displaylink >/dev/null 2>&1; then
+      echo "==> Checking DisplayLink Manager for updates..."
+      if ! sudo -u ${user} -H /opt/homebrew/bin/brew update; then
+        echo "warning: could not refresh Homebrew metadata; keeping the installed DisplayLink version" >&2
+      elif ! sudo -u ${user} -H /opt/homebrew/bin/brew upgrade --cask displaylink; then
+        echo "warning: could not upgrade DisplayLink Manager; keeping the installed version" >&2
+      fi
+    fi
+  '';
+
   brewVulnsScript = ''
     echo "==> Scanning brew packages for known vulnerabilities..."
     VULNS=$(/opt/homebrew/bin/brew vulns --json --severity high 2>/dev/null || true)
@@ -63,10 +74,11 @@ in {
     ${brewTrustScript}
   '';
 
-  # Brew 5.x cleanup + CVE scan — both run after homebrew bundle finishes.
+  # Brew 5.x cleanup, targeted DisplayLink update, and CVE scan run after Homebrew Bundle.
   system.activationScripts.postActivation.text = ''
     if command -v /opt/homebrew/bin/brew >/dev/null 2>&1; then
       ${brewCleanupScript}
+      ${displayLinkUpdateScript}
       ${brewVulnsScript}
       ${moleCompletionScript}
     fi

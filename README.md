@@ -3,7 +3,7 @@
 ## Commands
 
 ```bash
-nrs                     # rebuild everything + reload shell (current window)
+nrs                     # rebuild + check DisplayLink updates + reload shell
                         # other windows: omz reload
 nix-search <name>       # find a package in nixpkgs
 nix-which <tool>        # check which version (shows Nix vs Brew)
@@ -123,6 +123,24 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
 | Change macOS settings | — | Edit `nix/darwin/system.nix` | `nrs` |
 | Change borders colors | — | Edit `nix/darwin/launchd.nix` | `nrs` |
 | Change git config | — | Edit `nix/common/git.nix` | `nrs` |
+
+### DisplayLink Manager
+
+DisplayLink Manager is installed from the Homebrew `displaylink` cask declared
+in `nix/darwin/homebrew/casks.nix`. Each `nrs` checks for and attempts to install
+DisplayLink updates; other outdated formulas and casks are left unchanged.
+Network or Homebrew errors produce a warning without failing the system rebuild.
+Reboot after a version change so the login-screen agent and ServiceManagement
+helpers load the same build.
+
+Verify the managed installation with:
+
+```bash
+brew list --cask --versions displaylink
+defaults read /Applications/DisplayLink\ Manager.app/Contents/Info.plist CFBundleShortVersionString
+/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' /Library/LaunchAgents/com.displaylink.loginscreen.plist
+```
+
 ## New machine setup
 
 ### Before you start (on old machine)

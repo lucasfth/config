@@ -45,6 +45,7 @@
 
     # ── Media & graphics ────────────────────────────────────
     "betterdisplay"
+    "displaylink"
     "gyroflow"
     "handbrake-app"
     "prince"

@@ -4,7 +4,7 @@ All commands and aliases defined in this config, grouped by category.
 
 ## Rebuild & System
 
-| `nrs` | Rebuild system + reload shell (switch only, no GC) |
+| `nrs` | Rebuild system, check for DisplayLink Manager updates, and reload shell |
 | `nix-clean` | Garbage collect old generations (user + system) |
 | `nix-update` | Update flake.lock + rebuild + reload |
 | `nix-rollback` | List generations, show rollback command |
