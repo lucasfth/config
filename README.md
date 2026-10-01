@@ -62,6 +62,40 @@ direnv allow
 
 Open a **new terminal** (or `exec zsh`) once after first setup for these to load.
 
+## Shell Discovery
+
+The shell uses Starship, Oh My Zsh's Git plugin, syntax highlighting,
+autosuggestions, zoxide, direnv and fzf. Nix provides fzf-tab and loads it after
+completion initialization but before autosuggestions.
+
+Useful shortcuts that are easy to miss:
+
+| Keys | Action |
+|------|--------|
+| `Ctrl+X c` / `Ctrl+X Ctrl+E` | Edit a long command in Vim; `:wq` returns it to the shell without executing |
+| `Ctrl+_` | Undo the last command-line edit |
+| `Space` after `!!` or `!$` | Expand the history reference before execution |
+| `Tab` | Fuzzy completions with directory previews; a shared prefix may need a second Tab |
+| `Ctrl+R` | Fuzzy history search |
+| `Ctrl+P/N` | Prefix-based history navigation |
+| `Ctrl+X Ctrl+Y` | Copy the current command to the macOS clipboard |
+| `Ctrl+L` | Clear the visible screen without losing the command buffer |
+| `Ctrl+X Ctrl+L` | Clear screen/scrollback without losing the command buffer |
+| `Ctrl+X g c` | Insert a Git commit template without executing it |
+
+Type `README.md` to view it with `bat`, `flake.nix` or `app.vue` to edit in VS Code,
+or `starship.toml` to edit in Vim. File handlers and keyboard customizations live
+in `nix/common/shell/interactive.zsh`, linked as `~/.zshrc_local`. Edit that file
+and run `omz reload` to apply changes without a system rebuild.
+Use named paths such as `ls ~config` and `cd ~code`. For batch renames, start
+with `zmv -n '(*).log' '$1.txt'` to preview changes.
+
+The [command reference](COMMANDS.md#shell-keyboard-shortcuts) contains the full
+shortcut table, suffix list, quoting caveats, and history/environment guidance.
+The editor widget, undo and `magic-space` were already provided by Oh My Zsh.
+The tracked config selects Vim and maps both editor sequences explicitly;
+`Ctrl+X c` replaces the former spelling-correction binding.
+
 ## Where everything lives
 
 ```
@@ -207,6 +241,63 @@ git add *.rayconfig && git commit -m "backup: raycast settings"
 
 Custom scripts (like `invert-scroll.applescript`) live in `raycast-scripts/`
 and are symlinked into Raycast's extensions folder by `common/dotfiles.nix`.
+
+### Shell Discovery Extension
+
+`raycast/shell-discovery/` contains a native Raycast extension, separate from
+Script Commands:
+
+- **Daily Shell Tip:** a visible card with one local-calendar-day tip.
+- **Shell Tip Menu Bar:** the compact `Zsh` widget with copy, learned and next-tip
+  actions.
+- **Shell Cheat Sheet:** searchable commands and shortcuts with examples,
+  category filters, copy actions and learned/unlearned tracking.
+- **Ask Shell Discovery:** Raycast AI searches the same catalogue for configured
+  shortcuts, commands, file handlers, examples and cautions.
+
+The extension counts matching entries in recent local Zsh history and prefers
+unlearned tips with the lowest counts: unseen commands first, then rarely used
+commands. Each tool has its own count, so frequent `rg` use does not hide `jq`.
+Open cards and the cheat sheet rescan every 30 seconds; the menu bar refreshes
+hourly and when opened. A daily selection remains stable unless it becomes
+learned or another tip has a lower usage count.
+Individual tip cards and the menu show only that tip's usage. The catalogue-wide
+scan summary stays in the cheat sheet's overview, not inside individual tips.
+History-read errors remain visible.
+
+Counts cover the recent history tail, not lifetime executions. Zsh deduplication
+can remove repeated commands and underestimate use. Key bindings do not leave
+history records, so shortcut use remains unknown until you mark the tip learned.
+An absent history entry is a discovery hint, not proof of non-use. No raw history
+entries are displayed, persisted by the extension, or sent to a service.
+
+In AI Chat, type `@` and select **Shell Discovery**, or open **Ask Shell Discovery**
+from Raycast search. Try "How do I clear the screen without losing my command?"
+or "How do I edit my current command in Vim?". The AI tool searches catalogue
+text only; it does not read history, learned state or usage counts, and cannot
+execute commands. Search supports keywords, literal shortcuts and categories;
+an empty query returns the full catalogue.
+
+Install or update the local extension:
+
+```bash
+cd ~/config/raycast/shell-discovery
+npm ci
+npm run build
+npm run dev
+```
+
+The development command imports the extension into Raycast and watches its
+source. Open **Daily Shell Tip** for the card, or **Shell Cheat Sheet** to browse
+the full catalogue. Run **Shell Tip Menu Bar** once to activate the `Zsh` widget.
+If it disappeared while updating from the earlier menu-only Daily Shell Tip,
+activate the new menu command rather than the card.
+
+Learned tips and the daily selection persist in Raycast's local extension
+storage. Configure the history path in the extension's preferences if your shell
+does not use `~/.zsh_history`. The terminal icon has transparent outer corners.
+
+This is a local extension; these commands do not publish it to the Raycast Store.
 
 ## What's gitignored (never pushed)
 

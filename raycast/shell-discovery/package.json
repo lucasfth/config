@@ -1,0 +1,64 @@
+{
+  "name": "shell-discovery",
+  "title": "Shell Discovery",
+  "description": "Learn useful Zsh shortcuts and commands from a local cheat sheet.",
+  "icon": "icon.png",
+  "author": "lucasfth",
+  "license": "MIT",
+  "categories": ["Productivity", "Developer Tools"],
+  "platforms": ["macOS"],
+  "commands": [
+    {
+      "name": "daily-tip",
+      "title": "Daily Shell Tip",
+      "description": "Show one shell tip in a visible card.",
+      "mode": "view"
+    },
+    {
+      "name": "daily-tip-menu",
+      "title": "Shell Tip Menu Bar",
+      "description": "Keep a compact daily shell tip in the menu bar.",
+      "mode": "menu-bar",
+      "interval": "1h"
+    },
+    {
+      "name": "shell-cheat-sheet",
+      "title": "Shell Cheat Sheet",
+      "description": "Search and learn the local shell cheat sheet.",
+      "mode": "view"
+    }
+  ],
+  "tools": [
+    {
+      "name": "search-cheat-sheet",
+      "title": "Search Shell Cheat Sheet",
+      "description": "Search configured shell shortcuts, commands, file handlers, and cautions. Read-only: does not read history or execute commands."
+    }
+  ],
+  "ai": {
+    "instructions": "Use search-cheat-sheet to answer questions about this configured shell, not generic Zsh defaults. Search with concise keywords, a command, a shortcut, or a category; omit the query to browse the catalogue. Every query word must match, so retry with fewer keywords if no tips match. Explain the returned examples, shortcuts, and cautions accurately. Do not invent configured bindings or usage counts. This tool neither reads personal history nor executes commands."
+  },
+  "preferences": [
+    {
+      "name": "historyPath",
+      "title": "Zsh History Path",
+      "description": "Optional path used to identify commands already used locally.",
+      "type": "textfield",
+      "default": "~/.zsh_history",
+      "required": false
+    }
+  ],
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@raycast/api": "1.104.22"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "2.2.0",
+    "typescript": "5.9.2"
+  }
+}

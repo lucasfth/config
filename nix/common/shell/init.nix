@@ -42,7 +42,7 @@
       source "$HOME/config/nix_secrets"
     fi
 
-    # ── Local overrides (for quick experiments, no rebuild needed) ──
+    # ── Reloadable shell customizations ──────────────────────
     if [ -f "$HOME/.zshrc_local" ]; then
       source "$HOME/.zshrc_local"
     fi

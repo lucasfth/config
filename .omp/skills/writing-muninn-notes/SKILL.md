@@ -33,7 +33,19 @@ tags:
 7. For every new canonical note, call `vault_write` for `_INDEX.md` and add its link in the folder section, preserving the index format and final newline. No exception and no conditional wording.
 8. Read back the note and index. Verify path, frontmatter, index link, and `content.endsWith("\n")` before reporting success.
 
-Use only Muninn MCP tools. Never access the local vault filesystem.
+## Access Path
+
+**Primary:** Muninn MCP tools (`vault_read`, `vault_write`, `vault_list`, `vault_search`, `vault_delete`).
+
+**Fallback:** When Muninn is down or unreachable, the same vault is available on the local filesystem at `~/vault` (a symlink to the git-backed vault). Lucas will state explicitly when the fallback is in effect. In fallback mode:
+
+- Use the built-in `read`, `write`, `edit`, `glob`, and `grep` tools instead of the MCP tools.
+- Map each MCP operation to its filesystem equivalent: `vault_read` → `read`, `vault_write` → `write`/`edit`, `vault_list` → `glob`, `vault_search` → `grep`, `vault_delete` → `rm`.
+- Every other rule in this skill still applies unchanged: folder choice, frontmatter, `_INDEX.md` update, single trailing newline, and read-back verification.
+- Do not modify `personal-notes/` (read-only, linking only).
+- The vault is git-backed; the 02:00 cron pushes. Commit manually only if Lucas asks.
+
+Never use the filesystem path while Muninn is reachable. Never use Muninn MCP tools while the fallback is declared in effect.
 
 Never describe the index update as optional. If the canonical link already exists, verify it instead of adding a duplicate.
 
