@@ -158,6 +158,15 @@ The tracked config selects Vim and maps both editor sequences explicitly;
 | Change borders colors | — | Edit `nix/darwin/launchd.nix` | `nrs` |
 | Change git config | — | Edit `nix/common/git.nix` | `nrs` |
 
+### Zig
+
+Zig 0.17.0 is pinned from the official Zig release tarballs in
+`nix/common/packages/languages.nix` for Apple Silicon Macs and x86_64 Linux
+(Freyr). The package is managed through Home Manager; apply it with `nrs`
+following the normal activation convention above. The Nix derivation copies
+the upstream compiler and standard library together and patches the Linux
+binary with nixpkgs' `autoPatchelfHook`.
+
 ### DisplayLink Manager
 
 DisplayLink Manager is installed from the Homebrew `displaylink` cask declared
