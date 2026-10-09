@@ -29,9 +29,19 @@
       exit 1
     fi
 
+    umask 077
     mkdir -p "$(dirname "$OUT")"
-    ${pkgs.jq}/bin/jq --arg url "$MUNINN_MCP_URL" \
-      '.mcpServers.muninn = { type: "http", url: $url }' "$SOURCE" > "$OUT.tmp"
+    if [ -n "''${COMPANY_LIBRARY_MCP_URL:-}" ] && [ -n "''${COMPANY_LIBRARY_MCP_TOKEN:-}" ]; then
+      ${pkgs.jq}/bin/jq --arg url "$MUNINN_MCP_URL" \
+        --arg library_url "$COMPANY_LIBRARY_MCP_URL" \
+        --arg library_token "$COMPANY_LIBRARY_MCP_TOKEN" \
+        '.mcpServers.muninn = { type: "http", url: $url }
+        | .mcpServers.company_library = { type: "http", url: $library_url, headers: { Authorization: ("Bearer " + $library_token) } }' \
+        "$SOURCE" > "$OUT.tmp"
+    else
+      ${pkgs.jq}/bin/jq --arg url "$MUNINN_MCP_URL" \
+        '.mcpServers.muninn = { type: "http", url: $url }' "$SOURCE" > "$OUT.tmp"
+    fi
     mv "$OUT.tmp" "$OUT"
   '';
 
