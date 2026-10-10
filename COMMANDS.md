@@ -113,12 +113,23 @@ before `direnv allow`; permission is never granted automatically by this config.
 | `sem` / `semd` | Ecoray Mac Mini (d = dev branch) |
 | `sep` | Ecoray Pi |
 | `plato` | Plato |
+| `post-sales` | Post-sales SSH shell; portable Catppuccin Zsh prompt, Git aliases, history, and completion |
 | `ssh-termux` | Android (Termux) |
 | `ssh-windows` | Windows machine |
 | `sigyn` | Sigyn iPad shell over Tailscale |
 | `sigyn-screen` | Wake and unlock passcode-free Sigyn, then open macOS Screen Sharing through a loopback-only SSH tunnel; the VNC password is remembered in Keychain |
 
 Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `nix_secrets`.
+
+The shared SSH-safe Starship prompt includes the remote hostname on the left,
+so it remains visible in narrow terminals. It uses the machine's hostname,
+not the SSH alias, and does not show it for local sessions.
+
+The post-sales Mac uses the portable Zsh setup without Nix or Homebrew. Its
+installed prompt shows the readable `post-sales` label on the right during SSH
+sessions, with the directory and Git status on the left and no trailing `%`.
+Git requires Apple's Command Line Tools (`xcode-select --install` on that Mac);
+they were absent when the shell was configured.
 
 ## Tools
 

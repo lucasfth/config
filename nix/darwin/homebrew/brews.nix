@@ -16,5 +16,6 @@
     "redis"
     "remindctl"
     "herdr"
+    "ykman"
   ];
 }

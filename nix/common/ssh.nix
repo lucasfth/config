@@ -57,6 +57,7 @@
     emit "sem ecoray-mac-mini" ECORAY_MAC_MINI_USER ECORAY_MAC_MINI_IP
     emit "sep ecoray-pi"       ECORAY_PI_USER       ECORAY_PI_IP
     emit "plato"               PLATO_USER           PLATO_IP
+    emit "post-sales"          POST_SALES_USER      POST_SALES_IP
     emit "loki"                TERMUX_USER          TERMUX_IP          TERMUX_PORT
     if [ -n "''${SIGYN_USER:-}" ] && [ -n "''${SIGYN_IP:-}" ]; then
       emit "sigyn" SIGYN_USER SIGYN_IP

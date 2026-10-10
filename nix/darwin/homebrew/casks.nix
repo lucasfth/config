@@ -37,6 +37,7 @@
     "raycast"
     "zotero"
     "onlyoffice"
+    "electrum"
 
     # ── Browsers ────────────────────────────────────────────
     "google-chrome"
@@ -49,10 +50,10 @@
     "gyroflow"
     "handbrake-app"
     "prince"
-    "spotify"
+    "crmne/tap/spotifast"
     "syntax-highlight"
 
-    # ── Utilities ───────────────────────────────────────────
+    "macpacker"
     "the-unarchiver"
     "typewhisper"
     "wave"

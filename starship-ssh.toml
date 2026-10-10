@@ -8,6 +8,7 @@ add_newline = false
 
 format = """
 →\
+$hostname\
 $directory\
 ${custom.giturl}\
 $git_branch\
@@ -20,6 +21,12 @@ $character\
 right_format = ""
 
 palette = "catppuccin_mocha"
+
+[hostname]
+ssh_only = true
+ssh_symbol = ""
+style = "teal"
+format = "[ $hostname ]($style)"
 
 [directory]
 style = "sapphire"

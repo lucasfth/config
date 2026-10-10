@@ -9,6 +9,8 @@ description: Use when Lucas asks to add, save, move, or update a non-retro note 
 
 Write vault-native notes, not loose Markdown files. The vault's current conventions determine folder, metadata, naming, and index placement.
 
+Muninn is the primary operational knowledge source for both Huginn and Loki. NEVER write incident notes, recovery history, runbooks, or duplicated vault information to Loki's `~/.hermes/README.md`. Use the canonical Muninn note and index instead; a local README is not a documentation fallback. If misplaced sections were added there, verify their content is preserved in Muninn, then remove only those additions and retain the original README.
+
 **Completion invariant:** A new canonical note is incomplete until `_INDEX.md` links it. A successful result MUST set `updatesIndex = true`; existing links are verified rather than duplicated.
 
 ## Required Workflow

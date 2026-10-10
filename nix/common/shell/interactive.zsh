@@ -1,5 +1,8 @@
 # Loaded through ~/.zshrc_local. Edit this file, then run omz reload.
 
+# Reloadable SSH shortcut; host details come from ~/.ssh/config.
+alias post-sales='ssh post-sales'
+
 # Open files by suffix without depending on EDITOR or VISUAL.
 alias -s vue=code ts=code tsx=code js=code jsx=code nix=code json=code
 alias -s py=code sh=code zsh=code go=code rs=code
