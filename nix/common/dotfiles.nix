@@ -72,7 +72,8 @@
     umask 077
     mkdir -p "$(dirname "$OUT")"
     export MIMER_BASE_URL="http://''${ECORAY_MIMER_IP}:8080"
-    ${pkgs.gettext}/bin/envsubst '$MIMER_BASE_URL' < "$SOURCE" > "$OUT.tmp"
+    export NEO_PROXY_URL NEO_PROXY_API_KEY
+    ${pkgs.gettext}/bin/envsubst '$MIMER_BASE_URL $NEO_PROXY_URL $NEO_PROXY_API_KEY' < "$SOURCE" > "$OUT.tmp"
     mv "$OUT.tmp" "$OUT"
   '';
 in {

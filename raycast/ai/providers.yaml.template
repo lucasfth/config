@@ -18,3 +18,176 @@ providers:
             supported: true
           reasoning_effort:
             supported: false
+  - id: neo-proxy
+    name: Neo CLI Proxy
+    base_url: ${NEO_PROXY_URL}/v1
+    api_keys:
+      neo-proxy: ${NEO_PROXY_API_KEY}
+    models:
+      # ── OpenAI (reasoning) ─────────────────────────────────────
+      - id: gpt-6-astra
+        name: GPT-6 Astra
+        description: OpenAI flagship reasoning model via Neo
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-6-sol
+        name: GPT-6 Sol
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-6-luna
+        name: GPT-6 Luna
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-6.1-sol
+        name: GPT-6.1 Sol
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-5.6-terra
+        name: GPT-5.6 Terra
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-5.6-sol
+        name: GPT-5.6 Sol
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-5.6-luna
+        name: GPT-5.6 Luna
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      - id: gpt-5.5
+        name: GPT-5.5
+        context: 400000
+        abilities:
+          temperature: { supported: false }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: true }
+      # ── Anthropic (Claude) ─────────────────────────────────────
+      - id: claude-opus-5-5
+        name: Claude Opus 5.5
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: claude-opus-5
+        name: Claude Opus 5
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: claude-sonnet-5-5
+        name: Claude Sonnet 5.5
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: claude-sonnet-5
+        name: Claude Sonnet 5
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: claude-fable-5-1
+        name: Claude Fable 5.1
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: true }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      # ── xAI (Grok) ─────────────────────────────────────────────
+      - id: grok-4.7
+        name: Grok 4.7
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: false }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: grok-4.6
+        name: Grok 4.6
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: false }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: grok-4.5
+        name: Grok 4.5
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: false }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      - id: grok-4.3
+        name: Grok 4.3
+        context: 200000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: false }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }
+      # ── DeepSeek ───────────────────────────────────────────────
+      - id: deepseek-flash
+        name: DeepSeek Flash
+        context: 128000
+        abilities:
+          temperature: { supported: true }
+          vision: { supported: false }
+          system_message: { supported: true }
+          tools: { supported: true }
+          reasoning_effort: { supported: false }

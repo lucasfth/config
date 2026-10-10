@@ -36,6 +36,7 @@
     "raycast"
     "zotero"
     "onlyoffice"
+    "electrum"
 
     # ── Browsers ────────────────────────────────────────────
     "google-chrome"
@@ -52,6 +53,7 @@
     "syntax-highlight"
 
     # ── Utilities ───────────────────────────────────────────
+    "macpacker"
     "the-unarchiver"
     "typewhisper"
     "wave"

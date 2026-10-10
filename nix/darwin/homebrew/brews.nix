@@ -17,5 +17,6 @@
     "remindctl"
     "spicy-lemonade/tap/salt" # Not SaltStack
     "herdr"
+    "ykman"
   ];
 }

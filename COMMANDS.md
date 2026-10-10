@@ -184,6 +184,10 @@ before `direnv allow`; permission is never granted automatically by this config.
 
 Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `nix_secrets`.
 
+The shared SSH-safe Starship prompt includes the remote hostname on the left,
+so it remains visible in narrow terminals. It uses the machine's hostname,
+not the SSH alias, and does not show it for local sessions.
+
 ## Tools
 
 | Command | Does |
