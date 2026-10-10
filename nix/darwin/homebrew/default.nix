@@ -19,6 +19,7 @@
     };
 
     taps = [
+      "crmne/tap" # spotifast
       "homebrew/services" # brew services (postgres, redis)
       "minio/stable" # minio-warp
       "multica-ai/tap" # multica

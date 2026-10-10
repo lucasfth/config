@@ -1,8 +1,8 @@
 ---
 type: skill
-tags: [freyr, nixos, ssh, sudo, tailscale, llama, ollama, llm, omp]
+tags: [freyr, nixos, ssh, sudo, tailscale, gpu, whisperx, embeddings, reranker]
 status: active
-updated: 2026-07-23
+updated: 2026-10-10
 ---
 
 # Sudo over SSH + Freyr
@@ -66,66 +66,27 @@ sleep 30 && ssh "$ECORAY_FREYR_USER@$ECORAY_FREYR_IP" 'tail -5 /tmp/build.log'
 - Gen 1: KDE Plasma, nixos-install, fallback (always boots)
 - Gen 25+: flake builds, Openbox + NVIDIA 3070, working
 
-## LLM services
+## GPU services (live 2026-10-10)
 
-Freyr runs three inference services, all reachable directly via Tailscale from Lucas's Mac:
+Launched by `~/start-gpu-services.sh` (unit `klaus-inference.service`, tmux session `klaus-inference`, socket `/tmp/tmux-1000/default`):
 
-| Port | Service | Model | GPU |
-|------|---------|-------|-----|
-| 8083 | llama.cpp | Qwen2.5-VL-7B-Instruct (Q4_K_M) | GPU 1 (RTX 5070 Ti) |
-| 11434 | Ollama | qwen2.5:7b-instruct | GPU 0 (RTX 3070) |
+| Port | Service | Model | GPU | Python env |
+|------|---------|-------|-----|------------|
+| 9090 | WhisperX (`server2.py`) | large-v3-turbo + pyannote | RTX 3070 (8 GB) | `~/inference-env` |
+| 8081 | Embeddings (`embedding_server.py`) | intfloat/multilingual-e5-large-instruct | RTX 5070 Ti (16 GB) | `~/inference-env-cu128` |
+| 8082 | Reranker (`reranker_server.py`) | BAAI/bge-reranker-v2-m3 | RTX 5070 Ti (16 GB) | `~/inference-env-cu128` |
+| 5000 | Kokoro TTS (`~/klaus-services/kokoro_server.py`) | Kokoro | CPU | `~/inference-env` |
+| 9880 | GPU pipeline worker (`gpu_pipeline_worker.py`) | | | `~/inference-env` |
 
-Also running: embedding server, reranker server, and `server2.py` (klaus-services).
-
-### Vision model (port 8083)
-
-```bash
-curl -s http://$ECORAY_FREYR_IP:8083/v1/models
-# → qwen25-vl-7b, multimodal
-```
-
-Server alias: `qwen25-vl-7b`. Runs inside a restart loop (`vision_server.sh`) inside tmux.
-
-### Ollama (port 11434)
+- The 5070 Ti needs `~/inference-env-cu128` (torch 2.14.1, CUDA 13, sm_120). The old `~/inference-env` (torch cu126) fails on it with "no kernel image is available".
+- Pin the card by UUID (`CUDA_VISIBLE_DEVICES=GPU-db9c3113-…` = 5070 Ti). nvidia-smi index order (bus) and CUDA index order (fastest first) differ.
+- Consumers: Klaus's memory search uses :8081; the company library on VPS1 uses :8082 for reranking.
+- Port 8083 (vision, Qwen2.5-VL) and 11434 (Ollama) are **not running**. This Mac's OMP config no longer uses them; `omp/models.yml` (Fylgje setup for remote machines) still lists `freyr-vision`/`freyr-ollama` and is stale.
 
 ```bash
-curl -s http://$ECORAY_FREYR_IP:11434/api/tags
-# → qwen2.5:7b-instruct
+curl -s http://$ECORAY_FREYR_IP:8081/health   # embeddings
+curl -s http://$ECORAY_FREYR_IP:8082/health   # reranker
+ssh $ECORAY_FREYR_USER@$ECORAY_FREYR_IP 'nvidia-smi --query-compute-apps=pid,gpu_bus_id,used_memory --format=csv,noheader'
 ```
 
-## OMP integration
-
-Freyr serves as the **vision** model role in OMP (`~/.omp/agent/config.yml`):
-
-```yaml
-modelRoles:
-  vision: freyr-vision/qwen25-vl-7b
-```
-
-Provider defined in `~/.omp/agent/models.yml`:
-
-```yaml
-providers:
-  freyr-vision:
-    baseUrl: http://$ECORAY_FREYR_IP:8083
-    auth: none
-    api: openai-completions
-    discovery:
-      type: llama.cpp
-
-  freyr-ollama:
-    baseUrl: http://$ECORAY_FREYR_IP:11434
-    api: openai-completions
-    discovery:
-      type: ollama
-```
-
-### Vision testing
-
-Vision works via the `inspect_image` tool (default disabled) or when OMP's main loop passes an image to the vision model. Direct API test:
-
-```bash
-curl -s http://$ECORAY_FREYR_IP:8083/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"qwen25-vl-7b","messages":[{"role":"user","content":[{"type":"text","text":"Describe this image"},{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}]}],"max_tokens":100}'
-```
+Details and history: Muninn `tech/091-Freyr-GPU-and-Interview-Transcription.md`.

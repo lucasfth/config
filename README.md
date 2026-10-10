@@ -27,6 +27,9 @@ delta                    # wired as git pager — git diff/show/log/blame
 sigyn                   # SSH shell over Tailscale
 sigyn-screen            # auto-unlock + native Screen Sharing over an SSH tunnel
 
+# Post-sales
+post-sales              # SSH with portable Catppuccin Zsh; post-sales label on the right
+
 # direnv — per-project env auto-loading
 echo 'use flake' > .envrc && direnv allow   # auto-load flake on cd
 echo 'use nixpkgs#python312' > .envrc        # auto-load python on cd
@@ -167,11 +170,54 @@ following the normal activation convention above. The Nix derivation copies
 the upstream compiler and standard library together and patches the Linux
 binary with nixpkgs' `autoPatchelfHook`.
 
+### Superbacked 2
+
+Superbacked **2.0.0-rc.3** is pinned in `nix/common/packages/apps.nix` for
+Apple Silicon Macs, using the official DMG with a fixed SHA-256 hash.
+Nix fixup is disabled to preserve the upstream app signature. Apply with `nrs`;
+the app is included in Home Manager's Applications, and the package exposes
+`superbacked` on the managed PATH without a shell alias or manual PATH entry.
+The CLI launcher executes the absolute app-bundle binary so Electron can find
+its helper apps; a direct executable symlink breaks interactive commands.
+Run `superbacked --help` to list CLI commands or `superbacked --version` to
+check the installed release.
+
+This is a [testing-only release candidate](https://superbacked.com/v2).
+Do not use it to protect real secrets.
+
+### Spotifast
+
+Spotifast replaces the official Spotify desktop app. It is managed through the
+upstream `crmne/tap/spotifast` Homebrew cask in
+`nix/darwin/homebrew/casks.nix`; its tap is declared in the adjacent `default.nix`.
+Apply with `nrs`. AeroSpace routes `rocks.spotifast.Spotifast` to workspace `M`.
+
+On first launch, accept macOS's Open confirmation, then choose **Sign in with
+Spotify**. Enable **Set up playback here** in the device menu for the separate
+local-playback approval. Spotify Premium is required. Offline downloads,
+lossless audio, and local-file playback are not supported; see the
+[upstream limitations](https://spotifast.rocks/what-spotify-allows/).
+
+Homebrew activation uses `cleanup = "none"`, so removing the Spotify declaration
+does not uninstall an existing copy. After confirming Spotifast opens, use
+`brew uninstall --cask spotify` without `--zap` to retain Spotify's user data.
+
+### MacPacker and MacTap
+
+MacPacker is managed as a Homebrew cask. MacTap 2.1.2 is pinned in
+`nix/common/packages/apps.nix` for Apple Silicon and fetched from its official
+GitHub release with a fixed SHA-256 hash; Nix fixup is disabled to preserve its
+signature. Apply changes with `nrs`. MacTap requires macOS 14.6+ and a MacBook
+with a supported motion sensor (M2 or later, or M1 Pro/Max/Ultra); enable
+Accessibility permission for shortcut actions.
+
 ### DisplayLink Manager
 
 DisplayLink Manager is installed from the Homebrew `displaylink` cask declared
-in `nix/darwin/homebrew/casks.nix`. Each `nrs` checks for and attempts to install
-DisplayLink updates; other outdated formulas and casks are left unchanged.
+in `nix/darwin/homebrew/casks.nix`. Each `nrs` checks the Homebrew pin first:
+pinned DisplayLink versions are retained without attempting an upgrade. Otherwise,
+activation checks for and attempts to install DisplayLink updates; other outdated
+formulas and casks are left unchanged.
 Network or Homebrew errors produce a warning without failing the system rebuild.
 Reboot after a version change so the login-screen agent and ServiceManagement
 helpers load the same build.
@@ -316,9 +362,11 @@ This is a local extension; these commands do not publish it to the Raycast Store
 
 **Nix:** CLI tools — git, gh, curl, fzf, bat, fd, jq, zoxide, delta, ripgrep, python, node, go, rust, zig, ffmpeg, imagemagick, pandoc, tesseract, cmake, gcc, and ~70 more. See `nix/common/packages/`.
 
-**Brew (formulas):** Tools not in nixpkgs — opencode, multica, claude-code, cmux, minio-warp, mole, nightlight, and others. See `nix/darwin/homebrew/brews.nix`.
+**Brew (formulas):** Tools not in nixpkgs — opencode, multica, claude-code, cmux, minio-warp, mole, nightlight, `ykman` (YubiKey Manager), and others. See `nix/darwin/homebrew/brews.nix`.
 
-**Brew (casks):** GUI apps — ghostty, zed, vscode, discord, signal, slack, telegram, obsidian, notion, bitwarden, raycast, google-chrome, zen, betterdisplay, and ~20 more. See `nix/darwin/homebrew/casks.nix`.
+**Brew (casks):** GUI apps — ghostty, zed, vscode, discord, signal, slack, telegram, obsidian, notion, bitwarden, raycast, google-chrome, zen, betterdisplay, Electrum, and ~20 more. See `nix/darwin/homebrew/casks.nix`.
+
+The Electrum cask is Intel-only and requires Rosetta 2 on Apple Silicon. If Rosetta is missing, install it with `softwareupdate --install-rosetta --agree-to-license`.
 
 **Brew services:** postgresql@14, redis — Nix modules aren't mature on macOS yet.
 
