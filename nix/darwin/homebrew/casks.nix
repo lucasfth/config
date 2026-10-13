@@ -49,7 +49,7 @@
     "gyroflow"
     "handbrake-app"
     "prince"
-    "spotify"
+    "crmne/tap/spotifast"
     "syntax-highlight"
 
     # ── Utilities ───────────────────────────────────────────

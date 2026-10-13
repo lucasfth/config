@@ -19,6 +19,7 @@
     };
 
     taps = [
+      "crmne/tap" # Spotifast native Spotify client
       "homebrew/services" # brew services (postgres, redis)
       "minio/stable" # minio-warp
       "multica-ai/tap" # multica

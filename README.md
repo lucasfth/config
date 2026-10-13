@@ -96,6 +96,16 @@ The editor widget, undo and `magic-space` were already provided by Oh My Zsh.
 The tracked config selects Vim and maps both editor sequences explicitly;
 `Ctrl+X c` replaces the former spelling-correction binding.
 
+## Music client
+
+Spotifast (`crmne/tap/spotifast`) replaces the official Spotify desktop app.
+Homebrew declarations intentionally exclude `spotify` so rebuilds do not reinstall it.
+Uninstall Spotify without `--zap` to retain its user data.
+AeroSpace routes new Spotifast windows to workspace `M`. Its Home Manager-managed
+config is a Nix-store snapshot: repository edits need activation before a reload
+can use them. Existing windows must be moved separately.
+
+
 ## Where everything lives
 
 ```

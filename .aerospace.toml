@@ -213,9 +213,9 @@ shift-down = ['volume set 0', 'mode main']
   if.window-title-regex-substring = '.*Picture-in-Picture.*'
   run = 'layout floating'
 
-# Spotify
+# Spotifast
 [[on-window-detected]]
-  if.app-id = 'com.spotify.client'
+  if.app-id = 'rocks.spotifast.Spotifast'
   run = 'move-node-to-workspace M'
 
 # Finder
