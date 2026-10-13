@@ -65,6 +65,7 @@ Type a filename as the command to use its default viewer or editor:
 | `.vue`, `.ts`, `.tsx`, `.js`, `.jsx`, `.nix`, `.json`, `.py`, `.sh`, `.zsh`, `.go`, `.rs` | VS Code (`code`) |
 | `.yaml`, `.yml`, `.toml` | Vim (`vim`) |
 | `.md`, `.txt`, `.log` | `bat` |
+| `.pub` | Copy file contents to the clipboard (`pbcopy`) |
 
 Examples: `README.md`, `flake.nix`, `report\ draft.md`.
 Fully quoting the command name suppresses alias expansion; use
@@ -105,12 +106,13 @@ before `direnv allow`; permission is never granted automatically by this config.
 
 | Command | Target |
 |---------|--------|
-| `se1` / `se1lv` | Ecoray VPS1 (lv = Louise workspace) |
-| `se2` | Ecoray VPS2 |
-| `se3` | Ecoray VPS3 |
+| `vps1` | Ecoray VPS1 |
+| `vps2` | Ecoray VPS2 |
 | `mimer` | Ecoray mimer (Ubuntu) |
 | `freyr` | Ecoray freyr (NixOS GPU server) |
-| `sem` / `semd` | Ecoray Mac Mini (d = dev branch) |
+| `mini` / `minid` | Ecoray Mac Mini (d = dev branch) |
+| `neo` | Neo (formerly post-sales) |
+| `ecoray3d` | Ecoray 3D server (root) |
 | `sep` | Ecoray Pi |
 | `plato` | Plato |
 | `ssh-termux` | Android (Termux) |

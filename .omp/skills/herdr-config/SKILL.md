@@ -31,7 +31,7 @@ Herdr config is managed centrally in the Nix config repo (`~/config`) and deploy
 - Config: symlinked by `nix/common/herdr.nix`
 - Update: `home-manager switch --flake ~/config#ecoray-admin@mimer`
 
-### se1, se2, se3 (non-Nix VPS)
+### vps1, vps2 (non-Nix VPS)
 - Binary + config: run `scripts/setup-herdr-remote.sh` from this repo
 - One-liner: `curl -fsSL https://raw.githubusercontent.com/lucasfth/config/main/scripts/setup-herdr-remote.sh | bash`
 - Re-run to update config after changes

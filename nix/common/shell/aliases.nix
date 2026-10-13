@@ -5,22 +5,6 @@
 }: {
   content = ''
 
-    # ── SSH aliases ───────────────────────────────────────────
-    # Host resolution (user + IP + port) is handled by ~/.ssh/config,
-    # generated from env vars in ~/config/nix_secrets by nix/common/ssh.nix.
-    alias loki='ssh loki'
-    alias sigyn='ssh sigyn'
-    alias ssh-windows='ssh windows'
-    alias se1='ssh se1'
-    alias se2='ssh se2'
-    alias se3='ssh se3'
-    alias mimer='ssh mimer'
-    alias freyr='ssh freyr'
-    alias sem='ssh sem'
-    alias sep='ssh sep'
-    alias plato='ssh plato'
-    alias se1lv='ssh -t se1 "cd .openclaw/workspace-louise && exec \$SHELL --login"'
-    alias semd='ssh -t sem "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
 
     # ── General aliases ──────────────────────────────────────
     alias lg="lazygit"

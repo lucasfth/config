@@ -105,7 +105,6 @@ AeroSpace routes new Spotifast windows to workspace `M`. Its Home Manager-manage
 config is a Nix-store snapshot: repository edits need activation before a reload
 can use them. Existing windows must be moved separately.
 
-
 ## Where everything lives
 
 ```
@@ -203,6 +202,25 @@ Salt uses the saved macOS Keychain key; otherwise enter the passphrase only
 in its terminal prompt. Keep recovery material outside this repository.
 The readable image is not additionally encrypted by Salt and relies on the
 Mac's local storage protection. Package installation does not migrate data.
+
+### SSH access and remote shell
+
+SSH host names are `neo`, `mini`, `vps1`, `vps2`, and `ecoray3d`.
+Private endpoints and users remain in gitignored `nix_secrets`; `nix/common/ssh.nix`
+generates the included SSH host file. Shell shortcuts live in
+`nix/common/shell/interactive.zsh` and reload with `omz reload`.
+`minid` opens the Mini development checkout.
+
+The Ecoray 3D server uses its existing Bash with the repository's
+`shell/remote.bash`: Catppuccin Mocha prompt, right-side SSH host label, Git aliases,
+history and completion settings. Its `.bashrc` sources a deployed copy at
+`~/.config/huginn/remote.bash`; the original `.bashrc` is retained as
+`.bashrc.pre-huginn`. No shell packages or service settings are changed.
+
+VPS1 keeps its existing Bash prompt and sources `shell/ssh-identity.bash` for
+the right-side `vps1` SSH label. VPS2 uses `shell/remote.bash` for its prompt
+and right-side `vps2` label; existing aliases, tool paths and completion remain.
+Both retain their original `.bashrc` as `.bashrc.pre-ssh-identity`.
 
 ### Syntax Highlight
 

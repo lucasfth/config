@@ -63,7 +63,7 @@ git commit -m "chore(omp): bump Fylgje submodule"
 
 Config-only updates:
 ```bash
-for host in se1 se2 freyr mimer; do
+for host in vps1 vps2 freyr mimer; do
   scp ~/Desktop/code/config/omp/config.yml $host:~/.omp/agent/config.yml
   scp ~/Desktop/code/config/omp/models.yml $host:~/.omp/agent/models.yml
   scp ~/Desktop/code/config/omp/AGENTS.md $host:~/.omp/agent/AGENTS.md
@@ -75,7 +75,7 @@ done
 
 Full re-install:
 ```bash
-for host in se1 se2 freyr mimer; do
+for host in vps1 vps2 freyr mimer; do
   ssh $host "curl -sL https://raw.githubusercontent.com/lucasfth/omp-fylgje/main/setup.sh | bash"
 done
 ```
@@ -84,7 +84,7 @@ done
 
 | Alias | Hostname | OS | OMP Status |
 |-------|----------|-----|------------|
-| se1 | VPS1 (Ubuntu 24.04) | Linux | Installed 2026-07-29 |
-| se2 | VPS2 (Ubuntu 26.04) | Linux | Installed 2026-07-29 |
+| vps1 | VPS1 (Ubuntu 24.04) | Linux | Installed 2026-07-29 |
+| vps2 | VPS2 (Ubuntu 26.04) | Linux | Installed 2026-07-29 |
 | freyr | NixOS | Linux | Installed (bun 1.3.13, needs nix-ld for >= 1.3.14) |
 | mimer | Ubuntu 24.04 | Linux | Pending |

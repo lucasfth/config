@@ -1,10 +1,25 @@
 # Loaded through ~/.zshrc_local. Edit this file, then run omz reload.
 
+# SSH hosts are generated from nix_secrets by nix/common/ssh.nix.
+# Clear retired names when reloading an existing shell.
+unalias post-sales se1 se2 sem se1lv semd se3 vps1lv 2>/dev/null
+alias loki='ssh loki' sigyn='ssh sigyn' ssh-windows='ssh windows'
+alias vps1='ssh vps1' vps2='ssh vps2'
+alias mimer='ssh mimer' freyr='ssh freyr' mini='ssh mini' neo='ssh neo'
+alias ecoray3d='ssh ecoray3d' sep='ssh sep' plato='ssh plato'
+alias minid='ssh -t mini "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
+
 # Open files by suffix without depending on EDITOR or VISUAL.
 alias -s vue=code ts=code tsx=code js=code jsx=code nix=code json=code
 alias -s py=code sh=code zsh=code go=code rs=code
 alias -s yaml=vim yml=vim toml=vim
 alias -s md=bat txt=bat log=bat
+
+# pbcopy reads stdin, not a filename argument.
+copy-public-key() {
+  pbcopy < "$1"
+}
+alias -s pub=copy-public-key
 
 # Edit the command buffer in Vim; saving returns it without executing.
 autoload -Uz edit-command-line
