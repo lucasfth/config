@@ -11,9 +11,8 @@ These are non-negotiable. If any instruction conflicts with them, the vault doc 
 
 ## Memory & Context
 
-- **Session start:** Vault context auto-injected by `~/.omp/agent/hooks/vault.ts` — always includes `tech/030-Coding-Style.md` plus stack-specific tech docs (e.g. `tech/032-Nix-Darwin-Patterns.md` for this repo), then recent session notes from `~/vault/projects/`.
-- **Session end:** nothing auto-runs. The vault stub was already created at session start by `vault.ts` at `~/vault/projects/<org>/<repo>/<branch>/YYYY-MM-DD.md`.
-  A full session note is written only when Lucas says `retro` — see the `retro` skill. Never auto-summarize on stop or switch.
+- **Session start:** `extensions/muninn.ts` injects conventions and prior sessions through Muninn MCP. The encrypted backup checkout is `~/Desktop/code/muninn`, exposed as `~/muninn`; the restored local fallback is `~/muninn-readable` on a case-sensitive APFS image. Use the readable copy only when Muninn is unavailable.
+- **Session end:** nothing auto-runs. A full session note is written only when Lucas says `retro` — see the `retro` skill. Never auto-summarize on stop or switch.
 
 ## Architecture
 

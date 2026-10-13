@@ -23,6 +23,26 @@ in {
     };
   };
 
+  # Salt backups contain case-distinct paths, requiring case-sensitive APFS.
+  launchd.user.agents.muninn-readable = {
+    serviceConfig = {
+      ProgramArguments = [
+        "/bin/sh"
+        "-c"
+        ''
+          image="$HOME/.local/share/muninn/readable.sparsebundle"
+          mountpoint="$HOME/.local/share/muninn-volume"
+          [ -d "$mountpoint/vault" ] && exit 0
+          [ -d "$image" ] || exit 0
+          /bin/mkdir -p "$mountpoint"
+          exec /usr/bin/hdiutil attach "$image" -mountpoint "$mountpoint" -nobrowse
+        ''
+      ];
+      EnvironmentVariables.HOME = homeDirectory;
+      RunAtLoad = true;
+    };
+  };
+
   # This script and its launchd plist survive a Nix store loss, so it detects
   # the broken profile/login-shell state immediately after a macOS update.
   launchd.user.agents.nix-health = {

@@ -37,15 +37,21 @@ tags:
 
 **Primary:** Muninn MCP tools (`vault_read`, `vault_write`, `vault_list`, `vault_search`, `vault_delete`).
 
-**Fallback:** When Muninn is down or unreachable, the same vault is available on the local filesystem at `~/vault` (a symlink to the git-backed vault). Lucas will state explicitly when the fallback is in effect. In fallback mode:
+**Fallback:** When Muninn is down or unreachable, restored notes are available at `~/muninn-readable` (a symlink into a case-sensitive APFS image). `~/muninn` points to the encrypted `lucasfth/muninn` backup checkout and is not readable notes. The restored copy is a snapshot, not an automatically synchronized vault. Lucas will state explicitly when the fallback is in effect. In fallback mode:
 
 - Use the built-in `read`, `write`, `edit`, `glob`, and `grep` tools instead of the MCP tools.
 - Map each MCP operation to its filesystem equivalent: `vault_read` → `read`, `vault_write` → `write`/`edit`, `vault_list` → `glob`, `vault_search` → `grep`, `vault_delete` → `rm`.
 - Every other rule in this skill still applies unchanged: folder choice, frontmatter, `_INDEX.md` update, single trailing newline, and read-back verification.
 - Do not modify `personal-notes/` (read-only, linking only).
-- The vault is git-backed; the 02:00 cron pushes. Commit manually only if Lucas asks.
+- The readable copy is not a Git checkout. Local edits do not update Muninn MCP or the encrypted backup; preserve them and reconcile explicitly when Muninn is available. Never run Git commits or pushes from the readable snapshot.
+- Before use, verify `~/muninn-readable/tech/030-Coding-Style.md` is readable. If the APFS image is unmounted, mount it with `hdiutil attach ~/.local/share/muninn/readable.sparsebundle -mountpoint ~/.local/share/muninn-volume -nobrowse`; do not create a new vault at the dangling symlink.
+- For restore/edit/publication details, read the canonical `tech/Muninn-Encrypted-Backups.md` through MCP, or from the readable snapshot during fallback. Restore only to a new directory under the mounted case-sensitive volume, never directly under `~` or onto the existing readable vault.
+- Never request passphrases in chat or put them in commands/config. Lucas enters them in Salt's interactive prompt in his own terminal; use the saved Keychain key when available. Never bypass signature checks.
+- Pulling the encrypted checkout does not refresh plaintext. Do not seal a stale or partial snapshot, run `salt prune`, force-push, or publish independent Mac changes without reconciling Loki's live vault and coordinating its backup writer.
 
 Never use the filesystem path while Muninn is reachable. Never use Muninn MCP tools while the fallback is declared in effect.
+
+If MCP returns a truncated response, read its complete artifact before parsing or updating. Never overwrite a note/index from an elided preview. Read back the full saved content and verify the canonical link and exactly one terminal newline.
 
 Never describe the index update as optional. If the canonical link already exists, verify it instead of adding a duplicate.
 

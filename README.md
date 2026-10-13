@@ -167,6 +167,33 @@ following the normal activation convention above. The Nix derivation copies
 the upstream compiler and standard library together and patches the Linux
 binary with nixpkgs' `autoPatchelfHook`.
 
+### Salt / Muninn backups
+
+[Salt](https://github.com/spicy-lemonade/salt) is managed through the official
+`spicy-lemonade/tap` Homebrew tap, with the fully qualified formula
+`spicy-lemonade/tap/salt` declared in `nix/darwin/homebrew/brews.nix`. Apply with
+`nrs`; plain `salt` in nixpkgs or Homebrew refers to the unrelated SaltStack.
+
+Salt encrypts backup copies; live notes remain plaintext. The encrypted Muninn
+checkout is `~/Desktop/code/muninn`, exposed as `~/muninn`. Obsidian and the
+local note fallback use `~/muninn-readable`, a restored plaintext snapshot.
+The backup contains case-distinct paths, so the readable copy lives on a
+case-sensitive APFS sparsebundle at `~/.local/share/muninn/readable.sparsebundle`,
+mounted at `~/.local/share/muninn-volume`. The `muninn-readable` launchd agent
+mounts the image at login; Home Manager preserves both symlink targets.
+
+To mount manually before activation, run:
+`hdiutil attach ~/.local/share/muninn/readable.sparsebundle -mountpoint ~/.local/share/muninn-volume -nobrowse`.
+To restore a newer backup without replacing local edits, use
+`salt restore ~/muninn --to ~/.local/share/muninn-volume/vault-next`.
+The destination's parent must be on the mounted case-sensitive volume, not
+directly under `~`. Restores are snapshots; neither pulling the encrypted
+checkout nor editing the readable copy automatically synchronizes the other.
+Salt uses the saved macOS Keychain key; otherwise enter the passphrase only
+in its terminal prompt. Keep recovery material outside this repository.
+The readable image is not additionally encrypted by Salt and relies on the
+Mac's local storage protection. Package installation does not migrate data.
+
 ### DisplayLink Manager
 
 DisplayLink Manager is installed from the Homebrew `displaylink` cask declared

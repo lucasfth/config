@@ -15,6 +15,7 @@
     "postgresql@14"
     "redis"
     "remindctl"
+    "spicy-lemonade/tap/salt" # Not SaltStack
     "herdr"
   ];
 }

@@ -78,8 +78,8 @@
 in {
   home.file =
     {
-      # ── Vault (Obsidian memory — separate git repo) ─────────────
-      "vault".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/loki-obsidian-memory";
+      # ── Muninn (Obsidian memory — separate git repo) ────────────
+      "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
 
       # ── Cross-platform dotfiles ─────────────────────────────────
       ".config/starship.toml".source = "${flakeDir.outPath}/starship.toml";
@@ -94,6 +94,7 @@ in {
     }
     // lib.optionalAttrs pkgs.stdenv.isDarwin {
       # ── macOS-only dotfiles ─────────────────────────────────────
+      "muninn-readable".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/muninn-volume/vault";
       ".aerospace.toml".source = "${flakeDir.outPath}/.aerospace.toml";
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";

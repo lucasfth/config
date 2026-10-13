@@ -24,6 +24,7 @@
       "multica-ai/tap" # multica
       "sdkman/tap" # sdkman-cli
       "smudge/smudge" # nightlight
+      "spicy-lemonade/tap" # Salt encrypted memory backups
       "steipete/tap" # remindctl
     ];
   };
