@@ -204,6 +204,21 @@ in its terminal prompt. Keep recovery material outside this repository.
 The readable image is not additionally encrypted by Salt and relies on the
 Mac's local storage protection. Package installation does not migrate data.
 
+### Syntax Highlight
+
+The application is managed by the Homebrew `syntax-highlight` cask. Rendering
+preferences live in `syntax-highlight/settings.json`; custom Catppuccin Latte
+and Mocha themes live in `syntax-highlight/themes/`. Light/dark selection follows
+macOS appearance. Tabs render as two spaces; the font is JetBrains Mono Nerd Font.
+
+Home Manager applies these settings on activation while the app is closed,
+preserving unrelated preferences. To apply without a full rebuild, quit Syntax
+Highlight and run `python3 ~/config/scripts/apply-syntax-highlight-config.py ~/config/syntax-highlight`.
+After a rebuild, `apply-syntax-highlight-config` provides the same operation.
+Themes are copied to `~/Library/Application Support/Syntax Highlight/Themes/`;
+renderer settings are merged into `~/Library/Preferences/org.sbarex.SourceCodeSyntaxHighlight.plist`,
+not the GUI's sandbox preferences. Reopen the app after applying.
+
 ### DisplayLink Manager
 
 DisplayLink Manager is installed from the Homebrew `displaylink` cask declared

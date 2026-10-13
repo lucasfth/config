@@ -1,0 +1,23 @@
+Description = "Catppuccin Latte"
+Categories = { "light", "catppuccin" }
+Default = { Colour = "#4c4f69" }
+Canvas = { Colour = "#eff1f5" }
+Number = { Colour = "#fe640b" }
+String = { Colour = "#40a02b" }
+Escape = { Colour = "#ea76cb" }
+PreProcessor = { Colour = "#8839ef" }
+StringPreProc = { Colour = "#40a02b" }
+BlockComment = { Colour = "#9ca0b0", Italic = true }
+LineComment = { Colour = "#9ca0b0", Italic = true }
+LineNum = { Colour = "#9ca0b0" }
+Operator = { Colour = "#04a5e5" }
+Interpolation = { Colour = "#ea76cb" }
+IndentGuide = { Colour = "#ccd0da" }
+Keywords = {
+    { Colour = "#8839ef" },
+    { Colour = "#df8e1d" },
+    { Colour = "#1e66f5" },
+    { Colour = "#d20f39" },
+    { Colour = "#179299" },
+    { Colour = "#fe640b" },
+}

@@ -1,0 +1,10 @@
+{
+  "theme-light": "!catppuccin-latte",
+  "theme-light-color": "#eff1f5",
+  "theme-light-fg-color": "#4c4f69",
+  "theme-dark": "!catppuccin-mocha",
+  "theme-dark-color": "#1e1e2e",
+  "theme-dark-fg-color": "#cdd6f4",
+  "font-family": "JetBrainsMonoNLNF-Regular",
+  "tab-spaces": 2
+}

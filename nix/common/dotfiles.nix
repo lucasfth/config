@@ -99,6 +99,9 @@ in {
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
       ".local/bin/sigyn-screen".source = "${flakeDir.outPath}/scripts/sigyn-screen";
+      ".local/bin/apply-syntax-highlight-config".source = pkgs.writeShellScript "apply-syntax-highlight-config" ''
+        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/syntax-highlight"
+      '';
 
       # ── Raycast AI custom providers ────────────────────────────────
       ".config/raycast/ai/providers.yaml" = {
@@ -120,6 +123,14 @@ in {
 
   home.activation.generateRaycastAiProviders = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateRaycastAiProviders}
+  '');
+
+  home.activation.configureSyntaxHighlight = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+    if /usr/bin/pgrep -x "Syntax Highlight" >/dev/null; then
+      echo "Syntax Highlight: quit the app and run apply-syntax-highlight-config to apply preferences."
+    else
+      $DRY_RUN_CMD ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/syntax-highlight"
+    fi
   '');
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────
