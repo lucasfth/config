@@ -38,11 +38,15 @@
 
   displayLinkUpdateScript = ''
     if sudo -u ${user} -H /opt/homebrew/bin/brew list --cask displaylink >/dev/null 2>&1; then
-      echo "==> Checking DisplayLink Manager for updates..."
-      if ! sudo -u ${user} -H /opt/homebrew/bin/brew update; then
-        echo "warning: could not refresh Homebrew metadata; keeping the installed DisplayLink version" >&2
-      elif ! sudo -u ${user} -H /opt/homebrew/bin/brew upgrade --cask displaylink; then
-        echo "warning: could not upgrade DisplayLink Manager; keeping the installed version" >&2
+      if sudo -u ${user} -H /opt/homebrew/bin/brew list --pinned | grep -qx displaylink; then
+        echo "==> DisplayLink Manager is pinned; skipping update"
+      else
+        echo "==> Checking DisplayLink Manager for updates..."
+        if ! sudo -u ${user} -H /opt/homebrew/bin/brew update; then
+          echo "warning: could not refresh Homebrew metadata; keeping the installed DisplayLink version" >&2
+        elif ! sudo -u ${user} -H /opt/homebrew/bin/brew upgrade --cask displaylink; then
+          echo "warning: could not upgrade DisplayLink Manager; keeping the installed version" >&2
+        fi
       fi
     fi
   '';
