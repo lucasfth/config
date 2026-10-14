@@ -46,7 +46,7 @@ The Nix config is **zsh**. The bashrc gist is **bash 3.2+**. Filter aggressively
 - `yt-dlp` / `repolicense` — local binaries
 - `direnv`, `zoxide`, `fzf` init — zsh-specific
 - `alias-tips` — zsh-specific
-- Mole/Opencode completions — zsh-specific + tool-specific
+- Mole completions — zsh-specific + tool-specific
 - `TIMEFMT` — zsh-specific
 - `MULTICA_*` — work-specific
 - `nrs`, `nix-search`, `nix-which`, `nix-update`, `nix-rollback` — NixOS/darwin-specific
@@ -72,7 +72,7 @@ The zshrc gist is **zsh** (same as the Nix config), so translation is direct —
 - `yt-dlp` / `repolicense` — local binaries
 - `nrs`, `nix-search`, `nix-which`, `nix-update`, `nix-rollback` — NixOS/darwin-specific
 - PATH exports — macOS-specific paths
-- Mole/Opencode completions — tool-specific
+- Mole completions — tool-specific
 - `TIMEFMT` — too niche for portable use
 - `MULTICA_*` — work-specific
 

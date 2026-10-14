@@ -11,7 +11,6 @@
     "firebase-cli"
     "mas" # Mac App Store CLI
     "mole"
-    "opencode"
     "postgresql@14"
     "redis"
     "remindctl"

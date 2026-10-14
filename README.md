@@ -263,7 +263,7 @@ You'll need to copy these from your old machine — they're gitignored, never in
 - GPG private key (`gpg --export-secret-keys > key.asc`)
 - SSH keys (`~/.ssh/id_*`)
 - `~/config/nix_secrets` (SSH aliases, API tokens)
-- Agent auth: `~/.omp/agent/`, `~/.hermes/auth.json`
+- Agent auth: `~/.omp/agent/`
 
 ### On the new machine
 
@@ -386,7 +386,7 @@ This is a local extension; these commands do not publish it to the Raycast Store
 
 **Nix:** CLI tools — git, gh, curl, fzf, bat, fd, jq, zoxide, delta, ripgrep, python, node, go, rust, zig, ffmpeg, imagemagick, pandoc, tesseract, cmake, gcc, and ~70 more. See `nix/common/packages/`.
 
-**Brew (formulas):** Tools not in nixpkgs — opencode, multica, claude-code, cmux, minio-warp, mole, nightlight, and others. See `nix/darwin/homebrew/brews.nix`.
+**Brew (formulas):** Tools not in nixpkgs — multica, claude-code, cmux, minio-warp, mole, nightlight, and others. See `nix/darwin/homebrew/brews.nix`.
 
 **Brew (casks):** GUI apps — ghostty, zed, vscode, discord, signal, slack, telegram, obsidian, notion, bitwarden, raycast, google-chrome, zen, betterdisplay, and ~20 more. See `nix/darwin/homebrew/casks.nix`.
 

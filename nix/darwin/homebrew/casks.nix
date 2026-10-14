@@ -12,7 +12,6 @@
     "cmux"
     "codex"
     "codexbar"
-    "copilot-cli"
     "dotnet-sdk"
     "visual-studio-code"
     "zed"
