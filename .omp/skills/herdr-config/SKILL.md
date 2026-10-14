@@ -45,6 +45,7 @@ The herdr config (`herdr/config.toml`):
 - Detach: `prefix+d`, reload: `prefix+r`
 - System toast notifications
 - Onboarding disabled
+- OMP integration: `home.activation.herdrOmpIntegration` in `nix/common/herdr.nix` runs `herdr integration install omp` on every rebuild, writing `~/.omp/agent/extensions/herdr-omp-agent-state.ts` from the installed herdr version. Gives the sidebar real OMP working/blocked/done state and resumes OMP sessions after a herdr server restart. Running omp sessions load it only at startup; `prefix+r` does not apply it.
 
 ## Adding a New Machine
 
