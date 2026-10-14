@@ -17,6 +17,14 @@ All commands and aliases defined in this config, grouped by category.
 | `config-add --mas <Name> <ID>` | Add Mac App Store app |
 | `, <pkg>` | Run any nixpkgs binary on-demand (comma) — also auto-suggests after unknown commands |
 | `~/config/scripts/nix-health --check` | Validate the Nix store, profile, and login shell; see `docs/nix-recovery.md` if it fails |
+
+## Muninn
+
+| Command | Does |
+|---------|------|
+| `muninn-refresh` | Quit Obsidian first; fast-forward the encrypted backup and safely verify/decrypt the newest published snapshot, preserving settings, local edits, and a rollback copy. Never opens Obsidian or uploads notes. |
+| `python3 ~/config/scripts/muninn-refresh.py` | Same refresh command before the next `nrs` installs the managed entry point. |
+
 ## Navigation
 
 | Command | Does |

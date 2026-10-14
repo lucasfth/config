@@ -191,17 +191,54 @@ case-sensitive APFS sparsebundle at `~/.local/share/muninn/readable.sparsebundle
 mounted at `~/.local/share/muninn-volume`. The `muninn-readable` launchd agent
 mounts the image at login; Home Manager preserves both symlink targets.
 
-To mount manually before activation, run:
-`hdiutil attach ~/.local/share/muninn/readable.sparsebundle -mountpoint ~/.local/share/muninn-volume -nobrowse`.
-To restore a newer backup without replacing local edits, use
-`salt restore ~/muninn --to ~/.local/share/muninn-volume/vault-next`.
-The destination's parent must be on the mounted case-sensitive volume, not
-directly under `~`. Restores are snapshots; neither pulling the encrypted
-checkout nor editing the readable copy automatically synchronizes the other.
+After applying this config with `nrs`, quit Obsidian and run:
+
+```sh
+muninn-refresh
+```
+
+Before activation, the same command is available directly:
+`python3 ~/config/scripts/muninn-refresh.py`.
+
+One-time prerequisite: inspect the expected Salt recipients and approve them
+yourself with `salt trust ~/muninn`. The helper never runs `salt trust` and
+refuses restores until Salt reports that the keys/settings match your approval;
+it checks again after pulling in case the repository settings changed.
+
+The command mounts the existing case-sensitive image if needed, pulls the
+encrypted checkout with `--ff-only`, and uses Salt to verify/decrypt into a
+fresh directory on that image. It preserves your local `.obsidian` settings,
+keeps the previous vault in a dated `vault-before-refresh-*` directory, and
+switches the stable `~/muninn-readable` target without opening Obsidian.
+An interruption journal recovers a missing vault or finishes an interrupted
+receipt on the next run. Rollback snapshots are not automatically deleted.
+
+Local changes are protected: on its first run, the command compares the current
+readable files with a restore of the encrypted checkout's pre-pull commit;
+later runs compare a SHA-256 manifest in `~/.local/state/muninn/refresh.json`.
+Only `.obsidian` is excluded. If notes differ, it stops without replacing them.
+Reconcile those changes through Muninn MCP first; there is no overwrite/force
+option, automatic upload, or bidirectional synchronization.
+
 Salt uses the saved macOS Keychain key; otherwise enter the passphrase only
-in its terminal prompt. Keep recovery material outside this repository.
-The readable image is not additionally encrypted by Salt and relies on the
-Mac's local storage protection. Package installation does not migrate data.
+in its terminal prompt. No recovery material is stored in config. The readable
+image is plaintext and relies on Mac storage protection. `muninn-refresh`
+downloads the latest **published backup**, not newer unpublished MCP edits.
+It never seals, stages, commits, pushes, or prunes the backup history.
+
+Verification: eleven isolated Git/restore scenarios exercise replacement, rollback,
+local-edit refusal (including post-crash edits), interrupted-run recovery, and trust refusal. The CLI help
+and Darwin Nix declaration were checked. A separate real Salt restore succeeded
+without replacing the active vault, but reported unpinned repository keys;
+the helper now refuses that state. No `nrs` activation or real active-vault
+refresh was performed. Newer MCP changes reach the Mac only after publication
+and a successful refresh.
+
+Working Copy on iPhone can pull the Salt ciphertext, but cannot decrypt it by
+itself. For readable mobile notes, use a separately planned Obsidian Sync
+(end-to-end encrypted) or iCloud mirror, or browse Loki over SSH. Mobile edits
+do not currently reconcile back into the authoritative MCP vault; do not
+create a plaintext GitHub mirror or enable competing sync writers implicitly.
 
 ### SSH access and remote shell
 

@@ -99,6 +99,9 @@ in {
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
       ".local/bin/sigyn-screen".source = "${flakeDir.outPath}/scripts/sigyn-screen";
+      ".local/bin/muninn-refresh".source = pkgs.writeShellScript "muninn-refresh" ''
+        exec ${pkgs.python3}/bin/python3 "${config.home.homeDirectory}/config/scripts/muninn-refresh.py" "$@"
+      '';
       ".local/bin/apply-syntax-highlight-config".source = pkgs.writeShellScript "apply-syntax-highlight-config" ''
         exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/syntax-highlight"
       '';
