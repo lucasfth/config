@@ -81,6 +81,23 @@ in {
       # ── Muninn (Obsidian memory — separate git repo) ────────────
       "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
 
+      # ── OMP agent config: repo is the single source ─────────────
+      # Live-linked so `omp config set` and manual edits land in the repo.
+      # mcp.json stays generated (secrets); hooks/extensions/skills stay
+      # separate because herdr and omp write into those directories.
+      ".omp/agent/AGENTS.md" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/AGENTS.md";
+      };
+      ".omp/agent/RULES.md" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/RULES.md";
+      };
+      ".omp/agent/config.yml" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/config.yml";
+      };
+
       # ── Cross-platform dotfiles ─────────────────────────────────
       ".config/starship.toml".source = "${flakeDir.outPath}/configs/starship/starship.toml";
       ".config/ghostty/config".source = "${flakeDir.outPath}/configs/ghostty/config";

@@ -8,12 +8,13 @@ You are Huginn (Hugi), Lucas Hanson's personal engineering agent — named after
 
 `extensions/muninn.ts` injects repository conventions and prior session notes from Muninn before the first agent turn. Muninn is the primary mutable operational knowledge source. For details outside that injected context, query Muninn’s MCP tools before asking Lucas. Access the restored local vault filesystem at `~/muninn-readable` only when Muninn is down or unreachable; in that case, read and update the same notes directly. `~/muninn` is the encrypted backup checkout, not readable notes. When Muninn is available, use its MCP tools instead of direct filesystem access.
 
-## Skill Storage
+## Config Storage (single source)
 
-- Canonical skill sources live in `~/Desktop/code/config/.omp/skills/`.
-- The runtime `~/.omp/skills` is a symlink to that repository directory.
-- `~/.omp/agent/skills` follows the same path through its existing symlink.
-- Edit skills in the repository source; do not edit the live path directly.
+- `~/Desktop/code/config` (`~/config`) is the only place to create or edit OMP configuration. Never write config files under `~/.omp` directly.
+- Skills: `~/config/.omp/skills/`; `~/.omp/skills` and `~/.omp/agent/skills` are symlinks to it.
+- `~/.omp/agent/AGENTS.md`, `RULES.md`, `config.yml`: the repo copy in `~/config/.omp/agent/` is canonical. `nix/common/dotfiles.nix` declares Home Manager symlinks for them; until the next approved rebuild they are still regular files, so edit the repo file and then copy it to `~/.omp/agent/`. Check with `ls -l ~/.omp/agent/config.yml`. `mcp.json` is generated from `~/config/.omp/agent/mcp.json` plus `nix_secrets`.
+- Installers that write files must target the repo, e.g. `omp browser-relay install --dir ~/config/.omp/browser-relay/extension` (gitignored generated output).
+- Only tool-owned runtime state stays in `~/.omp`: sessions, logs, caches, dbs, and herdr's `extensions/herdr-omp-agent-state.ts`.
 
 ## Deployment Approval
 

@@ -47,6 +47,7 @@ These are non-negotiable. If any instruction conflicts with them, the vault doc 
 - **Shell:** Home Manager generates `.zshrc`; do not edit it directly. `~/.zshrc_local` is the reloadable customization hook.
 - **Secrets:** `~/config/nix_secrets` is gitignored and sourced at shell init.
 - **OMP skills:** canonical sources live in `.omp/skills/`; edit the repository source.
+- **OMP config is single-source in this repo.** Never create or edit files under `~/.omp` directly. `.omp/agent/AGENTS.md`, `RULES.md` and `config.yml` are canonical here; `nix/common/dotfiles.nix` declares Home Manager symlinks for the live `~/.omp/agent/` copies (active after the next approved rebuild; until then copy the repo file over the live one after editing). `mcp.json` is generated from `.omp/agent/mcp.json` + `nix_secrets`. Tool installers that write files (e.g. `omp browser-relay install`) must target this repo with `--dir ~/config/.omp/<tool>`; gitignore generated output. Exceptions written by other tools: `~/.omp/agent/extensions/herdr-omp-agent-state.ts` (herdr), and runtime state (sessions, logs, caches, dbs).
 
 ## Making changes
 
