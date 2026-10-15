@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Huginn's signed-in Chromium on Freyr, for page checks that need a Google login
+# without driving Lucas's Mac browser.
+#
+#   freyr-browser start   tunnels + browser + VNC (run from the Mac)
+#   freyr-browser stop    stop browser, VNC and tunnels
+#   freyr-browser status  show what is running
+#
+# Profile (keeps the Google session): freyr:~/.local/share/huginn-browser/profile
+# Mac ports: 9333 DevTools (CDP), 5999 VNC (password in freyr:~/.local/share/huginn-browser/vnc.pass).
+# Freyr port 3001 is reverse-tunnelled to the Mac dev server on localhost:3001.
+# Everything binds to loopback; nothing is exposed on the network.
+set -euo pipefail
+
+HOST="${FREYR_HOST:-freyr}"
+DEV_PORT="${DEV_PORT:-3001}"
+TUNNEL_TAG="huginn-browser-tunnel"
+
+remote() {
+  ssh -o BatchMode=yes "$HOST" bash -s
+}
+
+remote_start='
+set -euo pipefail
+DIR="$HOME/.local/share/huginn-browser"
+mkdir -p "$DIR/profile"
+XVFB=$(nix build --no-link --print-out-paths nixpkgs#xorg.xvfb)/bin/Xvfb
+X11VNC=$(nix build --no-link --print-out-paths nixpkgs#x11vnc)/bin/x11vnc
+CHROMIUM=$(nix build --no-link --print-out-paths nixpkgs#chromium)/bin/chromium
+pgrep -f "Xvfb :99" >/dev/null || { nohup "$XVFB" :99 -screen 0 1600x1000x24 -nolisten tcp >"$DIR/xvfb.log" 2>&1 </dev/null & sleep 1; }
+if ! pgrep -f "x11vnc -display :99" >/dev/null; then
+  if [ ! -s "$DIR/vnc.pass" ]; then
+    PW=$(head -c 64 /dev/urandom | LC_ALL=C tr -dc "a-km-z2-9" | cut -c1-8)
+    "$X11VNC" -storepasswd "$PW" "$DIR/vnc.pass" >/dev/null 2>&1
+    chmod 600 "$DIR/vnc.pass"
+  fi
+  nohup "$X11VNC" -display :99 -localhost -rfbport 5999 -forever -shared -rfbauth "$DIR/vnc.pass" >"$DIR/x11vnc.log" 2>&1 </dev/null &
+fi
+pgrep -f "remote-debugging-port=9333" >/dev/null || DISPLAY=:99 nohup "$CHROMIUM" \
+  --user-data-dir="$DIR/profile" --remote-debugging-address=127.0.0.1 --remote-debugging-port=9333 \
+  --no-first-run --no-default-browser-check --window-size=1600,1000 \
+  "http://localhost:'"$DEV_PORT"'/admin" >"$DIR/chromium.log" 2>&1 </dev/null &
+'
+
+remote_stop='
+pkill -f "remote-debugging-port=9333" || true
+pkill -f "x11vnc -display :99" || true
+pkill -f "Xvfb :99" || true
+'
+
+case "${1:-status}" in
+  start)
+    remote <<<"$remote_start"
+    # The trailing `-o Tag=` puts TUNNEL_TAG in argv so pgrep/pkill can find this tunnel.
+    pgrep -f "$TUNNEL_TAG" >/dev/null || nohup ssh -o BatchMode=yes -o ExitOnForwardFailure=yes \
+      -o ServerAliveInterval=30 -o "Tag=$TUNNEL_TAG" -N \
+      -R "127.0.0.1:$DEV_PORT:127.0.0.1:$DEV_PORT" \
+      -L 127.0.0.1:9333:127.0.0.1:9333 -L 127.0.0.1:5999:127.0.0.1:5999 \
+      "$HOST" >/dev/null 2>&1 </dev/null &
+    sleep 3
+    "$0" status
+    ;;
+  stop)
+    remote <<<"$remote_stop"
+    pkill -f "$TUNNEL_TAG" || true
+    echo "stopped"
+    ;;
+  status)
+    nc -z -w 2 127.0.0.1 9333 && echo "cdp     127.0.0.1:9333 up" || echo "cdp     127.0.0.1:9333 down"
+    nc -z -w 2 127.0.0.1 5999 && echo "vnc     127.0.0.1:5999 up" || echo "vnc     127.0.0.1:5999 down"
+    remote <<<'curl -s -o /dev/null -w "devsrv  freyr:'"$DEV_PORT"' -> %{http_code}\n" --max-time 5 http://localhost:'"$DEV_PORT"'/ || echo "devsrv  freyr:'"$DEV_PORT"' down"'
+    ;;
+  *)
+    echo "usage: freyr-browser start|stop|status" >&2
+    exit 2
+    ;;
+esac
