@@ -31,13 +31,17 @@ configuration and needs explicit approval before agent use.
 
 | Keys | Action |
 | --- | --- |
-| Hyper+A, then a | Open Go To picker (agents and terminals) |
-| j / k inside picker | Select next / previous row |
-| Enter / Esc | Switch to selected row / cancel |
+| Hyper+A, then a | Enter persistent agent-only navigation |
+| j / k in agent mode | Immediately focus next / previous sidebar agent |
+| 1–9 in agent mode | Immediately focus numbered sidebar agent |
+| Enter / Esc in agent mode | Exit agent mode without submitting input to a pane |
 | Hyper+A, then h/j/k/l | Navigate split panes, unchanged |
+| Hyper+A, then 1–9 outside agent mode | Select a tab, unchanged |
+| Ctrl+B, then g | Open the separate Go To picker |
 
-Hyper+A is Cmd+Option+Ctrl+Shift+A in Ghostty, mapped to Ctrl+B. In other
-terminals use Ctrl+B as the prefix. See [deployment details](configs/herdr/README.md).
+Hyper+A is Cmd+Option+Ctrl+Shift+A in Ghostty. Persistent agent mode uses
+Ghostty 1.3+ key tables and Herdr's native agent actions, not its Go To picker.
+Deploy and reload both configurations together; see [deployment details](configs/herdr/README.md).
 
 ## Muninn
 

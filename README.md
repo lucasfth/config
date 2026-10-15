@@ -146,11 +146,15 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
 
 ## Herdr navigation
 
-In Ghostty, **Hyper+A** (`Cmd+Option+Ctrl+Shift+A`) sends Herdr's `Ctrl+B` prefix.
-Press **Hyper+A → a**, then **j/k → Enter** to choose an agent or terminal in
-the Go To picker; **Esc** cancels. Pane navigation remains **Hyper+A → h/j/k/l**.
-The new picker binding needs the managed Herdr config deployed before reloading;
-see the [Herdr guide](configs/herdr/README.md).
+In Ghostty 1.3+, **Hyper+A** (`Cmd+Option+Ctrl+Shift+A`) retains Herdr's prefix.
+Press **Hyper+A → a** to enter agent-only navigation: **j/k** immediately focuses
+the next/previous sidebar agent; **1–9** jumps to an agent by sidebar index.
+Repeat without the prefix; **Esc** or **Enter** exits. No picker or ordinary
+terminal rows are involved. Pane navigation remains **Hyper+A → h/j/k/l** and
+tab selection remains **Hyper+A → 1–9** outside agent mode.
+Both Ghostty and Herdr configs must be deployed and reloaded together; see the
+[Herdr guide](configs/herdr/README.md). Repository edits alone do not change
+existing store-backed configurations.
 
 
 ## Shell Discovery

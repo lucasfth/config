@@ -14,7 +14,11 @@ delivery = "system"
 
 [keys]
 prefix = "ctrl+b"
-goto = ["prefix+a", "prefix+g"]
+# Ghostty's agent key table sends these prefix-qualified transport chords.
+# Keep normal prefix+h/j/k/l pane and prefix+1..9 tab navigation unchanged.
+next_agent = "prefix+ctrl+j"
+previous_agent = "prefix+ctrl+k"
+focus_agent = "prefix+alt+1..9"
 
 # ── Split panes (match tmux: bind | / bind -) ──
 split_vertical = "prefix+|"
