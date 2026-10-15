@@ -5,7 +5,7 @@
   flakeDir,
   ...
 }: {
-  xdg.configFile."herdr/config.toml".source = "${flakeDir.outPath}/herdr/config.toml";
+  xdg.configFile."herdr/config.toml".source = "${flakeDir.outPath}/configs/herdr/config.toml";
 
   # OMP integration: reports agent state and session refs to herdr (sidebar
   # status, session resume). Installed by herdr itself so it always matches the

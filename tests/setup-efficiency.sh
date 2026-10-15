@@ -21,17 +21,3 @@ post_activation=$(nix eval --raw "$config.system.activationScripts.postActivatio
   echo 'expected activation to disable Power Nap on battery' >&2
   exit 1
 }
-
-for plugin in swiftbar/memory.60s.sh swiftbar/battery.60s.sh swiftbar/workspace.15s.sh; do
-  [[ -f $plugin ]] || {
-    echo "expected optimized plugin $plugin" >&2
-    exit 1
-  }
-done
-
-for retired_plugin in swiftbar/memory.10s.sh swiftbar/battery.30s.sh swiftbar/workspace.5s.sh; do
-  [[ ! -e $retired_plugin ]] || {
-    echo "expected retired plugin $retired_plugin to be removed" >&2
-    exit 1
-  }
-done

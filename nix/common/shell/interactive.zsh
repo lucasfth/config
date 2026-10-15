@@ -1,8 +1,44 @@
 # Loaded through ~/.zshrc_local. Edit this file, then run omz reload.
 
+# Select by OS, not whether darwin-rebuild happens to be on PATH.
+# Resolve the managed macOS executable at invocation time, including sudo calls.
+_config-rebuild() {
+  if [[ $OSTYPE == darwin* ]]; then
+    sudo /nix/var/nix/profiles/system/sw/bin/darwin-rebuild "$@"
+  else
+    sudo nixos-rebuild "$@"
+  fi
+}
+
+rebuild() {
+  _config-rebuild switch --flake "$HOME/config#$(hostname)" && exec zsh
+}
+alias nrs=rebuild
+
+nix-clean() {
+  echo "→ User GC..."
+  nix-collect-garbage -d
+  echo "→ System GC..."
+  sudo nix-collect-garbage -d
+  echo "✓ Done. Old generations removed."
+}
+
+nix-update() {
+  nix flake update --flake "$HOME/config" && rebuild
+}
+
+nix-rollback() {
+  _config-rebuild --list-generations --flake "$HOME/config" || return
+  if [[ $OSTYPE == darwin* ]]; then
+    echo "Pick: sudo /nix/var/nix/profiles/system/sw/bin/darwin-rebuild --switch-generation <N> --flake ~/config"
+  else
+    echo "Pick: sudo nixos-rebuild --switch-generation <N> --flake ~/config"
+  fi
+}
+
 # SSH hosts are generated from nix_secrets by nix/common/ssh.nix.
 # Clear retired names when reloading an existing shell.
-unalias post-sales se1 se2 sem se1lv semd se3 vps1lv 2>/dev/null
+unalias post-sales se1 se2 sem se1lv semd se3 vps1lv 2>/dev/null || true
 alias loki='ssh loki' sigyn='ssh sigyn' ssh-windows='ssh windows'
 alias vps1='ssh vps1' vps2='ssh vps2'
 alias mimer='ssh mimer' freyr='ssh freyr' mini='ssh mini' neo='ssh neo'

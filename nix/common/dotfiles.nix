@@ -82,11 +82,11 @@ in {
       "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
 
       # ── Cross-platform dotfiles ─────────────────────────────────
-      ".config/starship.toml".source = "${flakeDir.outPath}/starship.toml";
-      ".config/ghostty/config".source = "${flakeDir.outPath}/config.ghostty";
-      ".config/lazygit/config.yml".source = "${flakeDir.outPath}/lazygit/config.yml";
-      ".tmux.conf".source = "${flakeDir.outPath}/.tmux.conf";
-      ".config/zed/settings.json".source = "${flakeDir.outPath}/zed/settings.json";
+      ".config/starship.toml".source = "${flakeDir.outPath}/configs/starship/starship.toml";
+      ".config/ghostty/config".source = "${flakeDir.outPath}/configs/ghostty/config";
+      ".config/lazygit/config.yml".source = "${flakeDir.outPath}/configs/lazygit/config.yml";
+      ".tmux.conf".source = "${flakeDir.outPath}/configs/tmux/tmux.conf";
+      ".config/zed/settings.json".source = "${flakeDir.outPath}/configs/zed/settings.json";
 
       # ── config-add helper (cross-platform) ────────────────────
       ".local/bin/config-add".source = "${flakeDir.outPath}/scripts/config-add";
@@ -95,15 +95,15 @@ in {
     // lib.optionalAttrs pkgs.stdenv.isDarwin {
       # ── macOS-only dotfiles ─────────────────────────────────────
       "muninn-readable".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/muninn-volume/vault";
-      ".aerospace.toml".source = "${flakeDir.outPath}/.aerospace.toml";
-      "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/sioyek/prefs_user.config";
-      "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
+      ".aerospace.toml".source = "${flakeDir.outPath}/configs/aerospace/aerospace.toml";
+      "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/configs/sioyek/prefs_user.config";
+      "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast/scripts/invert-scroll.applescript";
       ".local/bin/sigyn-screen".source = "${flakeDir.outPath}/scripts/sigyn-screen";
       ".local/bin/muninn-refresh".source = pkgs.writeShellScript "muninn-refresh" ''
         exec ${pkgs.python3}/bin/python3 "${config.home.homeDirectory}/config/scripts/muninn-refresh.py" "$@"
       '';
       ".local/bin/apply-syntax-highlight-config".source = pkgs.writeShellScript "apply-syntax-highlight-config" ''
-        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/syntax-highlight"
+        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/configs/syntax-highlight"
       '';
 
       # ── Raycast AI custom providers ────────────────────────────────
@@ -113,11 +113,11 @@ in {
       };
 
       # ── Raycast Script Commands ───────────────────────────────────
-      ".local/share/raycast-scripts/ask-huginn.sh".source = "${flakeDir.outPath}/raycast-scripts/ask-huginn.sh";
-      ".local/share/raycast-scripts/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast-scripts/invert-scroll.applescript";
+      ".local/share/raycast-scripts/ask-huginn.sh".source = "${flakeDir.outPath}/raycast/scripts/ask-huginn.sh";
+      ".local/share/raycast-scripts/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast/scripts/invert-scroll.applescript";
 
-      ".config/btop/btop.conf".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/btop/btop.conf";
-      ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/btop/themes/catppuccin_mocha.theme";
+      ".config/btop/btop.conf".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/configs/btop/btop.conf";
+      ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/configs/btop/themes/catppuccin_mocha.theme";
     };
 
   home.activation.generateOmpMcpConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
@@ -132,7 +132,7 @@ in {
     if /usr/bin/pgrep -x "Syntax Highlight" >/dev/null; then
       echo "Syntax Highlight: quit the app and run apply-syntax-highlight-config to apply preferences."
     else
-      $DRY_RUN_CMD ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/syntax-highlight"
+      $DRY_RUN_CMD ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/configs/syntax-highlight"
     fi
   '');
 

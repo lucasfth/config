@@ -13,10 +13,10 @@ In Raycast v2, configure the directory at: **Settings → Extensions → Script 
 
 Symlink from the Nix config repo via `dotfiles.nix`:
 ```nix
-".local/share/raycast-scripts/script-name.sh".source = "${flakeDir.outPath}/raycast-scripts/script-name.sh";
+".local/share/raycast-scripts/script-name.sh".source = "${flakeDir.outPath}/raycast/scripts/script-name.sh";
 ```
 
-The repo's `raycast-scripts/` directory is the canonical source. Scripts are symlinked into `~/.local/share/raycast-scripts/` on `nrs`.
+The repo's `raycast/scripts/` directory is the canonical source. Scripts are symlinked into `~/.local/share/raycast-scripts/` on `nrs`.
 
 ## Raycast v2 Sandbox Limitations
 

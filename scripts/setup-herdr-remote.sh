@@ -3,7 +3,7 @@
 # Run on the remote: curl -fsSL https://raw.githubusercontent.com/lucasfth/config/main/scripts/setup-herdr-remote.sh | bash
 set -euo pipefail
 
-CONFIG_URL="https://raw.githubusercontent.com/lucasfth/config/main/herdr/config.toml"
+CONFIG_URL="https://raw.githubusercontent.com/lucasfth/config/main/configs/herdr/config.toml"
 CONFIG_DIR="$HOME/.config/herdr"
 
 echo "==> Installing herdr..."

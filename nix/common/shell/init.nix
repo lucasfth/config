@@ -7,8 +7,8 @@
 
     # ── SSH: use ASCII-only configs (mobile clients lack Nerd Fonts) ─
     if [[ -n ''${SSH_CONNECTION-} || -n ''${SSH_TTY-} ]]; then
-      export STARSHIP_CONFIG="$HOME/config/starship-ssh.toml"
-      alias tmux='tmux -f ~/config/.tmux-ssh.conf'
+      export STARSHIP_CONFIG="$HOME/config/configs/starship/starship-ssh.toml"
+      alias tmux='tmux -f ~/config/configs/tmux/tmux-ssh.conf'
     fi
 
     # ── direnv (per-project env auto-loading) ──────────────────
@@ -42,10 +42,6 @@
       source "$HOME/config/nix_secrets"
     fi
 
-    # ── Reloadable shell customizations ──────────────────────
-    if [ -f "$HOME/.zshrc_local" ]; then
-      source "$HOME/.zshrc_local"
-    fi
     # ── Comma: auto-run missing commands via nix (e.g. ffmpeg → , ffmpeg) ──
     if command -v comma >/dev/null 2>&1; then
       source <(comma --zsh 2>/dev/null)
@@ -61,36 +57,13 @@
       fi
     fi
 
-    # ── Shortcuts ──────────────────────────────────────────────
-    if command -v darwin-rebuild >/dev/null 2>&1; then
-      rebuild() { sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
-      nix-clean() {
-        echo "→ User GC..."
-        nix-collect-garbage -d
-        echo "→ System GC..."
-        sudo nix-collect-garbage -d
-        echo "✓ Done. Old generations removed."
-      }
-    else
-      rebuild() { sudo nixos-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
-      nix-clean() {
-        echo "→ User GC..."
-        nix-collect-garbage -d
-        echo "→ System GC..."
-        sudo nix-collect-garbage -d
-        echo "✓ Done. Old generations removed."
-      }
-    fi
-    alias nrs="rebuild"
     alias nix-search="nix search nixpkgs"
     nix-which() { local p; p="$(which "$1")"; case "$p" in */nix/store/*|*/.nix-profile/*|*/run/current-system/*) echo "$p  ← Nix" ;; /opt/homebrew/*) echo "$p  ← Brew" ;; *) echo "$p" ;; esac; }
-    if command -v darwin-rebuild >/dev/null 2>&1; then
-      nix-update() { nix flake update --flake ~/config && sudo darwin-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
-      nix-rollback() { sudo darwin-rebuild --list-generations --flake ~/config; echo "Pick: sudo darwin-rebuild --switch-generation <N> --flake ~/config"; }
-    else
-      nix-update() { nix flake update --flake ~/config && sudo nixos-rebuild switch --flake ~/config#"$(hostname)" && exec zsh; }
-      nix-rollback() { sudo nixos-rebuild --list-generations --flake ~/config; echo "Pick: sudo nixos-rebuild --switch-generation <N> --flake ~/config"; }
-    fi
     nix-diff() { nix profile diff-closures --profile /nix/var/nix/profiles/system --profile "/nix/var/nix/profiles/system-$1-link"; }
+
+    # Load last so reloadable shortcuts override older generated definitions.
+    if [ -f "$HOME/.zshrc_local" ]; then
+      source "$HOME/.zshrc_local"
+    fi
   '';
 }

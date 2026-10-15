@@ -1,6 +1,55 @@
-# Nix Config
+<h1 align="center">Config</h1>
+
+<p align="center">
+  Declarative macOS and Linux configuration, powered by Nix.
+</p>
+
+<p align="center">
+  <a href="https://nixos.org/"><img alt="Nix" src="https://img.shields.io/badge/Nix-5277C3?logo=nixos&logoColor=white" /></a>
+  <a href="https://github.com/nix-community/home-manager"><img alt="Home Manager" src="https://img.shields.io/badge/Home_Manager-5277C3?logo=nixos&logoColor=white" /></a>
+  <img alt="macOS configuration" src="https://img.shields.io/badge/macOS-313244?logo=apple&logoColor=white" />
+  <img alt="Linux configuration" src="https://img.shields.io/badge/Linux-313244?logo=linux&logoColor=white" />
+  <a href="https://catppuccin.com/"><img alt="Catppuccin" src="https://img.shields.io/badge/Catppuccin-cba6f7?logoColor=1e1e2e" /></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-a6e3a1?labelColor=313244" /></a>
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> ·
+  <a href="#where-everything-lives">Structure</a> ·
+  <a href="#new-machine-setup">Setup</a> ·
+  <a href="COMMANDS.md">Commands</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
+
+## Overview
+
+Personal configuration for macOS and Linux: packages, shell, application settings,
+window management, and local tooling. Nix and Home Manager own deployment;
+application sources live in `configs/<app>/`.
+
+- **System:** host-specific Nix configuration, macOS defaults, and Homebrew packages.
+- **Shell:** Zsh, Starship, tmux, fuzzy completion, and shared remote-shell helpers.
+- **Applications:** grouped settings, Catppuccin themes, and Raycast integrations.
+
+This is a personal setup, not a generic installer. Review host identity, secrets,
+and activation steps before applying it to another machine.
+
+## Documentation
+
+| Guide | Contents |
+| --- | --- |
+| [Application configs](configs/README.md) | Sources, installed destinations, and reload behavior |
+| [Nix modules](nix/README.md) | Host configuration, packages, and deployment ownership |
+| [Raycast](raycast/README.md) | AI provider template, Script Commands, extension, and exports |
+| [Scripts](scripts/README.md) | Maintenance and configuration helpers |
+| [Tests](tests/README.md) | Focused checks and their prerequisites |
+| [Command reference](COMMANDS.md) | Shell commands, key bindings, and shortcuts |
+| [Nix recovery](docs/nix-recovery.md) | Recovery after a macOS update removes Nix |
 
 ## Commands
+
+Common maintenance commands are below. See [COMMANDS.md](COMMANDS.md) for the
+full command and keyboard reference. System activation requires explicit approval.
 
 ```bash
 nrs                     # rebuild + check DisplayLink updates + reload shell
@@ -12,6 +61,25 @@ nix-rollback            # list generations, show rollback command
 
 # NOT managed by nrs/nix-update:
 omp update              # update omp (bun global package, not in nixpkgs)
+```
+The rebuild helpers live in `nix/common/shell/interactive.zsh`. On macOS they use
+`/nix/var/nix/profiles/system/sw/bin/darwin-rebuild` directly, so a missing PATH
+entry cannot select the NixOS command. Until the new startup order is activated,
+`omz reload` still lets old generated definitions overwrite these helpers.
+Load the fix **after startup** in each existing terminal instead:
+
+```zsh
+source ~/config/nix/common/shell/interactive.zsh
+```
+
+After the next approved rebuild, normal startup and `omz reload` load the helpers
+last. Sourcing this file does not activate the system; invoking `nrs` does.
+
+
+<details>
+<summary>CLI tools and remote access examples</summary>
+
+```bash
 
 # New CLI tools
 bat <file>               # cat with syntax highlighting and line numbers
@@ -26,15 +94,27 @@ delta                    # wired as git pager — git diff/show/log/blame
 # Sigyn
 sigyn                   # SSH shell over Tailscale
 sigyn-screen            # auto-unlock + native Screen Sharing over an SSH tunnel
+```
+
+</details>
+
+<details>
+<summary>Per-project environments with direnv</summary>
+
+```bash
 
 # direnv — per-project env auto-loading
 echo 'use flake' > .envrc && direnv allow   # auto-load flake on cd
 echo 'use nixpkgs#python312' > .envrc        # auto-load python on cd
-direnv allow                                  # trust a new .envrc
-direnv runs automatically on `cd`. It loads/unloads the env as you move in
-and out of directories. First time with a new `.envrc`, run `direnv allow`.
+direnv allow                              # trust a new .envrc
+```
+
+direnv loads and unloads environments as you change directories. Review a new
+`.envrc` before running `direnv allow`.
 
 ### Common .envrc patterns
+
+```bash
 
 # Project with flake.nix (has devShells.default)
 echo 'use flake' > .envrc
@@ -60,7 +140,18 @@ echo 'use nixpkgs#nodejs_22 nixpkgs#python312 nixpkgs#postgresql_14' > .envrc
 direnv allow
 ```
 
+</details>
+
 Open a **new terminal** (or `exec zsh`) once after first setup for these to load.
+
+## Herdr navigation
+
+In Ghostty, **Hyper+A** (`Cmd+Option+Ctrl+Shift+A`) sends Herdr's `Ctrl+B` prefix.
+Press **Hyper+A → a**, then **j/k → Enter** to choose an agent or terminal in
+the Go To picker; **Esc** cancels. Pane navigation remains **Hyper+A → h/j/k/l**.
+The new picker binding needs the managed Herdr config deployed before reloading;
+see the [Herdr guide](configs/herdr/README.md).
+
 
 ## Shell Discovery
 
@@ -84,9 +175,10 @@ Useful shortcuts that are easy to miss:
 | `Ctrl+X g c` | Insert a Git commit template without executing it |
 
 Type `README.md` to view it with `bat`, `flake.nix` or `app.vue` to edit in VS Code,
-or `starship.toml` to edit in Vim. File handlers and keyboard customizations live
-in `nix/common/shell/interactive.zsh`, linked as `~/.zshrc_local`. Edit that file
-and run `omz reload` to apply changes without a system rebuild.
+or `configs/starship/starship.toml` to edit the prompt source. File handlers and
+keyboard customizations live in `nix/common/shell/interactive.zsh`, linked as
+`~/.zshrc_local`. `omz reload` loads this customization, but does not regenerate
+the generated `~/.zshrc` or update its embedded SSH source paths.
 Use named paths such as `ls ~config` and `cd ~code`. For batch renames, start
 with `zmv -n '(*).log' '$1.txt'` to preview changes.
 
@@ -107,50 +199,55 @@ can use them. Existing windows must be moved separately.
 
 ## Where everything lives
 
+Repository files are source; deployment mechanisms differ by configuration.
+Nix-store-backed files are snapshots until Home Manager activation (`nrs`),
+while explicitly out-of-store links such as btop follow the checkout directly.
+Some settings are applied by activation scripts or copied into application-owned
+state. Shell customizations in `nix/common/shell/interactive.zsh` are linked to
+`~/.zshrc_local` and can be loaded with `omz reload`; that does not regenerate
+the generated `~/.zshrc` or update its embedded SSH source paths. After this
+layout change, a new approved rebuild is required to activate the updated
+generated shell init and store-backed app sources. Until then, existing store
+snapshots and generated init remain unchanged. Existing SSH terminals using the
+old source paths can select the moved files explicitly until activation:
+
+```zsh
+export STARSHIP_CONFIG=~/config/configs/starship/starship-ssh.toml
+alias tmux='tmux -f ~/config/configs/tmux/tmux-ssh.conf'
+```
+Git-backed flakes omit untracked files. Stage the moved sources before a normal
+`nix build .#…` or an approved `nrs`; otherwise Nix cannot see the new paths.
+Staging is not activation or publication. Validation of an unstaged layout must
+use an explicit `path:` flake containing the new sources, without local secrets.
+
+
+Applications do not universally reload when a file changes.
+
 ```
 ~/config/
-  flake.nix                # entry — darwinConfigurations + nixosConfigurations
-  nix_secrets              # SSH keys, API tokens (GITIGNORED)
-
-  scripts/
-    config-add             # helper: add packages/aliases to the right file
-    nix-health             # detects a missing Nix store, profile, or login shell
-    sigyn-vnc             # short-lived scripted VNC actions over SSH
-    sigyn-screen          # on-demand native Screen Sharing over SSH
-  starship.toml            # prompt
-  config.ghostty           # terminal
-  .aerospace.toml          # window manager
-  .tmux.conf               # tmux
-  lazygit/config.yml       # lazygit
-  zed/settings.json        # zed editor
-  sioyek/prefs_user.config # PDF reader
-  raycast-scripts/         # Raycast script commands
-  docs/
-    nix-recovery.md         # recovery runbook after a macOS update
-  nix/hosts/               # per-machine config (hostname, username, system)
-    lucas-macbook-pro/
-    lucas-nixos/           # NixOS placeholder
-
-  nix/common/              # cross-platform home-manager modules
-    packages/              # Nix packages (cli, languages, data, cloud, media, apps, extras)
-    shell/                 # zsh config (init, aliases, paths, completions, env)
-    git.nix                # git, gh, GPG
-    tmux.nix               # tmux binary
-    vim.nix                # vim + catppuccin theme
-    dotfiles.nix           # symlinks (starship, ghostty, tmux, zed, sioyek, etc.)
-
-  nix/darwin/              # macOS-only modules
-    system.nix              # macOS defaults (dock, finder, trackpad)
-    hostname.nix            # Determinate Nix compatibility
-    launchd.nix             # launchd services (AeroSpace, Nix health, cleanup)
-    services.nix            # Nix services stubs (postgres, redis)
-    homebrew/
-      brews.nix            # brew formulas
-      casks.nix            # brew casks (GUI apps)
-      mas.nix              # Mac App Store apps
-      activation.nix       # brew trust + cleanup scripts
-
-  nix/nixos/               # NixOS system modules (placeholder)
+  flake.nix                  # Nix entry point and host configurations
+  README.md / COMMANDS.md    # setup and command references
+  AGENTS.md                  # repository architecture and contributor guidance
+  nix_secrets                # local secrets; gitignored
+  configs/<app>/             # app settings: aerospace, btop, ghostty, herdr,
+                             # lazygit, sioyek, starship, swiftbar,
+                             # syntax-highlight, tmux, zed
+  # Ignored/local runtime artifacts may add other on-disk directories.
+  nix/
+    hosts/                   # per-machine identity and system settings
+    common/                  # shared Home Manager packages, shell, dotfiles
+    darwin/                  # macOS system and Homebrew modules
+    nixos/                   # NixOS modules
+    home.nix                 # shared Home Manager entry
+    darwin.nix, nixos.nix    # platform entry modules
+    MIGRATION.md             # historical migration record; not current guidance
+  raycast/                   # ai/, scripts/, shell-discovery/, exports/
+  scripts/                   # repository helpers and Mokka generator
+  tests/                     # focused tests for scripts/configuration
+  shell/                     # remote Bash prompt helpers
+  docs/                      # recovery runbook and dated plans/specs
+  .omp/                      # canonical OMP configuration and skills
+  omp/                       # OMP configuration submodule
 ```
 ## How to...
 
@@ -162,7 +259,7 @@ can use them. Existing windows must be moved separately.
 | Add App Store app | `config-add --mas Xcode 497799835` | Edit `nix/darwin/homebrew/mas.nix` | `nrs` |
 | Add shell alias | `config-add --alias gs="git status"` | Edit `nix/common/shell/aliases.nix` | `nrs` |
 | Quick alias test | `echo 'alias ...' >> ~/.zshrc_local` | — | `exec zsh` |
-| Change dotfile | — | Edit the file directly | `nrs` |
+| Change dotfile | — | Edit its source under `configs/<app>/` | Usually `nrs`; see deployment mode above |
 | Change macOS settings | — | Edit `nix/darwin/system.nix` | `nrs` |
 | Change borders colors | — | Edit `nix/darwin/launchd.nix` | `nrs` |
 | Change git config | — | Edit `nix/common/git.nix` | `nrs` |
@@ -254,22 +351,18 @@ history and completion settings. Its `.bashrc` sources a deployed copy at
 `~/.config/huginn/remote.bash`; the original `.bashrc` is retained as
 `.bashrc.pre-huginn`. No shell packages or service settings are changed.
 
-VPS1 keeps its existing Bash prompt and sources `shell/ssh-identity.bash` for
-the right-side `vps1` SSH label. VPS2 uses `shell/remote.bash` for its prompt
-and right-side `vps2` label; existing aliases, tool paths and completion remain.
-Both retain their original `.bashrc` as `.bashrc.pre-ssh-identity`.
-
 ### Syntax Highlight
 
 The application is managed by the Homebrew `syntax-highlight` cask. Rendering
-preferences live in `syntax-highlight/settings.json`; custom Catppuccin Latte
-and Mocha themes live in `syntax-highlight/themes/`. Light/dark selection follows
-macOS appearance. Tabs render as two spaces; the font is JetBrains Mono Nerd Font.
+preferences live in `configs/syntax-highlight/settings.json`; custom Catppuccin
+Latte and Mocha themes live in `configs/syntax-highlight/themes/`. Light/dark
+selection follows macOS appearance. Tabs render as two spaces; the font is
+JetBrains Mono Nerd Font.
 
 Home Manager applies these settings on activation while the app is closed,
 preserving unrelated preferences. To apply without a full rebuild, quit Syntax
-Highlight and run `python3 ~/config/scripts/apply-syntax-highlight-config.py ~/config/syntax-highlight`.
-After a rebuild, `apply-syntax-highlight-config` provides the same operation.
+Highlight and run `python3 ~/config/scripts/apply-syntax-highlight-config.py ~/config/configs/syntax-highlight`.
+After activation, `apply-syntax-highlight-config` provides the same operation.
 Themes are copied to `~/Library/Application Support/Syntax Highlight/Themes/`;
 renderer settings are merged into `~/Library/Preferences/org.sbarex.SourceCodeSyntaxHighlight.plist`,
 not the GUI's sandbox preferences. Reopen the app after applying.
@@ -277,9 +370,10 @@ not the GUI's sandbox preferences. Reopen the app after applying.
 ### DisplayLink Manager
 
 DisplayLink Manager is installed from the Homebrew `displaylink` cask declared
-in `nix/darwin/homebrew/casks.nix`. Each `nrs` checks for and attempts to install
-DisplayLink updates; other outdated formulas and casks are left unchanged.
-Network or Homebrew errors produce a warning without failing the system rebuild.
+in `nix/darwin/homebrew/casks.nix`. Each `nrs` skips DisplayLink updates when
+it is pinned; otherwise it refreshes metadata and attempts a targeted upgrade.
+Other outdated formulas and casks are left unchanged. Network or Homebrew errors
+produce a warning without failing the system rebuild.
 Reboot after a version change so the login-screen agent and ServiceManagement
 helpers load the same build.
 
@@ -305,33 +399,29 @@ You'll need to copy these from your old machine — they're gitignored, never in
 ### On the new machine
 
 ```bash
-# 1. Install Nix
-sh <(curl -L https://nixos.org/nix/install)
+# 1. Install Determinate Nix (this repo leaves Nix daemon management to it)
+sh <(curl -L https://install.determinate.systems/nix) install
 
-# 2. Enable flakes
-mkdir -p ~/.config/nix
-echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-sudo launchctl kickstart -k system/org.nixos.nix-daemon
-
-# 3. Install Homebrew
+# 2. Install Homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 4. Clone
+# 3. Clone
 git clone git@github.com:lucasfth/config.git ~/config
+cd ~/config
 
-# 5. Create your host config (copy from existing):
+# 4. Create your host config (copy from existing):
 mkdir -p nix/hosts/$(scutil --get LocalHostName)
 cp nix/hosts/lucas-macbook-pro/default.nix nix/hosts/$(scutil --get LocalHostName)/default.nix
 # Edit the new host file: system, username, hostname, homeDirectory, stateVersion
-# Add to flake.nix: darwinConfigurations."<hostname>" = mkDarwin "<hostname>";
+# Add it to flake.nix using the existing mkDarwin factory pattern
 
 touch nix_secrets                          # create (copy from old machine)
 
-# 6. Bootstrap
+# 5. Bootstrap
 nix build .#darwinConfigurations.<your-hostname>.system
 ./result/sw/bin/darwin-rebuild switch --flake .
 
-# 7. Switch shell
+# 6. Switch shell
 sudo chsh -s ~/.nix-profile/bin/zsh $USER
 ```
 
@@ -351,12 +441,13 @@ Raycast preferences are configured through the app UI (not Nix-managed).
 To back up your settings, export them and commit the snapshot:
 
 ```bash
-raycast export --output ~/config/Raycast-$(date +%Y-%m-%d).rayconfig
-git add *.rayconfig && git commit -m "backup: raycast settings"
+raycast export --output ~/config/raycast/exports/Raycast-$(date +%Y-%m-%d).rayconfig
+# Review the snapshot for sensitive data before committing it.
+git add raycast/exports/*.rayconfig && git commit -m "chore(raycast): refresh settings export"
 ```
 
-Custom scripts (like `invert-scroll.applescript`) live in `raycast-scripts/`
-and are symlinked into Raycast's extensions folder by `common/dotfiles.nix`.
+Custom Script Commands (such as `invert-scroll.applescript`) live in
+`raycast/scripts/` and are linked into Raycast by `nix/common/dotfiles.nix`.
 
 ### Shell Discovery Extension
 
@@ -415,9 +506,15 @@ does not use `~/.zsh_history`. The terminal icon has transparent outer corners.
 
 This is a local extension; these commands do not publish it to the Raycast Store.
 
-## What's gitignored (never pushed)
+## Local state and ignored files
 
-`nix_secrets`, `.omp/agent/*.db*`, `node_modules/`, `result`
+`nix_secrets`, agent databases, caches, worktrees, and build outputs such as
+`result` are local state, not configuration source. Ignored directories may
+remain in an existing checkout; this layout change does not delete their data.
+Ignore rules do not untrack existing files: `.omp/puppeteer/package.json`, for
+example, remains tracked despite the directory's ignore rule. Review actual
+tracked files rather than assuming every file under `.omp/` is either source or
+runtime state.
 
 ## Brew vs Nix
 
@@ -431,5 +528,5 @@ This is a local extension; these commands do not publish it to the Raycast Store
 
 ## Caveats
 
-- Per-machine config lives in `nix/hosts/<hostname>/default.nix` — create one per machine
-- Postgres/Redis are brew services — nix-darwin service modules don't auto-init (see `services.nix`)
+- Per-machine config lives in `nix/hosts/<name>/default.nix`; add each configuration to `flake.nix`.
+- Postgres/Redis remain Brew services; check the current declarations in `nix/darwin/services.nix` before changing their lifecycle.

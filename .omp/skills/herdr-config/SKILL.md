@@ -11,7 +11,7 @@ Herdr config is managed centrally in the Nix config repo (`~/config`) and deploy
 
 ## Config Source
 
-- **Canonical file:** `herdr/config.toml` in the Nix config repo
+- **Canonical file:** `configs/herdr/config.toml` in the Nix config repo
 - **Config is identical on all machines** — one source of truth
 
 ## Per-Machine Installation
@@ -38,7 +38,7 @@ Herdr config is managed centrally in the Nix config repo (`~/config`) and deploy
 
 ## Config Details
 
-The herdr config (`herdr/config.toml`):
+The herdr config (`configs/herdr/config.toml`):
 - Catppuccin theme
 - Prefix key: `ctrl+b` (matches tmux)
 - Split bindings: `prefix+|` vertical, `prefix+-` horizontal

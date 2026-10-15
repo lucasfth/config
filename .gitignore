@@ -17,6 +17,7 @@ __pycache__/
 /.claude/sandbox/*
 
 # LazyGit
+configs/lazygit/state.yml
 lazygit/state.yml
 
 # VS Code (maybe others too?)

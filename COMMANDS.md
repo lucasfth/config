@@ -4,6 +4,8 @@ All commands and aliases defined in this config, grouped by category.
 
 ## Rebuild & System
 
+| Command | Does |
+| --- | --- |
 | `nrs` | Rebuild system, check for DisplayLink Manager updates, and reload shell |
 | `nix-clean` | Garbage collect old generations (user + system) |
 | `nix-update` | Update flake.lock + rebuild + reload |
@@ -15,8 +17,27 @@ All commands and aliases defined in this config, grouped by category.
 | `config-add --cat <cat> <name>` | Add nix package to specific category |
 | `config-add --alias <name>=<value>` | Add shell alias |
 | `config-add --mas <Name> <ID>` | Add Mac App Store app |
-| `, <pkg>` | Run any nixpkgs binary on-demand (comma) — also auto-suggests after unknown commands |
 | `~/config/scripts/nix-health --check` | Validate the Nix store, profile, and login shell; see `docs/nix-recovery.md` if it fails |
+
+Rebuild helpers are defined in the reloadable `nix/common/shell/interactive.zsh`.
+Before the updated startup order is activated, run
+`source ~/config/nix/common/shell/interactive.zsh` after startup; `omz reload`
+alone reintroduces the old generated definitions. After activation, `omz reload`
+loads the corrected helpers last. macOS uses the absolute system-profile
+`darwin-rebuild` path; Linux uses `nixos-rebuild`. `nrs` activates the whole
+configuration and needs explicit approval before agent use.
+
+## Herdr navigation
+
+| Keys | Action |
+| --- | --- |
+| Hyper+A, then a | Open Go To picker (agents and terminals) |
+| j / k inside picker | Select next / previous row |
+| Enter / Esc | Switch to selected row / cancel |
+| Hyper+A, then h/j/k/l | Navigate split panes, unchanged |
+
+Hyper+A is Cmd+Option+Ctrl+Shift+A in Ghostty, mapped to Ctrl+B. In other
+terminals use Ctrl+B as the prefix. See [deployment details](configs/herdr/README.md).
 
 ## Muninn
 
@@ -61,10 +82,10 @@ Oh My Zsh. The tracked config selects Vim explicitly for the command editor,
 independent of `$EDITOR` and `$VISUAL`. `Ctrl+X c` now opens the editor instead
 of invoking spelling correction. Bindings and suffix handlers live in
 `nix/common/shell/interactive.zsh`, linked as `~/.zshrc_local` and loaded by the
-existing shell startup hook. Run `omz reload` after edits; no system rebuild is
-needed for this file.
-
-### Open Files by Suffix
+generated shell startup hook after activation. Run `omz reload` after edits to
+this linked customization; it does not regenerate `.zshrc` or update shell init
+paths. The layout migration requires the next approved system/Home Manager
+activation to refresh those generated paths.
 
 Type a filename as the command to use its default viewer or editor:
 

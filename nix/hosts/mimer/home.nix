@@ -4,10 +4,12 @@
 # in standalone home-manager context because they set options
 # (home-manager.backupFileExtension, home-manager.extraSpecialArgs)
 # that only exist inside NixOS/darwin integration modules.
-
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   home = {
     username = "ecoray-admin";
     homeDirectory = "/home/ecoray-admin";
@@ -20,18 +22,39 @@
   # NOTE: tmux NOT from Nix — Nix tmux 3.6a has ioctl incompatibility on Ubuntu.
   # Use Ubuntu system tmux (/usr/bin/tmux) instead.
   home.packages = with pkgs; [
-    git gh curl wget
-    htop btop nvitop
+    git
+    gh
+    curl
+    wget
+    htop
+    btop
+    nvitop
     # tmux removed — see note above
-    ripgrep fd fzf bat eza jq tree
-    cmake gcc gnumake python3
-    zsh starship direnv delta zoxide
+    ripgrep
+    fd
+    fzf
+    bat
+    eza
+    jq
+    tree
+    cmake
+    gcc
+    gnumake
+    python3
+    zsh
+    starship
+    direnv
+    delta
+    zoxide
   ];
 
   # Zsh
   programs.zsh = {
     enable = true;
-    oh-my-zsh = { enable = true; plugins = [ "git" ]; };
+    oh-my-zsh = {
+      enable = true;
+      plugins = ["git"];
+    };
     initContent = ''
       export TMUX_TMPDIR=/tmp
       export PATH="$HOME/.local/bin:$PATH"
@@ -45,14 +68,19 @@
 
   programs.starship.enable = true;
 
-  # Starship custom config — symlink from repo starship.toml
-  home.file.".config/starship.toml".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/nixos-config/starship.toml";
+  # Starship custom config — live-linked from the repository.
+  home.file.".config/starship.toml".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/nixos-config/configs/starship/starship.toml";
 
   # Vim
   programs.vim = {
     enable = true;
-    plugins = with pkgs.vimPlugins; [ catppuccin-vim lightline-vim ];
-    settings = { number = true; tabstop = 2; shiftwidth = 2; expandtab = true; };
+    plugins = with pkgs.vimPlugins; [catppuccin-vim lightline-vim];
+    settings = {
+      number = true;
+      tabstop = 2;
+      shiftwidth = 2;
+      expandtab = true;
+    };
     extraConfig = "colorscheme catppuccin_mocha";
   };
 
@@ -75,7 +103,10 @@
 
   # GPU pipeline worker
   systemd.user.services.gpu-pipeline-worker = {
-    Unit = { Description = "GPU Pipeline Worker (:9880)"; After = [ "network.target" ]; };
+    Unit = {
+      Description = "GPU Pipeline Worker (:9880)";
+      After = ["network.target"];
+    };
     Service = {
       Type = "simple";
       ExecStart = "${pkgs.python3}/bin/python3 $HOME/klaus-services/gpu_pipeline_worker.py";
@@ -83,6 +114,6 @@
       RestartSec = 10;
       Environment = "PYTHONUNBUFFERED=1";
     };
-    Install.WantedBy = [ "default.target" ];
+    Install.WantedBy = ["default.target"];
   };
 }
