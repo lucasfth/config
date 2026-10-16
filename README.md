@@ -42,6 +42,7 @@ and activation steps before applying it to another machine.
 | [Nix modules](nix/README.md) | Host configuration, packages, and deployment ownership |
 | [Raycast](raycast/README.md) | AI provider template, Script Commands, extension, and exports |
 | [Scripts](scripts/README.md) | Maintenance and configuration helpers |
+| [Freyr browser skill](.omp/skills/using-freyr-browser/SKILL.md) | Required browser workflow using Freyr's signed-in Chromium |
 | [Tests](tests/README.md) | Focused checks and their prerequisites |
 | [Command reference](COMMANDS.md) | Shell commands, key bindings, and shortcuts |
 | [Nix recovery](docs/nix-recovery.md) | Recovery after a macOS update removes Nix |
