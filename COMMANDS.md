@@ -133,8 +133,10 @@ before `direnv allow`; permission is never granted automatically by this config.
 
 | Command | Does |
 |---------|------|
-| `lg` | Open lazygit |
+| `lg` | Open LazyGit with `~/config/configs/lazygit/config.yml` explicitly |
 | `gup` | `git pull --rebase` |
+
+`lg` is defined in the live-linked `nix/common/shell/interactive.zsh`; use `omz reload` after edits once the corrected generated shell has been activated. See [LazyGit configuration and activation](configs/README.md#lazygit) for the one-time rebuild and verification limits.
 
 ## SSH
 

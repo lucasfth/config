@@ -53,6 +53,12 @@ in {
         aliasesContent
         completionsContent
         envContent
+        ''
+          # Load last so reloadable shortcuts override generated definitions.
+          if [ -f "$HOME/.zshrc_local" ]; then
+            source "$HOME/.zshrc_local"
+          fi
+        ''
       ]))
     ];
   };

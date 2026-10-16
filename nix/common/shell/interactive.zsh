@@ -1,5 +1,8 @@
 # Loaded through ~/.zshrc_local. Edit this file, then run omz reload.
 
+# Select the tracked config explicitly; macOS otherwise uses Application Support.
+alias lg='lazygit --use-config-file "$HOME/config/configs/lazygit/config.yml"'
+
 # Select by OS, not whether darwin-rebuild happens to be on PATH.
 # Resolve the managed macOS executable at invocation time, including sudo calls.
 _config-rebuild() {

@@ -61,9 +61,5 @@
     nix-which() { local p; p="$(which "$1")"; case "$p" in */nix/store/*|*/.nix-profile/*|*/run/current-system/*) echo "$p  ← Nix" ;; /opt/homebrew/*) echo "$p  ← Brew" ;; *) echo "$p" ;; esac; }
     nix-diff() { nix profile diff-closures --profile /nix/var/nix/profiles/system --profile "/nix/var/nix/profiles/system-$1-link"; }
 
-    # Load last so reloadable shortcuts override older generated definitions.
-    if [ -f "$HOME/.zshrc_local" ]; then
-      source "$HOME/.zshrc_local"
-    fi
   '';
 }

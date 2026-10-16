@@ -101,7 +101,12 @@ in {
       # ── Cross-platform dotfiles ─────────────────────────────────
       ".config/starship.toml".source = "${flakeDir.outPath}/configs/starship/starship.toml";
       ".config/ghostty/config".source = "${flakeDir.outPath}/configs/ghostty/config";
-      ".config/lazygit/config.yml".source = "${flakeDir.outPath}/configs/lazygit/config.yml";
+      # LazyGit uses the native macOS config directory when XDG_CONFIG_HOME is unset.
+      ${
+        if pkgs.stdenv.isDarwin
+        then "Library/Application Support/lazygit/config.yml"
+        else ".config/lazygit/config.yml"
+      }.source = "${flakeDir.outPath}/configs/lazygit/config.yml";
       ".tmux.conf".source = "${flakeDir.outPath}/configs/tmux/tmux.conf";
       ".config/zed/settings.json".source = "${flakeDir.outPath}/configs/zed/settings.json";
 

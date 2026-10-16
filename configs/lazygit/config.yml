@@ -1,3 +1,6 @@
 promptToReturnFromSubprocess: false
+git:
+  # Keep signed commits in the UI instead of suspending the terminal.
+  overrideGpg: true
 os:
   edit: 'vim {{filename}}'

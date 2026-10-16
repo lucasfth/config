@@ -7,7 +7,6 @@
 
 
     # ── General aliases ──────────────────────────────────────
-    alias lg="lazygit"
     alias gup="git pull --rebase"
 
     # ── Batch HEIC → TIFF conversion (macOS only — uses sips) ──
