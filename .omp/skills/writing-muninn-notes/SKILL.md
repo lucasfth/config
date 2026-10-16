@@ -9,6 +9,8 @@ description: Use when Lucas asks to add, save, move, or update a non-retro note 
 
 Write vault-native notes, not loose Markdown files. The vault's current conventions determine folder, metadata, naming, and index placement.
 
+**Canonical rulebook:** `tech/vault-note-writing-rules.md` in Muninn. Read it through `vault_read` before writing if you have not already read it this session. It is authoritative for tags, titles, filenames, and the `Related:` line; this skill is authoritative for folder choice, `_INDEX.md`, and verification. Where they overlap, the rulebook wins.
+
 Muninn is the primary operational knowledge source for both Huginn and Loki. NEVER write incident notes, recovery history, runbooks, or duplicated vault information to Loki's `~/.hermes/README.md`. Use the canonical Muninn note and index instead; a local README is not a documentation fallback. If misplaced sections were added there, verify their content is preserved in Muninn, then remove only those additions and retain the original README.
 
 **Completion invariant:** A new canonical note is incomplete until `_INDEX.md` links it. A successful result MUST set `updatesIndex = true`; existing links are verified rather than duplicated.
@@ -19,21 +21,26 @@ Muninn is the primary operational knowledge source for both Huginn and Loki. NEV
 2. Read `_INDEX.md` and one representative note from the target folder.
 3. Choose the semantic folder before choosing the filename. Root is not a default destination.
 4. Search for an existing note on the topic; update it instead of creating a duplicate when appropriate.
-5. Write YAML frontmatter matching the representative note. Unless the folder specifies otherwise, include:
+5. Write YAML frontmatter matching the representative note, always including `title`, `type`, `tags`, `status`, and `updated: YYYY-MM-DD`. Folder conventions may add fields, not omit these required fields:
 
 ```yaml
 ---
 title: Descriptive Title
 type: reference
 created: YYYY-MM-DD
-tags:
-  - relevant-tag
+tags: [specific-tag, reused-tag]
+status: active
+updated: YYYY-MM-DD
 ---
 ```
 
-6. End every Markdown file with exactly one newline.
-7. For every new canonical note, call `vault_write` for `_INDEX.md` and add its link in the folder section, preserving the index format and final newline. No exception and no conditional wording.
-8. Read back the note and index. Verify path, frontmatter, index link, and `content.endsWith("\n")` before reporting success.
+6. Tags: 2 to 5, lowercase, kebab-case, unquoted, singular. Reuse tags already in the vault and include at least one specific tag. Never use a broad tag (`postmortem`, `hermes`, `klaus`, `mimer`, `ecoray`, `food`) as the only tag: dreaming ignores tags used on more than 15 notes.
+7. Put key facts at the top: deadlines, status, amounts, owners in frontmatter or the first paragraph.
+8. Link in the body with `[[note-name]]` where notes relate. Never edit the `Related:` line; dreaming owns it and may rewrite it.
+   Never write to `personal-notes/` unless Lucas explicitly asks; this applies to MCP writes as well as fallback edits.
+9. End every Markdown file with exactly one newline.
+10. For every new canonical note, call `vault_write` for `_INDEX.md` and add its link in the folder section, preserving the index format and final newline. No exception and no conditional wording.
+11. Read back the note and index. Verify path, frontmatter, index link, and `content.endsWith("\n")` before reporting success.
 
 ## Access Path
 
@@ -73,8 +80,11 @@ To relocate a note:
 | Check | Requirement |
 |---|---|
 | Folder | Derived from `references/vault-structure.md` |
-| Frontmatter | Matches target-folder convention |
+| Frontmatter | Matches target-folder convention; includes `status` and `updated` |
+| Tags | 2 to 5, lowercase, kebab-case, unquoted, singular, reused |
 | Filename | Stable descriptive or numbered stem per convention |
+| Key facts | Deadlines, status, amounts, owners at the top |
+| Related | Never edited by hand |
 | Index | Canonical note added to the correct section |
 | EOF | Exactly one newline |
 | Verification | Read back note and index |
@@ -87,11 +97,17 @@ To relocate a note:
 - Trusting the write response without reading content back.
 - Leaving no final newline.
 - Treating a non-retro note as a session retro.
+- Quoting tags, using plural tags, or inventing a tag that already exists in another form.
+- Using only broad tags, which dreaming ignores.
+- Editing the `Related:` line by hand.
+- Writing to `personal-notes/` without Lucas asking.
 
 ## Red Flags
 
 - “Update the index only if conventions require it.”
 - “No other files need changes” after creating a canonical note.
 - Reporting success without a frontmatter, index, and final-newline readback.
+- “I added the tags I thought were relevant” without checking the vault for existing tags.
+- “I tidied up the Related: line.”
 
 Any red flag means the Muninn write is incomplete.
