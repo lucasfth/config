@@ -226,7 +226,11 @@ See [installation and preferences](README.md#shell-discovery-extension).
 | Command | Source |
 |---------|--------|
 | `yt-dlp` | `~/Desktop/code/yt-dlp/yt-dlp` (manual clone) |
-| `repolicense` | `~/Desktop/code/repolicense-cli/` (git submodule) |
+| `repolicense` | `~/Desktop/code/repolicense-cli/zig-out/bin/repolicense` (local Zig build; alias in `nix/common/shell/aliases.nix`) |
+
+`repolicense` opens Choose a license / Check compatibility / Quit. `repolicense --compat` opens compatibility directly; `--plain` disables Gum styling. Gum is declared in `nix/darwin/homebrew/brews.nix`; the CLI itself is built from the separate `lucasfth/repolicense-cli` checkout, not a config submodule or Nix package.
+
+Rebuild the command from the desired checked-out revision with `zig build -Doptimize=ReleaseSafe` in `~/Desktop/code/repolicense-cli`. The alias executes that checkout's `zig-out/bin/repolicense`; it does not build or select a branch automatically. To try an unmerged feature, run that worktree's executable explicitly. A copied feature binary at the alias target will be replaced by the next build of the main checkout. Shell alias declarations are applied by Home Manager; no system activation is implied by these source changes.
 
 ## Quick Experiments
 
