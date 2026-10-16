@@ -272,6 +272,24 @@ Applications do not universally reload when a file changes.
 | Change borders colors | — | Edit `nix/darwin/launchd.nix` | `nrs` |
 | Change git config | — | Edit `nix/common/git.nix` | `nrs` |
 
+### OMP MCP connections
+
+Public MCP registrations live in `.omp/agent/mcp.json`, including Vercel and
+Supabase (`https://mcp.supabase.com/mcp`). Home Manager generates
+`~/.omp/agent/mcp.json` from that source plus `nix_secrets`; do not edit the
+generated file directly. Validate the source with `jq . .omp/agent/mcp.json`
+before activation.
+
+After regenerating the configuration, run `/mcp reload` in OMP. Complete the
+Supabase browser OAuth prompt, or use `/mcp reauth supabase` to authorize again.
+Verify with `/mcp test supabase` and `/mcp list`. A Vercel MCP `401` with
+`No authorization provided` is a separate login issue: use `/mcp reauth vercel`.
+OAuth credentials belong in OMP's credential storage, not the tracked JSON.
+
+The Supabase registration is account-wide so it can discover or create projects.
+Once a project is selected, prefer a project-scoped connection using
+`?project_ref=<id>`. See the [Supabase MCP documentation](https://supabase.com/docs/guides/ai-tools/mcp).
+
 ### Zig
 
 Zig 0.17.0 is pinned from the official Zig release tarballs in
