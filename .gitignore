@@ -16,9 +16,9 @@ __pycache__/
 /Code/User/profiles/
 /.claude/sandbox/*
 
-# LazyGit
-configs/lazygit/state.yml
-lazygit/state.yml
+# LazyGit runtime state and legacy root config/backups (source: configs/lazygit/)
+/configs/lazygit/state.yml
+/lazygit/
 
 # VS Code (maybe others too?)
 */Cache/*
