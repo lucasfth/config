@@ -39,6 +39,8 @@ Homebrew formulas, casks, or App Store apps in `darwin/homebrew/`. The
 `config-add` helper can make these edits, but changes take effect only after
 activation. Keep machine-specific values in `hosts/<name>/`, not shared modules.
 
+Repolicense's optional styled terminal interface uses the `gum` Homebrew formula declared in `darwin/homebrew/brews.nix`. Its local Zig executable and conditional alias remain separate from Nix package management; see [local command setup](../COMMANDS.md#local-not-nix-managed) for build paths, launcher modes, and worktree behavior.
+
 ## Source path migration
 
 The grouped sources are `configs/aerospace`, `btop`, `ghostty`, `herdr`,

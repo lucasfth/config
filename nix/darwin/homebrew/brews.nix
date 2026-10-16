@@ -9,6 +9,7 @@
     "bun"
     "container"
     "firebase-cli"
+    "gum" # Optional styled Repolicense menus and detail pager
     "mas" # Mac App Store CLI
     "mole"
     "postgresql@14"
