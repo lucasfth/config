@@ -31,13 +31,14 @@ configuration and needs explicit approval before agent use.
 
 | Keys | Action |
 | --- | --- |
-| Hyper+A, then a | Enter persistent agent-only navigation |
+| Ctrl+B or Hyper+A, then a | Enter persistent agent-only navigation in Ghostty |
 | j / k in agent mode | Immediately focus next / previous sidebar agent |
 | 1–9 in agent mode | Immediately focus numbered sidebar agent |
 | Enter / Esc in agent mode | Exit agent mode without submitting input to a pane |
 | Hyper+A, then h/j/k/l | Navigate split panes, unchanged |
 | Hyper+A, then 1–9 outside agent mode | Select a tab, unchanged |
 | Ctrl+B, then g | Open the separate Go To picker |
+| Ctrl+B, then Option+8 on Danish layout | Enter COPY mode (`[`); h/j/k/l moves, v selects, y copies |
 
 Hyper+A is Cmd+Option+Ctrl+Shift+A in Ghostty. Persistent agent mode uses
 Ghostty 1.3+ key tables and Herdr's native agent actions, not its Go To picker.

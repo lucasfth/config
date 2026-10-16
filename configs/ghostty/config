@@ -24,22 +24,25 @@ window-save-state = always
 # Keep Hyper+A as Herdr's Ctrl+B prefix; intercept only the following a.
 keybind = super+alt+ctrl+shift+a=activate_key_table_once:herdr-prefix
 keybind = chain=text:\x02
-keybind = herdr-prefix/a=text:\x1b
+keybind = ctrl+b=activate_key_table_once:herdr-prefix
+keybind = chain=text:\x02
+# Explicit Escape avoids merging with the next shortcut's leading Ctrl+B.
+keybind = herdr-prefix/a=text:\x1b[27u
 keybind = chain=activate_key_table:herdr-agents
 keybind = herdr-prefix/unconsumed:catch_all=end_key_sequence
 
 # Persistent agent-only navigation. Do not forward navigation keys to panes.
 keybind = herdr-agents/j=text:\x02\x1b[106;5u
 keybind = herdr-agents/k=text:\x02\x1b[107;5u
-keybind = herdr-agents/1=text:\x02\x1b[49;3u
-keybind = herdr-agents/2=text:\x02\x1b[50;3u
-keybind = herdr-agents/3=text:\x02\x1b[51;3u
-keybind = herdr-agents/4=text:\x02\x1b[52;3u
-keybind = herdr-agents/5=text:\x02\x1b[53;3u
-keybind = herdr-agents/6=text:\x02\x1b[54;3u
-keybind = herdr-agents/7=text:\x02\x1b[55;3u
-keybind = herdr-agents/8=text:\x02\x1b[56;3u
-keybind = herdr-agents/9=text:\x02\x1b[57;3u
+keybind = herdr-agents/physical:one=text:\x02\x1b[49;7u
+keybind = herdr-agents/physical:two=text:\x02\x1b[50;7u
+keybind = herdr-agents/physical:three=text:\x02\x1b[51;7u
+keybind = herdr-agents/physical:four=text:\x02\x1b[52;7u
+keybind = herdr-agents/physical:five=text:\x02\x1b[53;7u
+keybind = herdr-agents/physical:six=text:\x02\x1b[54;7u
+keybind = herdr-agents/physical:seven=text:\x02\x1b[55;7u
+keybind = herdr-agents/physical:eight=text:\x02\x1b[56;7u
+keybind = herdr-agents/physical:nine=text:\x02\x1b[57;7u
 keybind = herdr-agents/escape=deactivate_key_table
 keybind = herdr-agents/enter=deactivate_key_table
 keybind = herdr-agents/unconsumed:catch_all=deactivate_key_table

@@ -147,7 +147,7 @@ Open a **new terminal** (or `exec zsh`) once after first setup for these to load
 ## Herdr navigation
 
 In Ghostty 1.3+, **Hyper+A** (`Cmd+Option+Ctrl+Shift+A`) retains Herdr's prefix.
-Press **Hyper+A → a** to enter agent-only navigation: **j/k** immediately focuses
+Press **Ctrl+B → a** or **Hyper+A → a** to enter agent-only navigation: **j/k** focuses
 the next/previous sidebar agent; **1–9** jumps to an agent by sidebar index.
 Repeat without the prefix; **Esc** or **Enter** exits. No picker or ordinary
 terminal rows are involved. Pane navigation remains **Hyper+A → h/j/k/l** and
@@ -155,6 +155,10 @@ tab selection remains **Hyper+A → 1–9** outside agent mode.
 Both Ghostty and Herdr configs must be deployed and reloaded together; see the
 [Herdr guide](configs/herdr/README.md). Repository edits alone do not change
 existing store-backed configurations.
+
+For keyboard copying on the Danish layout, press **Ctrl+B → Option+8** (`[`),
+then use **h/j/k/l**, **v**, **y** after the **COPY** indicator appears.
+The internal numbered-agent chords use Ctrl+Alt to avoid the Option+8 collision.
 
 
 ## Shell Discovery
