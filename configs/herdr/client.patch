@@ -1,0 +1,307 @@
+diff --git a/docs/next/website/src/content/docs/configuration.mdx b/docs/next/website/src/content/docs/configuration.mdx
+index 874fe56..f820a3f 100644
+--- a/docs/next/website/src/content/docs/configuration.mdx
++++ b/docs/next/website/src/content/docs/configuration.mdx
+@@ -403,6 +403,12 @@ Space rows accept these built-in tokens:
+ 
+ Tokens render in their configured order. Herdr normally separates adjacent values with ` · ` and uses a single space after `state_icon`. Missing values and their separators disappear; a row disappears when none of its tokens have a value. Existing custom rows remain unchanged, so add `machine` explicitly if you want machine identity in a custom multi-machine layout. Each layout may contain at most 16 rows, with at most 16 tokens in each row.
+ 
++Space layouts may place custom metric rows before the `workspace` row. Leading
++rows keep a consistent inset; workspace titles and worktree connectors remain
++aligned with titles that have no preceding metrics. Group-collapse controls stay
++on the workspace title row rather than the first metric row. Layouts without a
++`workspace` token retain their first-row indentation behavior.
++
+ A token entry can also be an inline style table:
+ 
+ ```toml
+diff --git a/src/client/shell/endpoint_sidebar.rs b/src/client/shell/endpoint_sidebar.rs
+index 9698248..43d3413 100644
+--- a/src/client/shell/endpoint_sidebar.rs
++++ b/src/client/shell/endpoint_sidebar.rs
+@@ -468,6 +468,7 @@ pub(super) fn render_expanded(
+                 let selected = state.selected_workspace_id.is_some_and(|target| {
+                     target.matches(&endpoint.endpoint_id, &workspace.workspace_id)
+                 });
++                let title_y = rect.y.saturating_add(super::sidebar::workspace_title_row(&tokens) as u16);
+                 super::sidebar::render_workspace_rows(
+                     buffer,
+                     nested,
+@@ -491,7 +492,7 @@ pub(super) fn render_expanded(
+                 }
+                 let group_toggle = super::sidebar::render_parent_group_toggle(
+                     buffer,
+-                    rect,
++                    Rect::new(rect.x, title_y, rect.width, 1),
+                     snapshot,
+                     entry.index,
+                     collapsed_groups,
+diff --git a/src/client/shell/sidebar.rs b/src/client/shell/sidebar.rs
+index 46c3a1a..107566f 100644
+--- a/src/client/shell/sidebar.rs
++++ b/src/client/shell/sidebar.rs
+@@ -321,6 +321,7 @@ pub(crate) fn render_sidebar(
+         } else if workspace.focused {
+             buffer.set_style(rect, Style::default().bg(palette.active_row_bg));
+         }
++        let title_y = rect.y.saturating_add(workspace_title_row(&rows) as u16);
+         render_workspace_rows(
+             buffer,
+             rect,
+@@ -336,7 +337,7 @@ pub(crate) fn render_sidebar(
+         );
+         let group_toggle = render_parent_group_toggle(
+             buffer,
+-            rect,
++            Rect::new(rect.x, title_y, rect.width, 1),
+             snapshot,
+             entry.index,
+             state.collapsed_groups,
+@@ -689,6 +690,12 @@ pub(in crate::client::shell) fn workspace_rows(
+     )
+ }
+ 
++pub(in crate::client::shell) fn workspace_title_row(rows: &[Vec<crate::ui::ResolvedToken>]) -> usize {
++    rows.iter()
++        .position(|row| row.iter().any(|token| matches!(token.kind, crate::ui::ResolvedTokenKind::Workspace(_))))
++        .unwrap_or(0)
++}
++
+ pub(in crate::client::shell) fn render_workspace_rows(
+     buffer: &mut Buffer,
+     area: Rect,
+@@ -702,6 +709,7 @@ pub(in crate::client::shell) fn render_workspace_rows(
+     dragged: bool,
+     palette: &Palette,
+ ) {
++    let title_row = workspace_title_row(&rows);
+     for (row_index, row) in rows.iter().enumerate() {
+         let y = area.y + row_index as u16;
+         if y >= area.bottom() {
+@@ -709,13 +717,13 @@ pub(in crate::client::shell) fn render_workspace_rows(
+         }
+         let mut x = area.x;
+         if entry.indented {
+-            let prefix = if row_index == 0 {
++            let prefix = if row_index == title_row {
+                 if entry.last_child {
+                     "   └─ "
+                 } else {
+                     "   ├─ "
+                 }
+-            } else if entry.last_child {
++            } else if row_index < title_row || entry.last_child {
+                 "        "
+             } else {
+                 "   │    "
+@@ -728,7 +736,7 @@ pub(in crate::client::shell) fn render_workspace_rows(
+                 prefix,
+                 Style::default().fg(palette.overlay0),
+             );
+-        } else if row_index == 0 {
++        } else if row_index <= title_row {
+             x = x.saturating_add(1);
+         } else {
+             x = x.saturating_add(3);
+diff --git a/src/client/shell/tests/agents_worktrees_notifications.rs b/src/client/shell/tests/agents_worktrees_notifications.rs
+index df09f46..b6447bd 100644
+--- a/src/client/shell/tests/agents_worktrees_notifications.rs
++++ b/src/client/shell/tests/agents_worktrees_notifications.rs
+@@ -1,5 +1,80 @@
+ use super::*;
+ 
++#[test]
++fn workspace_names_align_after_leading_host_metrics() {
++    use crate::config::SpaceSidebarToken;
++
++    let mut config = Config::default();
++    config.ui.sidebar.spaces.rows = vec![
++        vec![SpaceSidebarToken::Custom("host_load".into())],
++        vec![SpaceSidebarToken::Custom("host_storage".into())],
++        vec![SpaceSidebarToken::StateIcon, SpaceSidebarToken::Workspace],
++        vec![SpaceSidebarToken::Branch],
++    ];
++    let mut projected = snapshot();
++    projected.workspaces[0].label = "alpha".into();
++    projected.workspaces[0].tokens = vec![
++        ("host_load".into(), "\u{f2db} 30% \u{efc5} 7.4G".into()),
++        ("host_storage".into(), "\u{f0a0} 288G ⎓ 80%".into()),
++    ];
++    let mut second = projected.workspaces[0].clone();
++    second.workspace_id = "ws_2".into();
++    second.label = "beta".into();
++    second.tokens.clear();
++    second.focused = false;
++    projected.workspaces.push(second);
++    let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
++    state.set_snapshot(Box::new(projected));
++    state.set_pane_surface(surface());
++    let frame = state.compose(106, 30).expect("stats-first sidebar");
++    let first = state.hits.workspaces[0].rect;
++    let second = state.hits.workspaces[1].rect;
++    let alpha = cell_symbol_position(&frame, first, "alpha");
++    let beta = cell_symbol_position(&frame, second, "beta");
++    assert_eq!(alpha.0, beta.0, "workspace names must share a column");
++    let cpu = cell_symbol_position(&frame, first, "\u{f2db}");
++    let memory = cell_symbol_position(&frame, first, "\u{efc5}");
++    let disk = cell_symbol_position(&frame, first, "\u{f0a0}");
++    assert!(cpu.1 < disk.1 && disk.1 < alpha.1);
++    assert_eq!(cpu.0, disk.0, "host summary rows must align");
++    assert!(memory.0 > cpu.0, "Nerd Font memory glyph must survive rendering");
++}
++
++#[test]
++fn leading_metrics_keep_worktree_connector_on_name_row() {
++    use crate::config::SpaceSidebarToken;
++    let mut config = Config::default();
++    config.ui.sidebar.spaces.rows = vec![
++        vec![SpaceSidebarToken::Custom("host_load".into())],
++        vec![SpaceSidebarToken::StateIcon, SpaceSidebarToken::Workspace],
++    ];
++    let mut projected = snapshot();
++    projected.workspaces[0].worktree = Some(ClientShellWorktree {
++        key: "repo".into(), label: "repo".into(), is_linked_worktree: false,
++    });
++    projected.workspaces[0].tokens = vec![("host_load".into(), "parent metrics".into())];
++    let mut child = projected.workspaces[0].clone();
++    child.workspace_id = "ws_2".into();
++    child.branch = Some("feature".into());
++    child.worktree.as_mut().unwrap().is_linked_worktree = true;
++    child.tokens = vec![("host_load".into(), "metrics".into())];
++    projected.workspaces.push(child);
++    let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
++    state.set_snapshot(Box::new(projected));
++    state.set_pane_surface(surface());
++    let frame = state.compose(106, 30).expect("grouped stats-first sidebar");
++    let rect = state.hits.workspaces[1].rect;
++    let name = cell_symbol_position(&frame, rect, "feature");
++    let connector = cell_symbol_position(&frame, rect, "└─");
++    let metrics = cell_symbol_position(&frame, rect, "metrics");
++    let parent = state.hits.workspaces[0].rect;
++    let parent_name = cell_symbol_position(&frame, parent, "client-shell");
++    let toggle = state.hits.workspaces[0].group_toggle.as_ref().expect("parent toggle").0;
++    assert_eq!(toggle.y, parent_name.1, "collapse control belongs to the title");
++    assert_eq!(connector.1, name.1, "tree marker belongs to the workspace title");
++    assert!(metrics.1 < name.1);
++}
++
+ #[test]
+ fn mouse_hits_use_stable_workspace_tab_and_pane_ids() {
+     let config = ClientShellConfig::from_config(&Config::default());
+diff --git a/src/client/shell/tests/endpoints.rs b/src/client/shell/tests/endpoints.rs
+index c0a7e52..fa950b8 100644
+--- a/src/client/shell/tests/endpoints.rs
++++ b/src/client/shell/tests/endpoints.rs
+@@ -73,6 +73,112 @@ fn state_with_remote() -> (ClientShellState, ClientEndpointId) {
+     (state, endpoint_id)
+ }
+ 
++#[test]
++fn stats_first_machine_sidebar_keeps_workspace_names_aligned() {
++    use crate::config::SpaceSidebarToken;
++    let (mut state, remote) = state_with_remote();
++    let mut config = Config::default();
++    config.ui.sidebar.spaces.rows = vec![
++        vec![SpaceSidebarToken::Custom("host_load".into())],
++        vec![SpaceSidebarToken::Custom("host_storage".into())],
++        vec![SpaceSidebarToken::StateIcon, SpaceSidebarToken::Workspace],
++    ];
++    state.config = ClientShellConfig::from_config(&config);
++
++    let mut local = snapshot();
++    local.workspaces[0].label = "alpha".into();
++    local.workspaces[0].agent_status = crate::api::schema::AgentStatus::Unknown;
++    local.workspaces[0].tokens = vec![
++        ("host_load".into(), "\u{f2db} 30% \u{efc5} 7.4G".into()),
++        ("host_storage".into(), "\u{f0a0} 288G ⎓ 80%".into()),
++    ];
++    let mut second = local.workspaces[0].clone();
++    second.workspace_id = "ws_2".into();
++    second.label = "beta".into();
++    second.tokens.clear();
++    second.focused = false;
++    local.workspaces.push(second);
++    let mut third = local.workspaces[0].clone();
++    third.workspace_id = "ws_3".into();
++    third.number = 3;
++    third.label = "config".into();
++    third.tokens.clear();
++    third.agent_status = crate::api::schema::AgentStatus::Working;
++    third.focused = false;
++    local.workspaces.push(third);
++    state.set_snapshot(Box::new(local));
++
++    let mut remote_snapshot = snapshot();
++    remote_snapshot.boot_id = "remote-boot".into();
++    remote_snapshot.workspaces[0].label = "gamma".into();
++    remote_snapshot.workspaces[0].agent_status = crate::api::schema::AgentStatus::Unknown;
++    remote_snapshot.workspaces[0].tokens = vec![
++        ("host_load".into(), "\u{f2db} 6% \u{efc5} 3.1G".into()),
++        ("host_storage".into(), "\u{f0a0} 390G".into()),
++    ];
++    state.set_endpoint_snapshot(&remote, Box::new(remote_snapshot));
++
++    let frame = state.compose(106, 38).expect("two-machine sidebar");
++    let first = state.hits.workspaces[0].rect;
++    let second = state.hits.workspaces[1].rect;
++    let third = state.hits.workspaces[2].rect;
++    let fourth = state.hits.workspaces[3].rect;
++    let alpha = cell_symbol_position(&frame, first, "alpha");
++    let beta = cell_symbol_position(&frame, second, "beta");
++    let config_name = cell_symbol_position(&frame, third, "config");
++    let gamma = cell_symbol_position(&frame, fourth, "gamma");
++    assert_eq!(alpha.0, beta.0);
++    assert_eq!(alpha.0, config_name.0);
++    assert_eq!(alpha.0, gamma.0);
++    assert!(cell_symbol_position(&frame, first, "\u{f2db}").1 < alpha.1);
++    assert!(cell_symbol_position(&frame, fourth, "\u{f2db}").1 < gamma.1);
++
++    let mut renderer = crate::client::state::ClientState::test_new();
++    let mut output = Vec::new();
++    assert!(renderer.try_present_frame_to(&mut output, frame.clone()));
++    let mut terminal = crate::ghostty::Terminal::new(frame.width, frame.height, 0).unwrap();
++    terminal.write(&output);
++
++    let terminal_name_column = |name: &str, y: u16| {
++        let characters = name.chars().map(u32::from).collect::<Vec<_>>();
++        (0..frame.width.saturating_sub(characters.len() as u16))
++            .find(|start| {
++                characters.iter().enumerate().all(|(offset, character)| {
++                    terminal
++                        .screen_cell(start + offset as u16, u32::from(y))
++                        .is_ok_and(|(_, graphemes)| {
++                            graphemes.len() == 1 && graphemes[0] == *character
++                        })
++                })
++            })
++            .unwrap_or_else(|| panic!("{name:?} missing from terminal row {y}"))
++    };
++    let terminal_alpha = terminal_name_column("alpha", alpha.1);
++    let terminal_beta = terminal_name_column("beta", beta.1);
++    let terminal_config = terminal_name_column("config", config_name.1);
++    let terminal_gamma = terminal_name_column("gamma", gamma.1);
++    assert_eq!(terminal_alpha, terminal_beta, "ANSI output must preserve local workspace alignment");
++    assert_eq!(terminal_alpha, terminal_config, "ANSI output must preserve local workspace alignment");
++    assert_eq!(terminal_alpha, terminal_gamma, "ANSI output must preserve cross-endpoint alignment");
++
++    for y in 0..frame.height {
++        let mut row = String::new();
++        terminal
++            .for_each_screen_row_cell(u32::from(y), |wide, graphemes| {
++                if wide == crate::ghostty::CellWide::SpacerTail {
++                    return;
++                }
++                if graphemes.is_empty() {
++                    row.push(' ');
++                } else {
++                    row.extend(graphemes.iter().filter_map(|codepoint| char::from_u32(*codepoint)));
++                }
++            })
++            .unwrap();
++        println!("{row}");
++    }
++}
++
+ #[test]
+ fn workspace_navigation_waits_for_the_target_presentation_fence() {
+     use crate::client::endpoint::{EndpointNegotiation, EndpointRegistry};

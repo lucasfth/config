@@ -11,6 +11,7 @@ macOS-specific tools, or temporary local services/mocks.
   commands and temporary credentials.
 - `nix-health.sh` checks the Nix health helper.
 - `rebuild.zsh` checks macOS/Linux rebuild command selection, strict shell reload, and failure propagation without invoking real sudo or activating a system. It sources `interactive.zsh` directly; it does not cover generated `.zshrc` startup ordering or prove that a deployed shell has loaded the fix.
+- `herdr-host-summary.sh` checks summary ownership plus isolated concurrent collector starts, stop/restart, per-socket locks and unrelated-PID safety. It launches only its own temporary collectors, not a Herdr server or GUI client.
 - `nix-recovery-config.sh` and `setup-efficiency.sh` inspect evaluated Nix
   configuration and activation settings.
 

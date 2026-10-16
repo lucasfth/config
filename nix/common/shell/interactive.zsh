@@ -3,6 +3,11 @@
 # Select the tracked config explicitly; macOS otherwise uses Application Support.
 alias lg='lazygit --use-config-file "$HOME/config/configs/lazygit/config.yml"'
 
+# Keep the local sidebar patch independent of Homebrew upgrades.
+if [[ $OSTYPE == darwin* ]]; then
+  alias herdr='"$HOME/.local/libexec/herdr-patched"'
+fi
+
 # Select by OS, not whether darwin-rebuild happens to be on PATH.
 # Resolve the managed macOS executable at invocation time, including sudo calls.
 _config-rebuild() {

@@ -1,0 +1,13 @@
+id = "huginn.host-summary"
+name = "Host Summary"
+version = "1.0.0"
+min_herdr_version = "0.7.5"
+description = "Compact host metrics above the first workspace, once per expanded machine."
+platforms = ["macos", "linux"]
+
+[[startup]]
+command = ["bash", "summary.sh", "--spawn"]
+
+[[events]]
+on = "workspace.focused"
+command = ["bash", "summary.sh", "--spawn"]

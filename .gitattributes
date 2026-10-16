@@ -1,0 +1,2 @@
+# Unified diffs contain intentional single-space blank context lines.
+configs/herdr/client.patch -whitespace

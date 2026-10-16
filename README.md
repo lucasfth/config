@@ -161,6 +161,16 @@ For keyboard copying on the Danish layout, press **Ctrl+B → Option+8** (`[`),
 then use **h/j/k/l**, **v**, **y** after the **COPY** indicator appears.
 The internal numbered-agent chords use Ctrl+Alt to avoid the Option+8 collision.
 
+The local [Host Summary plugin](configs/herdr/README.md#compact-host-metrics)
+reports CPU, RAM, free disk and optional battery on macOS and Linux. The compact
+layout places one summary above each machine's first workspace instead of
+repeating host metrics under every project. Plugin deployment and activation of
+the managed sidebar layout are separate; see the guide for limits and setup.
+The accepted patched client is reproducible with
+`bash scripts/build-herdr-client.sh --install`; source revision, toolchain pins
+and the complete patch live under `configs/herdr/`. Installation never restarts
+the running server.
+
 
 ## Shell Discovery
 

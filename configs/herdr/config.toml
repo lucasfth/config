@@ -9,6 +9,19 @@ default_shell = "zsh"
 [theme]
 name = "catppuccin"
 
+[ui]
+sidebar_min_width = 26
+
+# Only the first workspace on each machine receives these host-summary tokens.
+[ui.sidebar.spaces]
+row_gap = 0
+rows = [
+  ["$host_load"],
+  ["$host_storage"],
+  ["state_icon", "workspace"],
+  ["branch", "git_status"],
+]
+
 [ui.toast]
 delivery = "system"
 

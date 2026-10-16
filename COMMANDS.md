@@ -44,6 +44,19 @@ Hyper+A is Cmd+Option+Ctrl+Shift+A in Ghostty. Persistent agent mode uses
 Ghostty 1.3+ key tables and Herdr's native agent actions, not its Go To picker.
 Deploy and reload both configurations together; see [deployment details](configs/herdr/README.md).
 
+On macOS, `herdr` selects `~/.local/libexec/herdr-patched` through the reloadable
+shell alias. Run `omz reload` before using it from an existing shell. Detach the
+current client first; reattaching preserves server sessions. `command herdr`
+bypasses the alias and launches Homebrew's stock client.
+The installed patched client and local server are currently 0.9.5. After a client
+binary upgrade, detach and run `herdr` again; config reload cannot replace a
+running client. Direct self-update can discard the local sidebar patch.
+
+`bash ~/config/scripts/build-herdr-client.sh` tests/builds the pinned client from
+repo sources; add `--install` to atomically replace the viewing executable only.
+It does not update the running server. `scripts/setup-herdr-remote.sh` copies and
+links the host-summary plugin on a remote checkout without restarting sessions.
+
 ## Muninn
 
 | Command | Does |

@@ -13,10 +13,14 @@ not all share the same deployment or activation behavior.
   the app's local preferences; the root README documents the required app state
   and exact invocation.
 - `sigyn-screen` and `sigyn-vnc` open the corresponding iPad remote sessions.
-- `setup-herdr-remote.sh` fetches the Herdr config from the repository's GitHub
-  `main` raw URL. The config is sourced from `configs/herdr/config.toml`; a newly
-  changed source will not be available through that published URL until it is
-  published to `main`.
+- `build-herdr-client.sh` rebuilds/tests the pinned macOS Herdr sidebar patch from
+  `configs/herdr/client.patch` and `client-build.env`. Build-only by default;
+  `--install` atomically replaces the independent client without restarting servers.
+- `setup-herdr-remote.sh` installs missing Herdr, preserves existing config,
+  repairs unresolved default shells and copies/links the host-summary plugin.
+  It uses the local checkout when available, otherwise published GitHub `main`
+  sources; unpublished changes are unavailable through the raw URL. It does not
+  reload/restart servers or start collectors. Termux requires an existing build.
 - `mokka/` contains the dynamic wallpaper generator and its local tests.
 
 See the [test guide](../tests/README.md) for the tracked test inventory and invocation style.
