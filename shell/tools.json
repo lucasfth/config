@@ -1,0 +1,137 @@
+{
+  "plugins": {
+    "oh-my-zsh": {
+      "url": "https://codeload.github.com/ohmyzsh/ohmyzsh/tar.gz/964ddf789b022b6958b27d02d7fa54f552de21e9",
+      "sha256": "89ccb57b3328f0df303d557bef54cc7d0efb6f22f016552943ef3e15273e0588",
+      "commit": "964ddf789b022b6958b27d02d7fa54f552de21e9"
+    },
+    "fzf-tab": {
+      "url": "https://codeload.github.com/Aloxaf/fzf-tab/tar.gz/01dad759c4466600b639b442ca24aebd5178e799",
+      "sha256": "0093a59fc19a51455889ee77228025ae34ad397166ad66f01d1409db6f5c1feb",
+      "commit": "01dad759c4466600b639b442ca24aebd5178e799"
+    },
+    "zsh-autosuggestions": {
+      "url": "https://codeload.github.com/zsh-users/zsh-autosuggestions/tar.gz/e52ee8ca55bcc56a17c828767a3f98f22a68d4eb",
+      "sha256": "166fad9326c99904fd3b16b5d770efb4f5df39a674599e72bba8fc41636ab065",
+      "commit": "e52ee8ca55bcc56a17c828767a3f98f22a68d4eb"
+    },
+    "zsh-syntax-highlighting": {
+      "url": "https://codeload.github.com/zsh-users/zsh-syntax-highlighting/tar.gz/db085e4661f6aafd24e5acb5b2e17e4dd5dddf3e",
+      "sha256": "874999413d147b7ad6776077e1b756d31d68284f9ef2ef240b33a4c842f0e1d8",
+      "commit": "db085e4661f6aafd24e5acb5b2e17e4dd5dddf3e"
+    }
+  },
+  "platforms": {
+    "darwin-arm64": {
+      "starship": {
+        "url": "https://github.com/starship/starship/releases/download/v1.25.1/starship-aarch64-apple-darwin.tar.gz",
+        "sha256": "1062a2363489b9335529b83204472f02633c08fc3609f1b325be5eba36feb631",
+        "version": "v1.25.1"
+      },
+      "fzf": {
+        "url": "https://github.com/junegunn/fzf/releases/download/v0.73.1/fzf-0.73.1-darwin_arm64.tar.gz",
+        "sha256": "d27fd68c04fb9b42f7c73a3f7d38069a74d308e40174f64a072c747213e97286",
+        "version": "v0.73.1"
+      },
+      "zoxide": {
+        "url": "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-0.9.9-aarch64-apple-darwin.tar.gz",
+        "sha256": "57e733d0436309dae2ed97e46bba43937209395298e1d88812d4e893900cb40a",
+        "version": "v0.9.9"
+      },
+      "direnv": {
+        "url": "https://github.com/direnv/direnv/releases/download/v2.37.1/direnv.darwin-arm64",
+        "sha256": "4f569f3a36732bfd8b8fea7bfcc6ad87a59745c109022164d0ca4832451d5369",
+        "version": "v2.37.1"
+      },
+      "bat": {
+        "url": "https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-aarch64-apple-darwin.tar.gz",
+        "sha256": "e30beff26779c9bf60bb541e1d79046250cb74378f2757f8eb250afddb19e114",
+        "version": "v0.26.1"
+      },
+      "fd": {
+        "url": "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd-v10.4.2-aarch64-apple-darwin.tar.gz",
+        "sha256": "623dc0afc81b92e4d4606b380d7bc91916ba7b97814263e554d50923a39e480a",
+        "version": "v10.4.2"
+      },
+      "rg": {
+        "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-aarch64-apple-darwin.tar.gz",
+        "sha256": "378e973289176ca0c6054054ee7f631a065874a352bf43f0fa60ef079b6ba715",
+        "version": "15.1.0"
+      }
+    },
+    "linux-amd64": {
+      "starship": {
+        "url": "https://github.com/starship/starship/releases/download/v1.25.1/starship-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "c6ddd3ecb9c0071a2ad38d98cee748160066b7c4f197421268058f4a5d6f8504",
+        "version": "v1.25.1"
+      },
+      "fzf": {
+        "url": "https://github.com/junegunn/fzf/releases/download/v0.73.1/fzf-0.73.1-linux_amd64.tar.gz",
+        "sha256": "f3252c2c366bc1700d3c85781ec8c9695998927ac127870eb049ceea2d540f8a",
+        "version": "v0.73.1"
+      },
+      "zoxide": {
+        "url": "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-0.9.9-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "4ff057d3c4d957946937274c2b8be7af2a9bbae7f90a1b5e9baaa7cb65a20caa",
+        "version": "v0.9.9"
+      },
+      "direnv": {
+        "url": "https://github.com/direnv/direnv/releases/download/v2.37.1/direnv.linux-amd64",
+        "sha256": "1f1b93dd6f38523fde26dfac96151ef9d31a374e3005cd3345fb93555ae0c9b5",
+        "version": "v2.37.1"
+      },
+      "bat": {
+        "url": "https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "0dcd8ac79732c0d5b136f11f4ee00e581440e16a44eab5b3105b611bbf2cf191",
+        "version": "v0.26.1"
+      },
+      "fd": {
+        "url": "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd-v10.4.2-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "e3257d48e29a6be965187dbd24ce9af564e0fe67b3e73c9bdcd180f4ec11bdde",
+        "version": "v10.4.2"
+      },
+      "rg": {
+        "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599",
+        "version": "15.1.0"
+      }
+    },
+    "linux-arm64": {
+      "starship": {
+        "url": "https://github.com/starship/starship/releases/download/v1.25.1/starship-aarch64-unknown-linux-musl.tar.gz",
+        "sha256": "01517aab398959ea9ea73bdb4f032ea4dbb51dff5c8e5eb05b4a1b9b7ab872b8",
+        "version": "v1.25.1"
+      },
+      "fzf": {
+        "url": "https://github.com/junegunn/fzf/releases/download/v0.73.1/fzf-0.73.1-linux_arm64.tar.gz",
+        "sha256": "a408b0b6c08d486307b8f1554f967b8b50ee1b3ea8b4035e3161bab31fdfc28d",
+        "version": "v0.73.1"
+      },
+      "zoxide": {
+        "url": "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.9/zoxide-0.9.9-aarch64-unknown-linux-musl.tar.gz",
+        "sha256": "96e6ea2e47a71db42cb7ad5a36e9209c8cb3708f8ae00f6945573d0d93315cb0",
+        "version": "v0.9.9"
+      },
+      "direnv": {
+        "url": "https://github.com/direnv/direnv/releases/download/v2.37.1/direnv.linux-arm64",
+        "sha256": "2a9cef8d73521d6a3ec3f2871c4b747b8c4cc038628c1b57a7efa42b393a2d82",
+        "version": "v2.37.1"
+      },
+      "bat": {
+        "url": "https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-aarch64-unknown-linux-musl.tar.gz",
+        "sha256": "6369242c584065f195fb20cb36fbd7cb63ae690605bbe89868a7596b596c2c23",
+        "version": "v0.26.1"
+      },
+      "fd": {
+        "url": "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd-v10.4.2-aarch64-unknown-linux-musl.tar.gz",
+        "sha256": "f32d3657473fba74e2600babc8db0b93420d51169223b7e8143b2ed55d8fd9e8",
+        "version": "v10.4.2"
+      },
+      "rg": {
+        "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "2b661c6ef508e902f388e9098d9c4c5aca72c87b55922d94abdba830b4dc885e",
+        "version": "15.1.0"
+      }
+    }
+  }
+}

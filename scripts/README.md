@@ -21,6 +21,11 @@ not all share the same deployment or activation behavior.
   It uses the local checkout when available, otherwise published GitHub `main`
   sources; unpublished changes are unavailable through the raw URL. It does not
   reload/restart servers or start collectors. Termux requires an existing build.
+- `deploy-shell.py <host>` previews the shell bundle's missing tools; `--apply`
+  transfers checksum-pinned tools/plugins and runs `shell/setup.sh`. It preserves
+  account login shells and services; Herdr reload is separate. The bundle uses
+  Zsh on regular hosts, Bash on Plato/Loki and minimal Zsh on Sigyn. See the root
+  README for live deployment, backup and Home Manager ownership boundaries.
 - `mokka/` contains the dynamic wallpaper generator and its local tests.
 
 See the [test guide](../tests/README.md) for the tracked test inventory and invocation style.

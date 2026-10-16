@@ -12,6 +12,10 @@ macOS-specific tools, or temporary local services/mocks.
 - `nix-health.sh` checks the Nix health helper.
 - `rebuild.zsh` checks macOS/Linux rebuild command selection, strict shell reload, and failure propagation without invoking real sudo or activating a system. It sources `interactive.zsh` directly; it does not cover generated `.zshrc` startup ordering or prove that a deployed shell has loaded the fix.
 - `herdr-host-summary.sh` checks summary ownership plus isolated concurrent collector starts, stop/restart, per-socket locks and unrelated-PID safety. It launches only its own temporary collectors, not a Herdr server or GUI client.
+- `fleet-shell.py` exercises isolated installation, repeated preservation,
+  private backups, approved/unapproved startup symlinks, actual launchers and
+  plain-SSH identity, including minimal installation without awk or gzip.
+  Run with `python3 tests/fleet-shell.py`; it never touches a live remote host.
 - `nix-recovery-config.sh` and `setup-efficiency.sh` inspect evaluated Nix
   configuration and activation settings.
 

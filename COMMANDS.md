@@ -177,16 +177,23 @@ before `direnv allow`; permission is never granted automatically by this config.
 | `ecoray3d` | Ecoray 3D server (root) |
 | `sep` | Ecoray Pi |
 | `plato` | Plato |
-| `ssh-termux` | Android (Termux) |
+| `loki` | Android (Termux) |
 | `ssh-windows` | Windows machine |
 | `sigyn` | Sigyn iPad shell over Tailscale |
 | `sigyn-screen` | Wake and unlock passcode-free Sigyn, then open macOS Screen Sharing through a loopback-only SSH tunnel; the VNC password is remembered in Keychain |
 
 Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `nix_secrets`.
 
-The shared SSH-safe Starship prompt includes the remote hostname on the left,
-so it remains visible in narrow terminals. It uses the machine's hostname,
-not the SSH alias, and does not show it for local sessions.
+Remote `~/.local/bin/huginn-shell` opens the aligned interactive profile. From this
+Mac use `ssh -t <host> '~/.local/bin/huginn-shell'`. The teal right-hand label uses
+the stable SSH alias (`neo`, `vps1`, etc.), including Herdr panes without SSH vars.
+Plain SSH retains the account's existing shell and adds only its identity hook.
+Zsh profiles share the Mac's `Ctrl+R`, `Ctrl+X c`, `Ctrl+X Ctrl+E` and
+`Ctrl+X Ctrl+L` bindings. Plato/Loki remain Bash; Sigyn has minimal Zsh.
+
+`python3 ~/config/scripts/deploy-shell.py <host>` previews missing user-local tools;
+`--apply` changes remote interactive configuration and needs deployment approval.
+Herdr configuration reload is separate; existing panes are never replaced.
 
 ## Tools
 

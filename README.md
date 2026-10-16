@@ -396,17 +396,46 @@ create a plaintext GitHub mirror or enable competing sync writers implicitly.
 
 ### SSH access and remote shell
 
-SSH host names are `neo`, `mini`, `vps1`, `vps2`, and `ecoray3d`.
-Private endpoints and users remain in gitignored `nix_secrets`; `nix/common/ssh.nix`
-generates the included SSH host file. Shell shortcuts live in
-`nix/common/shell/interactive.zsh` and reload with `omz reload`.
-`minid` opens the Mini development checkout.
+SSH aliases include `neo`, `mini`, `vps1`, `vps2`, `freyr`, `mimer`, `ecoray3d`,
+`plato`, `loki`, `sigyn`, `sep` and `windows`. Private endpoints and users stay in
+gitignored `nix_secrets`; `nix/common/ssh.nix` generates the included host file.
+Local shortcuts live in `nix/common/shell/interactive.zsh`; reload with `omz reload`.
 
-The Ecoray 3D server uses its existing Bash with the repository's
-`shell/remote.bash`: Catppuccin Mocha prompt, right-side SSH host label, Git aliases,
-history and completion settings. Its `.bashrc` sources a deployed copy at
-`~/.config/huginn/remote.bash`; the original `.bashrc` is retained as
-`.bashrc.pre-huginn`. No shell packages or service settings are changed.
+The remote shell bundle lives at `~/.local/share/huginn-shell`; launch it with
+`~/.local/bin/huginn-shell` or `ssh -t <host> '~/.local/bin/huginn-shell'`.
+Neo, Mini, Freyr, Mimer, VPS1, VPS2 and Ecoray3D use the Mac-like Zsh profile:
+Catppuccin Starship, Git aliases, shared/deduplicated history, fuzzy completion,
+autosuggestions, syntax highlighting, fzf history, zoxide, direnv and Vim buffer
+editing. Missing tools are checksum-pinned user-local binaries; existing tools
+are reused. No Homebrew bootstrap, account login-shell change or service restart.
+Plato and Loki retain Bash; Sigyn uses a dependency-free minimal Zsh profile.
+
+Every updated SSH shell shows its stable alias on the right in teal. The
+managed launcher also shows it without SSH environment variables, including new
+Herdr panes. Existing panes keep their current shells. Plain SSH retains the
+account's existing shell and host-specific startup, with an additive identity hook.
+VPS1's pinned OpenClaw Bash wrapper and Ecoray3D's `remote.bash` source and original
+`.bashrc.pre-huginn` backup are retained. No gateway configuration is copied.
+
+Preview with `python3 scripts/deploy-shell.py <host>`; `--apply` stages verified
+assets and runs the payload's `setup.sh` with `--host <host> --profile <profile>`.
+The installer does not install Zsh, restart services, or reload Herdr.
+After separately approved `~/.local/bin/herdr server reload-config`, new panes use
+the launcher. Payload swaps retain the previous private directory; startup and
+Herdr backups live under the bundle's `backups/` (directory 0700, files 0600).
+
+On 2026-10-16, fresh SSH and new Herdr-pane checks passed on all seven saved Herdr
+hosts. Ecoray3D and Plato passed SSH checks; their Herdr servers were not running
+and were not started for verification. Sigyn passed fresh minimal and ordinary SSH
+checks without package installs. SEP and Windows timed out and remain unchanged.
+Zsh was installed through each Ubuntu host's own APT repositories; VPS1 also needed
+an explicitly approved `/tmp` permission repair to standard 1777 before APT worked.
+
+Freyr and Mimer's primary `.zshrc` symlinks were explicitly approved for replacement
+with regular identity-hook copies; `/nix/store` targets remain untouched. A future
+Home Manager activation can conflict with these files: preserve the hook/copy and
+restore managed ownership deliberately before activating, rather than overwriting
+either side silently. This rollout did not activate their Nix configurations.
 
 ### Syntax Highlight
 
