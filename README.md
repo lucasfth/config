@@ -76,6 +76,26 @@ source ~/config/nix/common/shell/interactive.zsh
 After the next approved rebuild, normal startup and `omz reload` load the helpers
 last. Sourcing this file does not activate the system; invoking `nrs` does.
 
+### Fafnir repository secrets
+
+`fafnir` opens the guided secrets workflow; `fafnir help` lists the scriptable commands.
+The pinned native build is declared in `nix/common/packages/fafnir-package.nix` and
+Home Manager declares `~/.local/bin/fafnir` through `nix/common/packages/fafnir.nix`.
+The existing shell PATH already includes this directory; no alias or development
+checkout is required. macOS builds retain native Keychain support (CGO enabled).
+Updating Fafnir means changing the pinned revision/source hash and vendored dependency
+hash, building it, then applying the approved Home Manager/system configuration.
+This installs the command only: identity creation and per-repository authorization
+remain explicit. Fafnir is experimental; do not treat installation as production-secret approval.
+
+The command is installed locally now as the same store-backed link declared by the
+module, with a GC root at `~/.local/state/fafnir/package`. The next approved
+activation adopts the declaration; no full system activation was needed for this
+installation. The package pins Go 1.27.2 because the configuration's Nixpkgs Go is
+older. Native Apple Silicon macOS build/tests and an installed synthetic workflow
+were exercised; Linux builds have not been verified here.
+
+
 
 <details>
 <summary>CLI tools and remote access examples</summary>

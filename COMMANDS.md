@@ -64,6 +64,19 @@ links the host-summary plugin on a remote checkout without restarting sessions.
 | `muninn-refresh` | Quit Obsidian first; fast-forward the encrypted backup and safely verify/decrypt the newest published snapshot, preserving settings, local edits, and a rollback copy. Never opens Obsidian or uploads notes. |
 | `python3 ~/config/scripts/muninn-refresh.py` | Same refresh command before the next `nrs` installs the managed entry point. |
 
+## Fafnir
+
+| Command | Does |
+| --- | --- |
+| `fafnir` | Open the interactive repository-secrets menu |
+| `fafnir help` | Show explicit encryption, restoration, trust and key-management commands |
+| `fafnir version` | Show the installed CLI version |
+
+Home Manager declares `~/.local/bin/fafnir` from the pinned native Nix build;
+the shell already includes that directory on PATH. No alias, automatic identity
+creation or implicit `.env` encryption is configured. See [installation ownership](README.md#fafnir-repository-secrets).
+
+
 ## Navigation
 
 | Command | Does |

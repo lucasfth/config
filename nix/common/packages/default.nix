@@ -1,6 +1,9 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   imports = [
     ./cli.nix
     ./languages.nix
@@ -10,5 +13,6 @@
     ./apps.nix
     ./extras.nix
     ./herdr.nix
+    ./fafnir.nix
   ];
 }
