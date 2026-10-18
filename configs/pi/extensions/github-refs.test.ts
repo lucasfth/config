@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {parseGitHubReference,readGitHubReference} from './github-refs.ts';
+test('GitHub references distinguish local and explicit repositories and PR file diffs',()=>{assert.deepEqual(parseGitHubReference('issue://2'),{kind:'issue',repo:undefined,number:2,view:'details'});assert.equal(parseGitHubReference('pr://owner/repo/2/diff/0')?.fileIndex,0);assert.equal(parseGitHubReference('pr://owner/repo/2')?.repo,'owner/repo');assert.equal(parseGitHubReference('issue://../../bad'),undefined);assert.throws(()=>parseGitHubReference('issue://2/diff'));});
+test('current repository issue includes details and comments without shell evaluation',async()=>{const calls:string[][]=[];const text=await readGitHubReference('issue://2','/repo',undefined,async args=>{calls.push(args);if(args[0]==='repo')return 'owner/repo\n';return args[1].endsWith('/comments')?'[[{"body":"comment"}]]':'{"title":"Issue two"}';});assert.match(text,/owner\/repo#2/);assert.match(text,/Issue two/);assert.match(text,/comment/);assert.ok(calls.some(args=>args[1]==='repos/owner/repo/issues/2'));});

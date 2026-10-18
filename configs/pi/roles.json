@@ -1,0 +1,14 @@
+{
+  "default": { "provider": "neo-proxy", "modelId": "gpt-6.1-sol", "thinkingLevel": "high" },
+  "plan": { "provider": "neo-proxy", "modelId": "claude-opus-5-5", "thinkingLevel": "high" },
+  "task": { "provider": "neo-proxy", "modelId": "gpt-6-luna", "thinkingLevel": "medium" },
+  "vision": { "provider": "neo-proxy", "modelId": "gpt-6-luna", "thinkingLevel": "low" },
+  "smol": { "provider": "openai-codex", "modelId": "gpt-5.3-codex-spark", "thinkingLevel": "off" },
+  "advisor": { "provider": "neo-proxy", "modelId": "claude-haiku-5-5", "thinkingLevel": "minimal" },
+  "summary": { "provider": "neo-proxy", "modelId": "claude-haiku-5-5", "thinkingLevel": "off" },
+  "commit": { "provider": "neo-proxy", "modelId": "gpt-6-luna", "thinkingLevel": "medium" },
+  "designer": { "provider": "neo-proxy", "modelId": "claude-opus-5-5", "thinkingLevel": "high" },
+  "tiny": { "provider": "openai-codex", "modelId": "gpt-5.6-luna", "thinkingLevel": "minimal" },
+  "slow": { "provider": "mimer", "modelId": "Qwen3.8-27B-UD-Q6_K_L.gguf", "thinkingLevel": "medium" },
+  "judge": { "provider": "typesafe", "modelId": "jev-latest", "thinkingLevel": "off" }
+}

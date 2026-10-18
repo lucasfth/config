@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createAgentSession, SessionManager, initTheme } from '@earendil-works/pi-coding-agent';
+
+const profile = path.dirname(fileURLToPath(import.meta.url));
+const temp = await mkdtemp(path.join(os.tmpdir(), 'pi-lsp-smoke-'));
+const src = path.join(temp, 'src');
+await mkdir(src);
+await writeFile(path.join(temp, 'package.json'), JSON.stringify({ name:'lsp-proof',type:'module' }));
+await writeFile(path.join(temp, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, module: 'NodeNext', moduleResolution: 'NodeNext' }, include: ['src/**/*.ts'] }));
+await writeFile(path.join(src, 'domain.ts'), 'export function legacyName(value: string): string { return value; }\n');
+await writeFile(path.join(src, 'use.ts'), 'import { legacyName } from "./domain.js";\nexport const result = legacyName("ok");\n');
+const runtime = path.join(temp, 'pi-runtime');
+await mkdir(runtime);
+await writeFile(path.join(runtime, 'lsp.json'), JSON.stringify({ installMode: 'off', warmup: false, servers: { vtsls: { command: [process.execPath, path.join(profile, 'node_modules/typescript-language-server/lib/cli.mjs'), '--stdio'], install: { type: 'system' } } } }));
+await writeFile(path.join(runtime, 'settings.json'), JSON.stringify({ extensions: [path.join(profile, 'extensions', 'code-intelligence.ts')], packages: [], quietStartup: true }));
+process.env.PI_CODING_AGENT_DIR = runtime;
+let session;
+try {
+  initTheme('dark', false);
+  const result = await createAgentSession({ cwd: temp, agentDir: runtime, sessionManager: SessionManager.create(runtime, path.join(runtime, 'sessions')) });
+  session = result.session;
+  assert.equal(result.extensionsResult.errors.length, 0, JSON.stringify(result.extensionsResult.errors));
+  const errors = [];
+  await session.bindExtensions({ mode: 'print', onError: error => errors.push(error) });
+  // bindExtensions awaits session_start; no timing sleep is needed.
+  const tools = session.extensionRunner;
+  const definition = tools.getToolDefinition('lsp_rename');
+  assert.ok(definition, 'semantic rename tool must be registered');
+  const hover = tools.getToolDefinition('lsp_hover');
+  assert.ok(hover);
+  await hover.execute('warm-use', {filePath:path.join(src,'use.ts'),line:2,column:23},undefined,undefined,tools.createToolContext('warm-use',undefined));
+  const context = tools.createToolContext('lsp-smoke', undefined);
+  const renamed = await definition.execute('rename', { filePath: path.join(src, 'domain.ts'), line: 1, column: 21, newName: 'modernName' }, undefined, undefined, context);
+  assert.ok(!renamed.isError, JSON.stringify(renamed));
+  assert.match(await readFile(path.join(src, 'use.ts'), 'utf8'), /modernName/, 'rename must update imports and call sites across files');
+  assert.match(await readFile(path.join(src, 'domain.ts'), 'utf8'), /modernName/);
+  const diagnostics = tools.getToolDefinition('lsp_diagnostics');
+  assert.ok(diagnostics, 'read-only adapter diagnostics remain available');
+  await writeFile(path.join(src, 'domain.ts'), 'export const broken: number = "bad";\n');
+  const call = await diagnostics.execute('diagnostics', { filePath: path.join(src, 'domain.ts') }, undefined, undefined, context);
+  assert.match(call.content.map(part => part.type === 'text' ? part.text : '').join('\n'), /Type 'string' is not assignable|not assignable to type 'number'/);
+  const actionsFile=path.join(src,'actions.ts');
+  await writeFile(actionsFile,'import { modernName } from "./domain.js";\nexport const ready = true;\n');
+  const actionTool=tools.getToolDefinition('lsp_code_actions');
+  const applyTool=tools.getToolDefinition('lsp_apply_code_action');
+  assert.ok(actionTool&&applyTool);
+  const actionRange={filePath:actionsFile,startLine:1,startColumn:1,endLine:1,endColumn:52};
+  const actions=await actionTool.execute('actions',{...actionRange,only:['source.removeUnusedImports.ts']},undefined,undefined,context);
+  assert.ok(actions.details.actions.length,'TypeScript provides remove unused imports action');
+  console.log('Available code actions:',actions.details.actions);
+  await applyTool.execute('apply-action',{...actionRange,index:0},undefined,undefined,context);
+  assert.ok(!(await readFile(actionsFile,'utf8')).includes('import'),'Code action removes unused import');
+  session.agent.state.messages=[{role:'assistant',content:[{type:'toolCall',id:'write-probe',name:'write',arguments:{}}],api:'openai-completions',provider:'neo-proxy',model:'gpt-6.1-sol',usage:{input:0,output:0,cacheRead:0,cacheWrite:0,totalTokens:0,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}},stopReason:'toolUse',timestamp:Date.now()}];
+  const written=await context.executeTool('write',{path:path.join(src,'write-errors.ts'),content:'export const age: number = "wrong";\n'});
+  assert.match(written.result.content.filter(p=>p.type==='text').map(p=>p.text).join('\n'),/LSP diagnostics after write:[\s\S]*not assignable/,'Successful write automatically returns real TS diagnostic');
+  assert.equal(errors.length, 0, JSON.stringify(errors));
+  console.log(JSON.stringify({ scenario: 'typescript-lsp-refactor', files: ['src/domain.ts', 'src/use.ts'], crossFileRename: true, diagnostics: true, codeActionApplied:true, automaticWriteDiagnostics:true }));
+} finally {
+  if (session) await session.extensionRunner.emit({ type: 'session_shutdown', reason: 'quit' });
+  session?.dispose();
+  await rm(temp, { recursive: true, force: true });
+}

@@ -3,6 +3,22 @@
 # Select the tracked config explicitly; macOS otherwise uses Application Support.
 alias lg='lazygit --use-config-file "$HOME/config/configs/lazygit/config.yml"'
 
+# Functions keep Pi recognizable to zsh-syntax-highlighting, which does not
+# reliably classify the quoted alias-expanded script path as a command.
+unalias pi pi-native 2>/dev/null || true
+pi() {
+  "$HOME/config/scripts/pi-native" "$@"
+}
+
+function pi-native {
+  pi "$@"
+}
+
+# Preserve Pi's CLI completion when its completion function is already loaded.
+if (( $+functions[compdef] && $+functions[_pi] )); then
+  compdef _pi pi pi-native
+fi
+
 # Keep the local sidebar patch independent of Homebrew upgrades.
 if [[ $OSTYPE == darwin* ]]; then
   alias herdr='"$HOME/.local/libexec/herdr-patched"'

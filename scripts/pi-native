@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+SOURCE=${HUGINN_PI_SOURCE:-"$(CDPATH= cd -- "$(dirname -- "$0")/../configs/pi" && pwd)"}
+if [ ! -f "$SOURCE/node_modules/@earendil-works/pi-coding-agent/package.json" ]; then
+  printf '%s\n' "pi-native: pinned dependencies are missing. Run npm ci --ignore-scripts --cache \"\$HOME/.cache/huginn-pi/npm\" and npm run setup in $SOURCE." >&2
+  exit 1
+fi
+exec node "$SOURCE/launch.mjs" "$@"

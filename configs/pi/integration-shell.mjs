@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';import {spawn} from 'zigpty';import {writeFile} from 'node:fs/promises';import {repoDir} from './runtime.mjs';
+import {stripTerminalSequences} from '@earendil-works/pi-tui';
+const shell=spawn('zsh',['-il'],{cwd:repoDir,env:{...process.env,TERM:'xterm-256color'},cols:120,rows:35});let raw='';shell.onData(d=>{raw+=String(d)});
+const fresh=(marker,action)=>new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>{sub.dispose();reject(new Error('shell deadline '+marker))},15000);const sub=shell.onData(d=>{output+=String(d);const plain=stripTerminalSequences(output.replace(/\x1b\][^\x07]*\x07/g,''));if(plain.split(/[\r\n]+/).some(line=>line.trim()===marker)){clearTimeout(timer);sub.dispose();resolve(output)}});action()});
+try{await new Promise(resolve=>setTimeout(resolve,1000));await fresh('SHELL_READY',()=>shell.write("print -r -- SHELL_READY\r"));
+// Run the actual managed command once before either reload.
+const version=await fresh('PI_LAUNCH_OK',()=>shell.write("pi --version; print -r -- PI_LAUNCH_OK\r"));assert.ok(version.includes('1.3.0'));
+const checks=[];for(const round of [1,2]){const marker='RELOAD_CHECK_'+round;const output=await fresh(marker+' END',()=>shell.write(`omz reload; whence -w pi pi-native; type -a pi; print -r -- '${marker} END'\r`));checks.push(output);assert.ok(output.includes('pi: function'));assert.ok(output.includes('pi is a shell function'));assert.ok(!output.includes('pi is an alias'))}
+// Exercise ZLE highlighter on an unsubmitted `pi` buffer and inspect computed regions.
+const code=`function _pi_highlight_probe() { local region; for region in "\${region_highlight[@]}"; do print -r -- "HIGHLIGHT_REGION=$region"; done; print -r -- "FUNCTION_STYLE=\${ZSH_HIGHLIGHT_STYLES[function]}"; print -r -- "UNKNOWN_STYLE=\${ZSH_HIGHLIGHT_STYLES[unknown-token]}"; print -r -- HIGHLIGHT_PROBE_DONE; }; zle -N _pi_highlight_probe; bindkey '^X^V' _pi_highlight_probe`;
+await fresh('HIGHLIGHT_BIND_READY',()=>shell.write(code+"; print -r -- HIGHLIGHT_BIND_READY\r"));
+shell.write('pi');await new Promise(r=>setTimeout(r,150));const colors=await fresh('HIGHLIGHT_PROBE_DONE',()=>shell.write('\x18\x16'));assert.ok(/HIGHLIGHT_REGION=0 2/.test(colors));const regions=colors.split(/\r?\n/).filter(l=>l.includes('HIGHLIGHT_REGION=0 2'));assert.ok(regions.every(l=>!l.includes('fg=red')));shell.write('\x15');await writeFile('/tmp/pi-shell-reload-proof.txt',checks.join('\n')+'\n'+colors);console.log(JSON.stringify({launchVersion:'1.3.0',reloads:checks.length,piFunctionAfterEach:true,highlightRegions:regions,evidence:'/tmp/pi-shell-reload-proof.txt'},null,2));
+}catch(error){await writeFile('/tmp/pi-shell-reload-failure.txt',raw);throw error;}finally{shell.kill();}

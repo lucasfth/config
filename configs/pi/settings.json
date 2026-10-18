@@ -1,0 +1,29 @@
+{
+  "$schema": "https://pi.dev/schemas/settings.schema.json",
+  "defaultProvider": "neo-proxy",
+  "defaultModel": "gpt-6.1-sol",
+  "defaultThinkingLevel": "high",
+  "steeringMode": "all",
+  "followUpMode": "all",
+  "theme": "light/dark",
+  "quietStartup": true,
+  "enableInstallTelemetry": false,
+  "enableAnalytics": false,
+  "tuiMode": "regular",
+  "collapseChangelog": true,
+  "editorPaddingX": 1,
+  "outputPad": 1,
+  "compaction": { "enabled": true, "reserveTokens": 16384, "keepRecentTokens": 30000, "modelOverrides": { "neo-proxy/gpt-6.1-sol": { "reserveTokens": 750000 }, "neo-proxy/gpt-6-luna": { "reserveTokens": 750000 }, "neo-proxy/claude-opus-5-5": { "reserveTokens": 700000 } } },
+  "contextPrune": { "enabled": true, "showPruneStatusLine": false, "quietOversizedSkips": true, "summarizerModel": "neo-proxy/claude-haiku-5-5", "summarizerThinking": "off", "pruneOn": "agent-message", "batchingMode": "agent-message", "minBatchChars": 6000, "recoveryGraceTurns": 5, "protectedTools": ["edit", "write", "todo", "ask_user", "memory_recall"], "protectedPaths": ["**/skills/**/*.md", "**/AGENTS.md", "**/RULES.md"], "dedupByContentHash": true, "autoBudgetThreshold": 0.18, "spillThreshold": 65536, "purgeErrors": { "enabled": false, "cooldownTurns": 2, "minArgChars": 500 }, "chainCompression": { "enabled": true, "rollingWindow": 5, "stripFinalAssistantThinking": true, "fuseRangeSummary": false } },
+  "codemode": { "mode": "on", "inlineBudget": 0 },
+  "terminal": { "showImages": true, "images": "auto", "trueColor": "auto" },
+  "images": { "autoResize": true, "blockImages": false },
+  "markdown": { "mermaid": "final" },
+  "defaultTools": ["+grep", "+find", "+ls", "+codemode", "+tool_search"],
+  "enabledModels": [],
+  "subagents": {
+    "disableBuiltins": true,
+    "defaultModel": "neo-proxy/gpt-6-luna",
+    "agentOverrides": {}
+  }
+}

@@ -1,4 +1,6 @@
 ---
+name: sudo-ssh-mimer
+description: Use when administering Mimer over SSH, managing its Ubuntu GPU host, or troubleshooting Tailscale, llama.cpp, and OMP inference services
 type: skill
 tags: [mimer, ubuntu, ssh, tailscale, llama, llm, omp]
 status: active

@@ -1,0 +1,13 @@
+diff --git a/node_modules/pi-omplike-advisor/extensions/advisor.ts b/node_modules/pi-omplike-advisor/extensions/advisor.ts
+--- a/node_modules/pi-omplike-advisor/extensions/advisor.ts
++++ b/node_modules/pi-omplike-advisor/extensions/advisor.ts
+@@ -458,3 +458,4 @@
+ 	return new Agent({
++		streamFn: (model, context, options) => opts.modelRegistry.streamSimple(model, context, options),
+ 		initialState: {
+ 			systemPrompt: opts.systemPrompt,
+@@ -1251,3 +1252,3 @@
+ 		currentTurnTerminal = false;
+-		pendingUserPrompt = event.prompt;
++		pendingUserPrompt = event.messageType === "user" ? event.prompt : undefined;
+ 	});

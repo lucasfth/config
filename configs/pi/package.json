@@ -1,0 +1,48 @@
+{
+  "name": "huginn-native-pi",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "start": "node launch.mjs",
+    "test": "node --import tsx --test *.test.mjs extensions/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "setup": "node setup.mjs",
+    "verify:integration": "node integration-sdk.mjs && node integration-ui.mjs && node --import tsx integration-render.ts && node integration-adversarial.mjs && node integration-roles.mjs && node --import tsx integration-presentation.ts && node integration-terminal.mjs && PI_CHART_KIND=bar node integration-terminal.mjs && node integration-eval.mjs && node integration-retrieval.mjs && node --import tsx tests/integration-retrieval.mjs && node integration-lsp.mjs && node integration-context.mjs && node integration-condense.mjs && node integration-compaction.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "1.3.0",
+    "@earendil-works/pi-ai": "1.3.0",
+    "@earendil-works/pi-coding-agent": "1.3.0",
+    "@earendil-works/pi-tui": "1.3.0",
+    "@resvg/resvg-js": "2.6.2",
+    "pi-btw": "0.8.0",
+    "pi-chrome-use": "1.1.1",
+    "pi-condense": "2.12.0",
+    "pi-hashline-edit": "0.8.3",
+    "pi-interactive-shell": "0.17.1",
+    "pi-intercom": "0.17.1",
+    "pi-lsp-adapter": "0.1.3",
+    "pi-omplike-advisor": "1.0.2",
+    "pi-subagents": "0.79.0",
+    "pi-web-access": "0.42.0",
+    "typebox": "1.3.27",
+    "typescript-language-server": "5.0.0",
+    "yaml": "2.9.0"
+  },
+  "overrides": {
+    "pi-omplike-advisor": {
+      "@earendil-works/pi-coding-agent": "$@earendil-works/pi-coding-agent"
+    },
+    "pi-lsp-adapter": {
+      "@earendil-works/pi-tui": "$@earendil-works/pi-tui"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

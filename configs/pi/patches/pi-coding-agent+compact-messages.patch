@@ -1,0 +1,12 @@
+diff --git a/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/skill-invocation-message.js b/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/skill-invocation-message.js
+--- a/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/skill-invocation-message.js
++++ b/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/skill-invocation-message.js
+@@ -11,7 +11,7 @@
+     skillBlock;
+     markdownTheme;
+     constructor(skillBlock, markdownTheme = getMarkdownTheme(), outputPad = 1) {
+-        super(outputPad, 1, (t) => theme.bg("customMessageBg", t));
++        super(outputPad, 0, (t) => theme.bg("customMessageBg", t));
+         this.skillBlock = skillBlock;
+         this.markdownTheme = markdownTheme;
+         this.updateDisplay();

@@ -66,6 +66,16 @@ __pycache__/
 
 # Pi (deleted — blanket ignore if recreated)
 /.pi/
+# Native Pi sources, lockfile and patches are tracked; local state is not.
+/configs/pi/node_modules/
+/configs/pi/.env
+/configs/pi/.env.*
+!/configs/pi/.env.example
+/configs/pi/*.tsbuildinfo
+/configs/pi/npm-debug.log*
+/configs/pi/.npm/
+/configs/pi/.cache/
+/configs/pi/coverage/
 # Agent-of-empires (deleted — blanket ignore if recreated)
 /.agent-of-empires/
 

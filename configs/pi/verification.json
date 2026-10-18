@@ -1,0 +1,144 @@
+{
+  "date": "2026-10-17",
+  "canonicalSource": "configs/pi",
+  "publicationVerification": {
+    "date": "2026-10-18",
+    "evidence": "artifact://392",
+    "commands": "npm run typecheck && npm test && npm run verify:integration",
+    "testsPassed": 48,
+    "result": "Exit 0; all retained integration scenarios passed. Live Muninn MCP initialize, tools/list, vault read/write and exact note/index readback also succeeded; other external acceptance gaps remain unchanged."
+  },
+  "capabilityUpgrade": {
+    "evidence": "artifact://378; FINAL_GATE_EXIT=0",
+    "testsPassed": 48,
+    "cleanLockedInstall": "npm ci --ignore-scripts plus setup and full gate passed in artifact://372; subsequent reviewed full gate passed artifact://378",
+    "persistentEval": "Real Python globals and JS lexical/top-level await survive cells; governed tools.read bridge, state-preserving errors, abort/reset/shutdown exercised. Local-user authority, not a sandbox",
+    "retrieval": "Registered semantic_code_search uses bounded local corpus then task-model provider ranking; summarize_read uses summary role and exact range hint. Loopback provider transport and gitignore/path limits checked, not live model quality",
+    "lsp": "Real TypeScript language server: cross-file rename/import references, remove-unused-imports code-action application, automatic diagnostics after write. Unsupported resource/snippet/command-only actions rejected",
+    "memory": "Required guidance stays eager and untruncated; prior session paths indexed without reading bodies; deferred memory_recall retrieves selected bounded note bodies",
+    "condense": "pi-condense 2.12.0 automatic summary, raw transcript preservation, pruned next-request projection and original-result recovery exercised",
+    "nativeCompaction": { "mainModelTriggerTokens": 300000, "keepRecentTokens": 30000, "observedSummaryOutputBudget": 13107, "checkpointPersisted": true },
+    "requestInventoryCharacters": { "systemBefore": 31560, "systemAfter": 20999, "skillsBefore": 14399, "skillsAfter": 9191, "schemasBefore": 50659, "schemasAfter": 16111, "scope": "SDK provider request with native discovery, excludes Muninn/advisor network; not tokenizer/cost/speed measurement" },
+    "toolDiscovery": "12-tool direct core; native tool_search discovers and activates deferred eval; bulky schemas absent from initial provider request",
+    "review": "UpgradeReview: no remaining evidence-backed material findings; initial CRLF finding retracted after passing regression",
+    "remaining": ["Live provider quality and cache/cost comparison", "Other language servers need local configuration", "OMP rich eval figures/objects and exhaustive semantic index not replicated", "MCP sign-in and real Freyr/Herdr acceptance remain external"]
+  },
+  "automaticHooksAndRead": {
+    "evidence": "artifact://298; FINAL_GATE_EXIT=0",
+    "testsPassed": 36,
+    "userAssistantContrast": "Real PTY xterm cells: user prompt background RGB 17,17,27; assistant reply uses terminal default background. User native vertical padding restored",
+    "automaticHooks": "Chart/SVG transforms and title naming are TS lifecycle/render hooks, not model-invoked commands; finalized transforms use bounded 16-entry cache keyed by width/theme/image protocol/content; user/thinking/streaming input bypasses visual conversion",
+    "backgroundLimit": "Synchronous Markdown render API remains in-process; no background thread or universal optimality/performance benchmark claim",
+    "githubRead": "Real GitHub API calls through registered anchored read resolve issue://2 and pr://2 in lucasfth/config; file anchors/editing still pass SDK smoke",
+    "githubScope": "Issue/PR details+comments, explicit owner/repo, PR diff routes; GitHub CLI auth; paged bounded text. Does not implement every OMP internal URI or GitHub write action",
+    "ompCompared": "v18.12.1 published 2026-10-17; primary release API and tagged README checked"
+  },
+  "titleAndCharts": {
+    "evidence": "artifact://279; FINAL_GATE_EXIT=0; subsequent integration-sdk title persistence assertion exited 0",
+    "testsPassed": 32,
+    "sessionTitle": "First substantive user message reused as a topic label, truncated to 48 display columns; no model-generated summary. Visible in PTY border and persists through SessionManager reopen; existing names are not overwritten",
+    "lineChart": "Assistant-response fixture rendered as points/lines in actual PTY; not live-model generation proof",
+    "barChart": "Separate assistant-response fixture rendered bar columns and category labels in actual PTY; not live-model generation proof",
+    "tableBars": "Signed numeric and percentage CPU/RAM columns render bars with series legend; reported host table exercised in actual PTY",
+    "limits": "Categorical XY line/bar subset only; unsupported syntax remains source; no browser dependency",
+    "capture": { "line": "/tmp/pi-terminal-line-proof.{ansi,txt,png}", "bar": "/tmp/pi-terminal-bar-proof.{ansi,txt,png}", "evidence": "artifact://271; both fixture processes exited 0 and both text files read", "gateIncludesBar": true }
+    ,"reportedTranscript": { "capture": "/tmp/pi-terminal-transcript-proof.{ansi,txt,png}", "flowchart": "Original LR render width 128 exceeded viewport; native TD width 49 rendered all labels in PTY. Edge routing correctness (including C→G and F→G) not independently verified. Wide-window LR retention not exercised in PTY", "automaticTitle": "First user message Inspect the configuration reused verbatim in border without /name; longer messages truncate to 48 display columns", "scope": "deterministic assistant response fixture; not live model generation", "status": "layout observed; graph edge correctness and wide-window PTY acceptance open" }
+  },
+  "latestRepair": {
+    "workspace": "main configs/pi; temporary private profiles",
+    "shell": "zsh -lic: pi and pi-native functions, both 1.3.0; command pi remains /opt/homebrew/bin/pi",
+    "gate": "npm run typecheck && npm test && npm run verify:integration",
+    "evidence": "artifact://254; explicit FINAL_GATE_EXIT=0 read",
+    "testsPassed": 26,
+    "integrationExit": 0,
+    "singularModelPty": "Configure model roles, saved task role, active session unchanged",
+    "roleConsumers": "loopback: plan claude-opus-5-5 and commit gpt-6-luna, user argument canaries preserved, gpt-6.1-sol/high restored, zero tool calls",
+    "presentation": "composer-border status, no separate footer, neutral messages, tool frames; native component smoke and PTY exercised",
+    "globalExecutableReplaced": false,
+    "pixelPerfectOmpParity": false,
+    "mcpAuthenticationFixed": false
+    ,"ansiTerminalCapture": { "evidence": "artifact://249", "ansi": "/tmp/pi-terminal-proof.ansi", "image": "/tmp/pi-terminal-proof.png", "screen": "/tmp/pi-terminal-proof.txt", "observed": "real PTY bash execution, neutral dark tool background, cyan composer-border status, no duplicate footer", "exitCode": 0, "modelRequests": 2, "scope": "loopback provider; xterm cell rasterization, not native Ghostty screenshot" }
+    ,"remainingAcceptance": { "shellReloadHighlight": "unverified: integration-shell.mjs exited 1 waiting for SHELL_READY; /tmp/pi-shell-reload-failure.txt retained", "visualMatch": "partial: OMP status segments, attachment cards, specialized tool layout and human terminal comparison outstanding", "liveRoleWorkflowPty": "not exercised; role transport/restoration proven in SDK loopback only", "mcp": "Vercel/Supabase sign-in required; Muninn connection failed", "otherGaps": ["real Freyr and Herdr interaction", "persistent eval", "semantic find"] }
+  },
+  "acceptanceProvenance": {
+    "workspace": ".worktrees/pi-acceptance",
+    "gitState": "detached at 5df64bc",
+    "initialOverlay": "main configs/pi copied with installed node_modules and compatibility patches",
+    "subsequentSyncs": ["configs/pi/runtime.mjs", "configs/pi/integration-adversarial.mjs", "configs/pi/integration-catalogue.mjs", ".omp/skills/herdr-config/SKILL.md", ".omp/skills/sudo-ssh-freyr/SKILL.md", ".omp/skills/sudo-ssh-mimer/SKILL.md"],
+    "sourceComparison": "diff -qr: identical except excluded node_modules, README.md and verification.json; three copied skill files identical",
+    "mainCheckoutAcceptanceRun": false,
+    "freshDependencyInstall": false,
+    "retainedArtifacts": [".worktrees/pi-acceptance", "/tmp/pi-catalogue-acceptance.json", "/tmp/pi-startup-skills.json"],
+    "removedArtifacts": "per-run temporary agent directories and throwaway startup probes",
+    "artifactLimit": "/tmp files are ephemeral; startup harness not retained"
+  },
+  "audit": { "priorParentSessions": 215, "readErrors": 0 },
+  "entrypoint": {
+    "normalInteractiveShell": "pi and pi-native functions call ~/config/scripts/pi-native",
+    "managedVersion": "1.3.0",
+    "globalExecutable": "unchanged; command pi bypasses the shell function",
+    "existingShellReload": "omz reload"
+  },
+  "update": {
+    "actualCommand": "zsh -lic 'pi update'",
+    "status": "passed",
+    "evidence": "artifact://140",
+    "cache": "~/.cache/huginn-pi/npm",
+    "legacyCacheOwnership": "unchanged",
+    "currentVersionReinstall": "exercised",
+    "futureVersionInstall": "decision and rollback regression covered, no newer registry release available"
+  },
+  "sourceChecks": { "workspace": ".worktrees/pi-acceptance", "typecheck": "passed", "testsPassed": 26, "testsFailed": 0, "evidence": "artifact://198" },
+  "retainedIntegration": {
+    "command": "npm run verify:integration",
+    "evidence": "artifact://161",
+    "mainAdvisorScoutLoopback": "passed",
+    "rpcSelectionPersistence": "passed",
+    "normalShellKeyboardPicker": "passed",
+    "terminalExitCode": 0,
+    "uiModelRequests": 0,
+    "anchoredEditAndSessionRestore": "passed",
+    "boxedComposerAndQuietStartup": "passed",
+    "inlineImageProtocol": "Kitty transport observed",
+    "numericCharts": "actual signed chart rows rendered",
+    "mermaid": "actual native diagram rows rendered"
+  },
+  "liveProvider": { "normalPiPrintSmoke": "PI_PROFILE_HEALTHY", "apiBaseFix": "server-root NEO_PROXY_URL normalized to /v1; failing-before/passing-after regression" },
+  "modelManagementAcceptance": {
+    "workspace": ".worktrees/pi-acceptance",
+    "command": "node configs/pi/integration-adversarial.mjs",
+    "launcher": "absolute worktree launch.mjs; no interactive shell or alias",
+    "evidence": "background job bg_99 (fresh rerun; output read)",
+    "roleRestart": "task remains neo-proxy/adversarial-fifth:low",
+    "roleSetupSession": "gpt-6.1-sol before and after in RPC and PTY",
+    "literalEscapeSession": "adversarial-sixth before and after in PTY",
+    "invalidAndCancelledRpcSwitch": "gpt-6.1-sol preserved",
+    "skills": "enabled, no startup diagnostics",
+    "modelRequests": 0,
+    "exitCode": 0,
+    "mcpAcceptance": "not passed; excluded from isolated UI exercise",
+    "cataloguePicker": { "script": "configs/pi/integration-catalogue.mjs", "evidence": "/tmp/pi-catalogue-acceptance.json:1-78 (read)", "generatedModels": 60, "renderedFilteredRows": 58, "unverifiedRows": ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b"], "status": "partial", "rowMatch": "escaped whole-token model id followed by provider/context metadata", "exitCode": 0, "liveProfileRegenerated": false, "liveInferenceValidated": false },
+    "ordinaryStartup": { "evidence": "artifact://214", "launcherFlags": [], "trustPrompt": "initially blocks startup; highlighted project-only Trust accepted in temporary profile", "exitCode": 0, "warnings": "MCP servers need attention: Vercel and Supabase need sign-in", "terminalSkills": "not exercised in this capture; see terminalSkillSuggestions", "liveProfileRegenerated": false },
+    "loaderOnlySkills": { "evidence": "artifact://198 and RPC assertions in integration-adversarial.mjs", "status": "passed; separate from terminal-visible skill discovery" },
+    "terminalSkillSuggestions": { "evidence": "/tmp/pi-startup-skills.json (read exact suggestion lines)", "launcherFlags": [], "visibleSuggestions": ["skill:typesafe-ai", "skill:herdr-config"], "mcpDisabled": false, "skillDiagnostics": "none observed", "exitCode": "unverified; capture process stopped after observation", "liveProfileRegenerated": false }
+  },
+  "liveMcpCheck": {
+    "command": "node <installed-native-cli> mcp list --json",
+    "exitCode": 1,
+    "vercel": "needs-auth",
+    "supabase": "needs-auth",
+    "muninn": "failed: fetch failed",
+    "company_library": "connected: 8 tools",
+    "browserApproval": "not performed; Freyr CDP and VNC down; not started or reconnected"
+  },
+  "limits": [
+    "Tests and integration results use explicit tracked advisor/LSP compatibility patches",
+    "Loopback advisor/scout traffic proves routing/lifecycle, not live model quality",
+    "No real Freyr browser interaction; loopback CDP listener was down and was not started or reconnected",
+    "No Herdr Pi hook installation or live MCP authentication acceptance",
+    "Background messaging and interactive-shell dispatch not yet exercised end to end",
+    "Native compaction retained, but Snapcompact and OMP persistent eval/semantic find remain non-equivalent",
+    "No pixel-perfect OMP or human Ghostty/Herdr visual acceptance claim",
+    "No global package replacement, system activation, remote deployment, commits or pushes"
+  ]
+}

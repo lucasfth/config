@@ -15,6 +15,7 @@ One directory per application, including single-file configurations. Source file
 | `syntax-highlight/` | Activation copies themes and merges selected renderer preferences while the app is closed |
 | `zed/` | Store-backed `~/.config/zed/settings.json` |
 | `swiftbar/` | Plugin source scripts; this repository does not declare their installation directory |
+| `pi/` | Canonical native Pi sources and lockfile; `scripts/pi-native` generates a private runtime profile. Shell aliases are live-linked; no Nix activation is required. |
 
 ## Editing and applying
 

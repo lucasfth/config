@@ -1,0 +1,225 @@
+diff --git a/node_modules/pi-lsp-adapter/src/index.ts b/node_modules/pi-lsp-adapter/src/index.ts
+--- a/node_modules/pi-lsp-adapter/src/index.ts
++++ b/node_modules/pi-lsp-adapter/src/index.ts
+@@ -13,6 +13,16 @@
+ import { setLspStatusLine } from "./statusLine.js";
+ import type { LspExtensionState } from "./state.js";
+ 
++const runtimeRegistryKey = Symbol.for('huginn.pi-lsp-state-by-session');
++
++function runtimeRegistry(): Map<string, LspExtensionState> {
++  const globals = globalThis as typeof globalThis & { [key: symbol]: unknown };
++  const existing = globals[runtimeRegistryKey];
++  if (existing instanceof Map) return existing as Map<string, LspExtensionState>;
++  const registry = new Map<string, LspExtensionState>();
++  globals[runtimeRegistryKey] = registry;
++  return registry;
++}
+ export default function piAgentLspExtension(pi: ExtensionAPI): void {
+   let state: LspExtensionState | null = null;
+   let generation = 0;
+@@ -20,13 +30,11 @@
+   registerLspCommand(pi, () => state);
+   registerLspTools(pi, () => state);
+   registerLspWarmup(pi, () => state);
++  const registry = runtimeRegistry();
++  let sessionId = "";
++  const unregister = () => { if (sessionId) registry.delete(sessionId); };
++  pi.on("session_start", (_event, ctx) => { unregister(); sessionId = ctx.sessionManager.getSessionId(); });
+ 
+-  pi.on("before_agent_start", (event) => {
+-    if (!state) return;
+-    return {
+-      systemPrompt: `${event.systemPrompt}\n\nLSP integration: read-only LSP tools are available for diagnostics, hover/type info, definitions, references, document symbols, and workspace symbol search. Prefer these tools when semantic code understanding would reduce guesswork; they use 1-based line/column inputs and do not mutate files. For hover, definition, and references, place the column on the identifier token itself. When an LSP result says "More available" and includes a resultId, use lsp_more only if you need the next sequential page; re-run the original LSP query if the resultId is missing or expired.`,
+-    };
+-  });
+ 
+   pi.on("session_start", async (_event, ctx) => {
+     const currentGeneration = ++generation;
+@@ -79,6 +87,7 @@
+       }
+ 
+       state = nextState;
++      registry.set(sessionId, nextState);
+       setLspStatusLine(ctx, nextState);
+       notifyStartup(ctx, nextState);
+     } catch (error) {
+@@ -89,6 +98,7 @@
+ 
+   pi.on("session_shutdown", async (_event, ctx) => {
+     ++generation;
++    registry.delete(sessionId);
+     const currentState = state;
+     state = null;
+     await shutdownState(currentState, ctx, "session_shutdown");
+
+diff --git a/node_modules/pi-lsp-adapter/src/lsp/client.ts b/node_modules/pi-lsp-adapter/src/lsp/client.ts
+--- a/node_modules/pi-lsp-adapter/src/lsp/client.ts
++++ b/node_modules/pi-lsp-adapter/src/lsp/client.ts
+@@ -18,9 +18,16 @@
+   PublishDiagnosticsNotification,
+   ReferencesRequest,
+   ShutdownRequest,
++  CodeActionRequest,
++  RenameRequest,
+   DocumentSymbolRequest,
+   WorkspaceSymbolRequest,
++  type CodeAction,
++  type CodeActionContext,
++  type Command,
+   type Definition,
++  type Range,
++  type WorkspaceEdit,
+   type Diagnostic,
+   type DocumentSymbol,
+   type Hover,
+@@ -101,6 +108,7 @@
+   private readonly process: LspServerProcess;
+   private readonly connection: LspConnection;
+   private readonly diagnosticsByUri = new Map<string, Diagnostic[]>();
++  private readonly diagnosticWaiters = new Map<string, Set<(value: Diagnostic[]) => void>>();
+   private readonly documents = new Map<string, LspClientDocument>();
+   private readonly disposables: Disposable[] = [];
+   private capabilities: ServerCapabilities | undefined;
+@@ -163,6 +171,7 @@
+     if (!existing) {
+       const document: LspClientDocument = { uri, filePath, languageId, text, version: 1 };
+       this.documents.set(uri, document);
++      this.diagnosticsByUri.delete(uri);
+       await this.connection.sendNotification(DidOpenTextDocumentNotification.method, {
+         textDocument: { uri, languageId, version: document.version, text },
+       });
+@@ -173,6 +182,7 @@
+       existing.version += 1;
+       existing.text = text;
+       existing.languageId = languageId;
++      this.diagnosticsByUri.delete(uri);
+       await this.connection.sendNotification(DidChangeTextDocumentNotification.method, {
+         textDocument: { uri, version: existing.version },
+         contentChanges: [{ text }],
+@@ -186,6 +196,18 @@
+     return this.diagnosticsByUri.get(uri) ?? [];
+   }
+ 
++  async waitForDiagnostics(uri: string, timeoutMs: number): Promise<Diagnostic[]> {
++    const cached = this.diagnosticsByUri.get(uri);
++    if (cached) return cached;
++    const { promise, resolve } = Promise.withResolvers<Diagnostic[]>();
++    const waiters = this.diagnosticWaiters.get(uri) ?? new Set();
++    const done = (value: Diagnostic[]) => { clearTimeout(timer); waiters.delete(done); if (!waiters.size) this.diagnosticWaiters.delete(uri); resolve(value); };
++    const timer = setTimeout(() => done(this.getDiagnostics(uri)), timeoutMs);
++    waiters.add(done);
++    this.diagnosticWaiters.set(uri, waiters);
++    return promise;
++  }
++
+   async hover(uri: string, line: number, character: number): Promise<Hover | null> {
+     this.ensureCapability("hover", this.capabilities?.hoverProvider);
+     return this.request<Hover | null>(HoverRequest.method, {
+@@ -224,6 +246,20 @@
+     });
+   }
+ 
++  async rename(uri: string, line: number, character: number, newName: string): Promise<WorkspaceEdit | null> {
++    this.ensureCapability("rename", this.capabilities?.renameProvider);
++    return this.request<WorkspaceEdit | null>(RenameRequest.method, {
++      textDocument: { uri }, position: { line, character }, newName,
++    });
++  }
++
++  async codeActions(uri: string, range: Range, context: CodeActionContext): Promise<Array<Command | CodeAction> | null> {
++    this.ensureCapability("code actions", this.capabilities?.codeActionProvider);
++    return this.request<Array<Command | CodeAction> | null>(CodeActionRequest.method, {
++      textDocument: { uri }, range, context,
++    });
++  }
++
+   async workspaceSymbols(query: string): Promise<SymbolInformation[] | WorkspaceSymbol[] | null> {
+     this.ensureCapability("workspace symbols", this.capabilities?.workspaceSymbolProvider);
+     return this.request<SymbolInformation[] | WorkspaceSymbol[] | null>(WorkspaceSymbolRequest.method, { query });
+@@ -294,6 +330,8 @@
+             hierarchicalDocumentSymbolSupport: true,
+             symbolKind: { valueSet: supportedSymbolKinds() },
+           },
++          rename: { dynamicRegistration: false },
++          codeAction: { dynamicRegistration: false, codeActionLiteralSupport: { codeActionKind: { valueSet: ["quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"] } } },
+           publishDiagnostics: { relatedInformation: true, tagSupport: { valueSet: [1, 2] } },
+         },
+         workspace: {
+@@ -312,6 +350,7 @@
+       this.connection.onNotification(PublishDiagnosticsNotification.method, (params) => {
+         if (!isPublishDiagnosticsParams(params)) return;
+         this.diagnosticsByUri.set(params.uri, params.diagnostics);
++        for (const done of this.diagnosticWaiters.get(params.uri) ?? []) done(params.diagnostics);
+       }),
+     );
+ 
+
+diff --git a/node_modules/pi-lsp-adapter/src/lsp/runtimeManager.ts b/node_modules/pi-lsp-adapter/src/lsp/runtimeManager.ts
+--- a/node_modules/pi-lsp-adapter/src/lsp/runtimeManager.ts
++++ b/node_modules/pi-lsp-adapter/src/lsp/runtimeManager.ts
+@@ -2,6 +2,11 @@
+ import { isAbsolute, relative, resolve } from "node:path";
+ import { delay } from "../util/helpers.js";
+ import type {
++  CodeAction,
++  CodeActionContext,
++  Command,
++  Range,
++  WorkspaceEdit,
+   Definition,
+   DocumentSymbol,
+   Hover,
+@@ -209,13 +214,13 @@
+ 
+   async diagnostics(filePath: string): Promise<LspDiagnosticsResult> {
+     const target = await this.prepareFileTarget(filePath);
+-    await delay(this.diagnosticsWaitMs);
++    const diagnostics = await target.client.waitForDiagnostics(target.uri, Math.max(this.diagnosticsWaitMs, 3000));
+     return {
+       serverId: target.client.serverId,
+       rootDir: target.client.rootDir,
+       filePath: target.filePath,
+       uri: target.uri,
+-      diagnostics: target.client.getDiagnostics(target.uri),
++      diagnostics,
+     };
+   }
+ 
+@@ -242,9 +247,24 @@
+       filePath: target.filePath,
+       uri: target.uri,
+       result: await target.client.definition(target.uri, line, character),
++    };
++  }
++  async rename(filePath: string, line: number, character: number, newName: string): Promise<LspRuntimeFileResult<WorkspaceEdit | null>> {
++    const target = await this.prepareFilePositionTarget(filePath, line, character);
++    return {
++      serverId: target.client.serverId, rootDir: target.client.rootDir, filePath: target.filePath, uri: target.uri,
++      result: await target.client.rename(target.uri, line, character, newName),
+     };
+   }
+ 
++  async codeActions(filePath: string, range: Range, context: CodeActionContext): Promise<LspRuntimeFileResult<Array<Command | CodeAction> | null>> {
++    const target = await this.prepareFileTarget(filePath);
++    return {
++      serverId: target.client.serverId, rootDir: target.client.rootDir, filePath: target.filePath, uri: target.uri,
++      result: await target.client.codeActions(target.uri, range, context),
++    };
++  }
++
+   async references(
+     filePath: string,
+     line: number,
+@@ -468,6 +488,10 @@
+   }
+ 
+   private async ensureInstalled(serverId: string, options: ClientStartOptions): Promise<InstalledServerMetadata> {
++    const server = this.getServer(serverId);
++    if (server.install.type === "system" && server.command.every((part) => !part.startsWith("{install"))) {
++      return { installer: "system", resolvedCommand: server.command, installedAt: new Date().toISOString() };
++    }
+     const lockfile = await readLockfile(this.lockfileOptions);
+     const existing = lockfile.servers[serverId];
+     if (existing) return existing;
+

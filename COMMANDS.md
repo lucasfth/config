@@ -27,6 +27,17 @@ loads the corrected helpers last. macOS uses the absolute system-profile
 `darwin-rebuild` path; Linux uses `nixos-rebuild`. `nrs` activates the whole
 configuration and needs explicit approval before agent use.
 
+## Native Pi
+
+| Command | Does |
+| --- | --- |
+| `pi` / `pi-native` | Launch the repository-owned profile from `configs/pi/`; `omz reload` loads the recognized shell functions |
+| `pi update --check` | Show current and registry versions without changing dependency pins |
+| `pi update` | Update/reinstall the pinned profile with a user-owned npm cache, apply compatibility patches and verify; restore previous pins if checks fail |
+| `command pi` | Bypass the shell function and use independent Homebrew/global Pi |
+
+See [the Pi profile](configs/pi/README.md) for `/model` role configuration, `/switch` session switching, authentication, UI checks and remaining OMP parity limits. No system rebuild is needed for these live-linked shell functions.
+
 ## Herdr navigation
 
 | Keys | Action |

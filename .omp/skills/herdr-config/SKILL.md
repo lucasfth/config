@@ -1,4 +1,6 @@
 ---
+name: herdr-config
+description: Use when configuring Herdr servers, machine profiles, terminal sessions, or centrally managed Herdr settings across local and remote hosts
 type: skill
 tags: [herdr, terminal, multiplexer, config, ssh, remote, nix]
 status: active

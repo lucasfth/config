@@ -1,0 +1,23 @@
+diff --git a/node_modules/pi-lsp-adapter/src/config/paths.ts b/node_modules/pi-lsp-adapter/src/config/paths.ts
+--- a/node_modules/pi-lsp-adapter/src/config/paths.ts
++++ b/node_modules/pi-lsp-adapter/src/config/paths.ts
+@@ -1,8 +1,8 @@
+-import { homedir } from "node:os";
++import { getAgentDir } from "@earendil-works/pi-coding-agent";
+ import { join } from "node:path";
+ 
+ export function getManagedLspRoot(): string {
+-  return join(homedir(), ".pi", "agent", "lsp");
++  return join(getAgentDir(), "lsp");
+ }
+ 
+ export function getRegistryDir(): string {
+@@ -50,7 +50,7 @@
+ }
+ 
+ export function getUserConfigPath(): string {
+-  return join(homedir(), ".pi", "agent", "lsp.json");
++  return join(getAgentDir(), "lsp.json");
+ }
+ 
+ export function getProjectConfigPath(projectRoot: string): string {

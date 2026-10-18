@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { TuiMainScreen, stripTerminalSequences, visibleWidth, setCapabilities } from '@earendil-works/pi-tui';
+import type { Terminal } from '@earendil-works/pi-tui';
+import { ToolExecutionComponent, SkillInvocationMessageComponent, initTheme, getMarkdownTheme } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { UserMessageComponent } from './node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/user-message.js';
+import { prepareRuntime } from './runtime.mjs';
+import { installToolFrames } from './extensions/tool-frames.ts';
+import presentation from './extensions/presentation.ts';
+const dir=await mkdtemp(path.join(os.tmpdir(),'pi-render-proof-'));
+try {
+ await prepareRuntime({agentDir:dir,env:{...process.env,NEO_PROXY_URL:'http://127.0.0.1:9/v1'},ompDir:path.join(dir,'absent')});
+ const settings=JSON.parse(await readFile(path.join(dir,'settings.json'),'utf8'));
+ process.env.PI_CODING_AGENT_DIR=dir;
+ setCapabilities({trueColor:true,images:'kitty',hyperlinks:true});
+ const {loadThemeFromPath,setThemeInstance}=await import('./node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js');
+ setThemeInstance(loadThemeFromPath(path.join(dir,'themes/omp-dark.json'),'truecolor'));
+ const callbacks=new Map();let factory;let footer;
+ // Focused renderer smoke supplies only the APIs consumed by presentation.
+ presentation({registerToolRenderer(){},on:(name: string,callback: unknown)=>callbacks.set(name,callback),getThinkingLevel:()=> 'high',getSessionName:()=> 'Configuration review'} as unknown as ExtensionAPI);
+ const {theme}=await import('./node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js');
+ const terminal={columns:110,rows:42,start(){},stop(){},write(){},hideCursor(){},showCursor(){},clearLine(){},clearFromCursor(){},moveBy(){},setTitle(){}};
+ const tui=new TuiMainScreen(terminal as unknown as Terminal);
+ const context={mode:'tui',cwd:'/Users/lucas/Desktop/code/config',model:{id:'gpt-6.1-sol',name:'GPT-6.1 Sol'},getContextUsage:()=>({percent:18}),ui:{theme,setHeader(){},setFooter(fn){footer=fn(tui,theme,{getGitBranch:()=> 'main',onBranchChange:()=>()=>{}})},setEditorComponent(fn){factory=fn}}};
+ callbacks.get('session_start')({},context);
+ const keys={matches:()=>false};const editor=factory(tui,{},keys);editor.setText('Please inspect the configuration');
+ const editorRows=editor.render(110);assert.ok(editorRows.some(line=>line.includes('GPT-6.1 Sol')&&line.includes('config')));assert.deepEqual(footer.render(110),[]);
+ assert.ok(editorRows.some(line=>line.includes('Configuration review')), 'Saved session name is visible in composer border');
+ let resolver;installToolFrames({registerToolRenderer(fn: unknown){resolver=fn}} as unknown as ExtensionAPI);
+ const renderers=resolver('bash',()=>undefined);
+ const tool=new ToolExecutionComponent('bash','proof',{command:'printf configuration-ok'},{}, {...renderers}, {requestRender(){}},process.cwd());
+ tool.setArgsComplete();tool.markExecutionStarted();tool.updateResult({content:[{type:'text',text:'configuration-ok'}],isError:false,durationMs:14});
+ const toolRows=tool.render(110);assert.ok(toolRows.some(line=>line.includes('Output')));assert.ok(toolRows.some(line=>line.includes('configuration-ok')));
+ const user=new UserMessageComponent('Please inspect the configuration',getMarkdownTheme());
+ const userRows=user.render(110);
+ assert.ok(userRows.some(line=>line.includes('\x1b[48;2;17;17;27m')), 'User messages have the dark OMP-style background');
+ assert.ok(userRows.length >= 3, 'User messages have vertical breathing room distinct from replies');
+ const skill=new SkillInvocationMessageComponent({name:'using-superpowers',content:'Load relevant skills.'},getMarkdownTheme());
+ const all=[...user.render(110),'',...skill.render(110),'',...toolRows,'',...editorRows];
+ assert.ok(all.every(line=>visibleWidth(line)<=110));
+ console.log(all.map(stripTerminalSequences).join('\n'));
+ console.log(JSON.stringify({generatedTheme:settings.theme,toolFrame:true,composerStatus:true,separateFooter:false}));
+} finally {await rm(dir,{recursive:true,force:true,maxRetries:3});}

@@ -1,0 +1,15 @@
+diff --git a/node_modules/pi-lsp-adapter/package.json b/node_modules/pi-lsp-adapter/package.json
+--- a/node_modules/pi-lsp-adapter/package.json
++++ b/node_modules/pi-lsp-adapter/package.json
+@@ -48,5 +48,3 @@
+   "dependencies": {
+-    "@earendil-works/pi-tui": "^0.74.1",
+-    "typebox": "^1.1.38",
+     "vscode-jsonrpc": "^8.2.1",
+     "vscode-languageserver-protocol": "^3.17.5",
+@@ -55,3 +53,5 @@
+   "peerDependencies": {
++    "@earendil-works/pi-tui": "*",
++    "typebox": "*",
+     "@earendil-works/pi-ai": "*",
+     "@earendil-works/pi-coding-agent": "*"

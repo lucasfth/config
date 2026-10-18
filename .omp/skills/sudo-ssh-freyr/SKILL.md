@@ -1,4 +1,6 @@
 ---
+name: sudo-ssh-freyr
+description: Use when administering Freyr over SSH with sudo, including NixOS configuration, GPU workloads, WhisperX, embeddings, or reranking services
 type: skill
 tags: [freyr, nixos, ssh, sudo, tailscale, gpu, whisperx, embeddings, reranker]
 status: active

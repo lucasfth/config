@@ -5,6 +5,7 @@ are invoked directly or through Home Manager-installed commands; these paths do
 not all share the same deployment or activation behavior.
 
 - `config-add` edits the appropriate Nix package, Homebrew, or shell alias source.
+- `pi-native` runs the canonical `configs/pi/` profile. The reloadable shell aliases plain `pi` to this launcher; `pi update` uses a private npm cache and verifies the pinned profile, without changing global Homebrew Pi.
 - `nix-health [--check|--notify]` checks the local Nix installation. See
   [`docs/nix-recovery.md`](../docs/nix-recovery.md) for recovery instructions.
 - `muninn-refresh.py` safely refreshes the local readable Muninn snapshot; the
