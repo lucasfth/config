@@ -22,6 +22,8 @@ test('runtime preserves model role choices and private MCP credentials on repeat
     assert.equal(settings.defaultModel, 'claude-opus-5-5');
     assert.equal(mcp.mcpServers.custom.headers.Authorization, 'Bearer synthetic');
     assert.equal(settings.terminal.showImages, true);
+    for (const name of ['source-outline.ts', 'cache-report.ts']) assert.ok(settings.extensions.includes(path.join(sourceDir, 'extensions', name)));
+    assert.equal(settings.showCacheMissNotices, undefined, 'native cache notices retain their existing default');
     const models = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
     assert.equal(models.providers['neo-proxy'].baseUrl, 'https://proxy.invalid/v1');
     await prepareRuntime({ agentDir: dir, env: { ...env, NEO_PROXY_URL: 'https://proxy.invalid' }, ompDir: path.join(dir, 'absent') });

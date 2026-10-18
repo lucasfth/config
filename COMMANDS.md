@@ -35,6 +35,7 @@ configuration and needs explicit approval before agent use.
 | `pi update --check` | Show current and registry versions without changing dependency pins |
 | `pi update` | Update/reinstall the pinned profile with a user-owned npm cache, apply compatibility patches and verify; restore previous pins if checks fail |
 | `command pi` | Bypass the shell function and use independent Homebrew/global Pi |
+| `/cache-report` (inside Pi) | Show recent branch usage and explicit-versus-unknown cache counters without a model call; native miss notices stay separate |
 
 See [the Pi profile](configs/pi/README.md) for `/model` role configuration, `/switch` session switching, authentication, UI checks and remaining OMP parity limits. No system rebuild is needed for these live-linked shell functions.
 

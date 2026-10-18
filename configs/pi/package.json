@@ -10,7 +10,7 @@
     "test": "node --import tsx --test *.test.mjs extensions/*.test.ts",
     "typecheck": "tsc --noEmit",
     "setup": "node setup.mjs",
-    "verify:integration": "node integration-sdk.mjs && node integration-ui.mjs && node --import tsx integration-render.ts && node integration-adversarial.mjs && node integration-roles.mjs && node --import tsx integration-presentation.ts && node integration-spinner.mjs && node integration-terminal.mjs && PI_CHART_KIND=bar node integration-terminal.mjs && node integration-images.mjs && node integration-eval.mjs && node integration-retrieval.mjs && node --import tsx tests/integration-retrieval.mjs && node integration-lsp.mjs && node integration-context.mjs && node integration-condense.mjs && node integration-compaction.mjs"
+    "verify:integration": "node integration-sdk.mjs && node integration-ui.mjs && node --import tsx integration-render.ts && node integration-adversarial.mjs && node integration-roles.mjs && node --import tsx integration-presentation.ts && node integration-spinner.mjs && node integration-terminal.mjs && PI_CHART_KIND=bar node integration-terminal.mjs && node integration-images.mjs && node integration-eval.mjs && node integration-retrieval.mjs && node integration-discovery.mjs && node --import tsx tests/integration-retrieval.mjs && node integration-lsp.mjs && node integration-context.mjs && node integration-condense.mjs && node integration-compaction.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.3.0",

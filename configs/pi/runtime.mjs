@@ -108,7 +108,7 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
   }
   const packageNames = ['pi-subagents', 'pi-intercom', 'pi-interactive-shell', 'pi-lsp-adapter', 'pi-web-access', 'pi-hashline-edit', 'pi-btw', 'pi-condense'];
   const packages = packageNames.map(name => ({ source: path.join(moduleDir, name), extensions: [], skills: name === 'pi-subagents' || name === 'pi-interactive-shell' ? undefined : [], prompts: [] }));
-  const personalExtensions = ['context-policy.ts', 'compaction-policy.ts', 'hashline-host.ts', 'managed-tools.ts', 'user-shell.ts', 'eval.ts', 'code-intelligence.ts', 'code-search.ts', 'models.ts', 'muninn.ts', 'workflow.ts', 'visuals.ts', 'freyr.ts', 'history.ts', 'advisor.ts', 'image-attachments.ts', 'presentation.ts'];
+  const personalExtensions = ['context-policy.ts', 'compaction-policy.ts', 'hashline-host.ts', 'managed-tools.ts', 'user-shell.ts', 'eval.ts', 'code-intelligence.ts', 'code-search.ts', 'source-outline.ts', 'cache-report.ts', 'models.ts', 'muninn.ts', 'workflow.ts', 'visuals.ts', 'freyr.ts', 'history.ts', 'advisor.ts', 'image-attachments.ts', 'presentation.ts'];
   const settings = {
     ...sourceSettings, ...previous,
     defaultProvider: roles.default.provider, defaultModel: roles.default.modelId, defaultThinkingLevel: roles.default.thinkingLevel,
