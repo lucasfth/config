@@ -27,7 +27,7 @@ Each launch regenerates settings from this checkout, retaining saved role choice
 
 ## Presentation and model commands
 
-- OMP-style composer with model, path, branch, context and thinking level in its top border; no duplicate footer. Native cursor, paste, history and autocomplete behavior remain in the editor.
+- OMP-style composer with model, path, branch, context and thinking level in its top border; no duplicate footer. While the main agent works, Pi's native Braille spinner replaces the left-hand idle icon instead of adding a trailing `working` label. Retry/compaction status keeps its explanatory text. Native cursor, paste, history and autocomplete behavior remain in the editor.
 - User messages have a distinct dark block (light-theme equivalent included), while assistant replies retain the terminal background. Skill messages stay compact; tool panels include call/output borders and native diff/image/expansion rendering. Generated light/dark profile palettes follow terminal appearance. MCP errors remain visible.
 - `/switch` opens searchable session-only selection; direct `/switch neo-proxy/gpt-6-luna:low` changes this session only.
 - `/model` and `/models` configure saved roles/defaults, model and thinking level without changing the current session. A narrow tracked host patch lets the extension own `/model`; there is no editor-input rewrite.
