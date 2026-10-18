@@ -25,6 +25,12 @@ Private settings, sessions and generated provider/MCP configuration live in `~/.
 
 Each launch regenerates settings from this checkout, retaining saved role choices. Canonical skills are included once; project-provided skill names take precedence. Project skill scanning stops at this checkout's repository root, so an enclosing checkout cannot hide a nested worktree's canonical skills. The isolated checks regenerate temporary state, not the live profile.
 
+## Shell commands
+
+Type `!gst` (or any shell command) to run it without querying the model. `!!gst` also excludes its output from model context. The profile's `user-shell.ts` hook runs these commands with `zsh -ic`, loading your normal `.zshrc`, aliases and functions. Each command uses a fresh shell in the current project; it does not share unsaved shell state or persist `cd` between commands. Pi's streaming output, cancellation and exit codes are retained. The model's `bash` tool stays non-interactive Bash.
+
+Existing sessions need a new profile launch (`pi --continue` to resume); launch regenerates the extension list from `runtime.mjs`. No Nix rebuild is needed. Verify the path with `node --import tsx --test user-shell.test.mjs` and `node integration-user-shell.mjs`.
+
 ## Presentation and model commands
 
 - OMP-style composer with model, path, branch, context and thinking level in its top border; no duplicate footer. While the main agent works, Pi's native Braille spinner replaces the left-hand idle icon instead of adding a trailing `working` label. Retry/compaction status keeps its explanatory text. Native cursor, paste, history and autocomplete behavior remain in the editor.
