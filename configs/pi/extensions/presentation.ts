@@ -52,6 +52,10 @@ export default function presentationExtension(pi: ExtensionAPI) {
       constructor(tui: TUI, theme: EditorTheme, keys: KeybindingsManager) {
         super(tui, theme, keys, { paddingX: 2, embedWorkingStatus: true });
       }
+      override insertImage(path: string) {
+        super.insertImage(path);
+        pi.events.emit('huginn:image-attachment', path);
+      }
       protected override renderTopBorder(width: number, hiddenLines: number) {
         const theme = ctx.ui.theme;
         const usage = active?.getContextUsage();

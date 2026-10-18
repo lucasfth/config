@@ -1,6 +1,18 @@
 {
   "date": "2026-10-17",
   "canonicalSource": "configs/pi",
+  "clipboardImages": {
+    "date": "2026-10-18",
+    "commands": "cd configs/pi && npm run setup && npm run typecheck && npm test && npm run verify:integration",
+    "testsPassed": 53,
+    "testsFailed": 0,
+    "exitCode": 0,
+    "terminalResult": "IMAGE_GATE_EXIT=0; integration-images.mjs rendered [img1] literal [img1], submitted a PNG data URL to the loopback provider, preserved literal text, leaked no internal marker and exited 0",
+    "physicalKey": "Lucas manually pressed Command-V in the identified disposable Ghostty 1.3.1/Pi window and confirmed a PNG path appeared before compact tokens were implemented; editor readback and PNG signature confirmed the image. Physical Command-V with the final compact-token implementation was not repeated.",
+    "cleanInstall": "Isolated /tmp checkout: npm ci --ignore-scripts, npm run setup, npm run setup all exited 0; live dependencies were not reinstalled",
+    "clipboard": "Original restore command ran, but later readback differed; Lucas explicitly chose to retain the current clipboard. Private snapshot and unused keyboard helper were deleted. No native event-posting helper was executed.",
+    "scope": "Real terminal/editor and provider transport with a synthetic image; no real clipboard image was submitted to a live model. Tracked dependency patch plus session-local input hook; native submit/queue contracts unchanged."
+  },
   "publicationVerification": {
     "date": "2026-10-18",
     "testedCommit": "7e9daf07",

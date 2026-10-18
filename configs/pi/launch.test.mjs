@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { prepareRuntime, repoDir, sourceDir } from './runtime.mjs';
-import { DefaultResourceLoader, SettingsManager } from '@earendil-works/pi-coding-agent';
+import { KeybindingsManager } from './node_modules/@earendil-works/pi-coding-agent/dist/core/keybindings.js';
 
 test('runtime preserves model role choices and private MCP credentials on repeated preparation', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-runtime-test-'));
@@ -36,5 +36,18 @@ test('runtime does not select OpenAI when the Neo endpoint is unavailable', asyn
   try {
     const env = { ...process.env, NEO_PROXY_URL: '', NEO_PROXY_API_KEY: '', ECORAY_MIMER_IP: '' };
     await assert.rejects(prepareRuntime({ agentDir: dir, env, ompDir: path.join(dir, 'absent') }), /NEO_PROXY_URL/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('prepared keybinding map recognizes Command-V while retaining custom shortcuts', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-paste-keys-'));
+  try {
+    await writeFile(path.join(dir, 'keybindings.json'), JSON.stringify({ 'app.session.new': 'ctrl+alt+n', 'app.clipboard.pasteImage': ['alt+v'] }));
+    await prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: 'https://proxy.invalid/v1' }, ompDir: path.join(dir, 'absent') });
+    const keys = KeybindingsManager.create(dir);
+    assert.ok(keys.matches('\x1b[118;9u', 'app.clipboard.pasteImage'), 'Kitty-encoded Command-V resolves to clipboard paste; terminal forwarding is verified separately');
+    assert.ok(keys.matches('\x16', 'app.clipboard.pasteImage'), 'Ctrl-V remains available');
+    assert.ok(keys.matches('\x1bv', 'app.clipboard.pasteImage'), 'Explicit extra clipboard shortcut survives');
+    assert.ok(keys.matches('\x1b[110;7u', 'app.session.new'), 'Unrelated user shortcuts survive');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

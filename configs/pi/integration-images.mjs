@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { spawn } from 'zigpty';
+import { Resvg } from '@resvg/resvg-js';
+import { sourceDir, repoDir, prepareRuntime } from './runtime.mjs';
+const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-image-submit-'));
+const image = path.join(dir, 'fixture.png');
+let pty;
+let raw = '';
+let observed;
+const server = http.createServer(async (req, res) => {
+  let text = ''; for await (const part of req) text += part;
+  observed = JSON.parse(text);
+  res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+  for (const [delta, finish_reason] of [[{ role: 'assistant', content: 'IMAGE_SUBMIT_OK' }, null], [{}, 'stop']]) res.write(`data: ${JSON.stringify({ id: 'image', object: 'chat.completion.chunk', model: observed.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
+  res.end('data: [DONE]\n\n');
+});
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const env = Object.fromEntries(['PATH', 'HOME', 'USER', 'SHELL', 'TMPDIR', 'LANG'].filter(k => process.env[k]).map(k => [k, process.env[k]]));
+Object.assign(env, { PI_CODING_AGENT_DIR: dir, NEO_PROXY_URL: `http://127.0.0.1:${server.address().port}/v1`, NEO_PROXY_API_KEY: 'synthetic', PI_OFFLINE: '1', PI_TELEMETRY: '0', TERM: 'xterm-256color', COLORTERM: 'truecolor' });
+try {
+  await writeFile(image, new Resvg('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="blue"/></svg>').render().asPng());
+  await prepareRuntime({ agentDir: dir, env, ompDir: path.join(dir, 'absent') });
+  const fixture = path.join(dir, 'fixture.ts');
+  await writeFile(fixture, `export default function(pi) { pi.registerCommand('attach-fixture', {description:'Insert synthetic image',handler:async (_args,ctx)=>{const factory=ctx.ui.getEditorComponent();let editor;ctx.ui.setEditorComponent((...args)=>{editor=factory(...args);return editor});editor.insertImage(${JSON.stringify(image)});editor.insertTextAtCursor(' literal [img1]');}}); }`);
+  const settings = JSON.parse(await readFile(path.join(dir, 'settings.json'), 'utf8'));
+  settings.extensions = settings.extensions.filter(p => !p.endsWith('advisor.ts') && !p.endsWith('muninn.ts'));
+  settings.extensions.push(fixture); settings.skills = []; settings.packages = [];
+  await writeFile(path.join(dir, 'settings.json'), JSON.stringify(settings));
+  await writeFile(path.join(dir, 'mcp.json'), '{"mcpServers":{}}');
+  pty = spawn(process.execPath, [path.join(sourceDir, 'host-entry.mjs'), '--offline', '--no-mcp', '--no-session', '--no-context-files', '--approve'], { cwd: repoDir, env, cols: 150, rows: 40 });
+  pty.onData(d => { const s = String(d); raw += s; if (s.includes('\x1b[c')) pty.write('\x1b[?62;c'); if (s.includes('\x1b[6n')) pty.write('\x1b[1;1R'); if (s.includes('\x1b[16t')) pty.write('\x1b[6;20;16t'); });
+  await pty.waitFor('Huginn · Pi', { timeout: 15000 });
+  pty.write('/attach-fixture\r');
+  await pty.waitFor('[img1] literal [img1]', { timeout: 10000 });
+  assert.ok(!raw.includes('\u2063'), 'Attachment discriminator never reaches terminal output');
+  pty.write('\r');
+  await pty.waitFor('IMAGE_SUBMIT_OK', { timeout: 15000 });
+  const user = observed.messages.findLast(message => message.role === 'user');
+  assert.ok(Array.isArray(user.content));
+  console.log(JSON.stringify({ blocks: user.content.map(block => ({ type: block.type, text: block.type === 'text' ? block.text : undefined, mimeType: block.mimeType, sourceType: block.source?.type, urlPrefix: block.image_url?.url?.slice(0, 30) })) }));
+  const attached = user.content.find(block => block.type === 'image_url');
+  assert.ok(attached?.image_url.url.startsWith('data:image/png;base64,'), 'Actual model request includes PNG attachment');
+  const message = user.content.filter(block => block.type === 'text').map(block => block.text).join('\n');
+  assert.ok(message.includes('literal [img1]'), 'User-typed image label stays literal in provider request');
+  assert.ok(!message.includes('\u2063'), 'No internal discriminator in provider request');
+  const exit = new Promise(resolve => pty.onExit(resolve));
+  pty.write('/quit\r'); const timer = setTimeout(() => pty.kill(), 5000);
+  const result = await exit; clearTimeout(timer); assert.equal(result.exitCode, 0);
+  console.log(JSON.stringify({ composer: '[img1] literal [img1]', providerImage: 'PNG data URL', literalPreserved: true, internalMarkerLeaked: false, clipboardChanged: false, exitCode: result.exitCode, scope: 'real managed editor and provider transport, synthetic local image, no live inference' }));
+} finally {
+  if (pty?.exitCode === null) pty.kill();
+  server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  await rm(dir, { recursive: true, force: true });
+}

@@ -1,0 +1,153 @@
+--- a/node_modules/@earendil-works/pi-tui/dist/components/editor.js
++++ b/node_modules/@earendil-works/pi-tui/dist/components/editor.js
+@@ -12,9 +12,11 @@
+ const PASTE_MARKER_REGEX = /\[paste #(\d+)( (\+\d+ lines|\d+ chars))?\]/g;
+ /** Non-global version for single-segment testing. */
+ const PASTE_MARKER_SINGLE = /^\[paste #(\d+)( (\+\d+ lines|\d+ chars))?\]$/;
++const IMAGE_MARKER_REGEX = /\[img(\d+)\u2063\]/g;
++const IMAGE_MARKER_SINGLE = /^\[img(\d+)\u2063\]$/;
+ /** Check if a segment is a paste marker (i.e. was merged by segmentWithMarkers). */
+ function isPasteMarker(segment) {
+-    return segment.length >= 10 && PASTE_MARKER_SINGLE.test(segment);
++    return PASTE_MARKER_SINGLE.test(segment) || IMAGE_MARKER_SINGLE.test(segment);
+ }
+ /**
+  * A segmenter that wraps Intl.Segmenter and merges graphemes that fall
+@@ -23,9 +25,9 @@
+  *
+  * Only markers whose numeric ID exists in `validIds` are merged.
+  */
+-function segmentWithMarkers(text, baseSegmenter, validIds) {
++function segmentWithMarkers(text, baseSegmenter, validIds, imageIds) {
+     // Fast path: no paste markers in the text or no valid IDs.
+-    if (validIds.size === 0 || !text.includes("[paste #")) {
++    if (validIds.size === 0 && imageIds.size === 0) {
+         return baseSegmenter.segment(text);
+     }
+     // Find all marker spans with valid IDs.
+@@ -35,7 +37,11 @@
+         if (!validIds.has(id))
+             continue;
+         markers.push({ start: m.index, end: m.index + m[0].length });
++    }
++    for (const m of text.matchAll(IMAGE_MARKER_REGEX)) {
++        if (imageIds.has(Number(m[1]))) markers.push({ start: m.index, end: m.index + m[0].length });
+     }
++    markers.sort((a, b) => a.start - b.start);
+     if (markers.length === 0) {
+         return baseSegmenter.segment(text);
+     }
+@@ -234,6 +240,8 @@
+     // Paste tracking for large pastes
+     pastes = new Map();
+     pasteCounter = 0;
++    images = new Map();
++    imageCounter = 0;
+     // Bracketed paste mode buffering
+     pasteBuffer = "";
+     isInPaste = false;
+@@ -274,7 +282,7 @@
+     }
+     /** Segment text with paste-marker awareness, only merging markers with valid IDs. */
+     segment(text, mode) {
+-        return segmentWithMarkers(text, mode === "word" ? wordSegmenter : graphemeSegmenter, this.validPasteIds());
++        return segmentWithMarkers(text, mode === "word" ? wordSegmenter : graphemeSegmenter, this.validPasteIds(), new Set(this.images.keys()));
+     }
+     getPaddingX() {
+         return this.paddingX;
+@@ -482,7 +490,7 @@
+                 result.push(`${leftPadding}${line}${linePadding}${rightPadding}`);
+             }
+         }
+-        return result;
++        return result.map(line => line.replaceAll("\u2063", ""));
+     }
+     handleMouse(event) {
+         const autocompleteStartRow = this.renderedVisibleLineCount + 2;
+@@ -903,7 +911,7 @@
+             const markerRegex = new RegExp(`\\[paste #${pasteId}( (\\+\\d+ lines|\\d+ chars))?\\]`, "g");
+             result = result.replace(markerRegex, () => pasteContent);
+         }
+-        return result;
++        return result.replace(IMAGE_MARKER_REGEX, (marker, id) => this.images.get(Number(id)) ?? marker);
+     }
+     /**
+      * Get text with paste markers expanded to their actual content.
+@@ -929,6 +937,8 @@
+         }
+         this.pastes.clear();
+         this.pasteCounter = 0;
++        this.images.clear();
++        this.imageCounter = 0;
+         this.setTextInternal(normalized);
+     }
+     /**
+@@ -944,6 +954,18 @@
+         this.lastAction = null;
+         this.exitHistoryBrowsing();
+         this.insertTextAtCursorInternal(text);
++    }
++    insertImage(path) {
++        this.cancelAutocomplete();
++        this.pushUndoSnapshot();
++        this.lastAction = null;
++        this.exitHistoryBrowsing();
++        const id = ++this.imageCounter;
++        this.images.set(id, path);
++        const line = this.state.lines[this.state.cursorLine] || "";
++        const before = line[this.state.cursorCol - 1];
++        const after = line[this.state.cursorCol];
++        this.insertTextAtCursorInternal(`${before && !/\s/.test(before) ? " " : ""}[img${id}\u2063]${after && !/\s/.test(after) ? " " : ""}`);
+     }
+     /**
+      * Normalize text for editor storage:
+@@ -1141,6 +1163,8 @@
+         this.state = { lines: [""], cursorLine: 0, cursorCol: 0 };
+         this.pastes.clear();
+         this.pasteCounter = 0;
++        this.images.clear();
++        this.imageCounter = 0;
+         this.exitHistoryBrowsing();
+         this.scrollOffset = 0;
+         this.undoStack.clear();
+@@ -1770,7 +1794,7 @@
+         }
+     }
+     pushUndoSnapshot() {
+-        this.undoStack.push({ state: this.state, pastes: this.pastes, pasteCounter: this.pasteCounter });
++        this.undoStack.push({ state: this.state, pastes: this.pastes, pasteCounter: this.pasteCounter, images: this.images, imageCounter: this.imageCounter });
+     }
+     undo() {
+         this.exitHistoryBrowsing();
+@@ -1780,6 +1804,8 @@
+         Object.assign(this.state, snapshot.state);
+         this.pastes = snapshot.pastes;
+         this.pasteCounter = snapshot.pasteCounter;
++        this.images = snapshot.images;
++        this.imageCounter = snapshot.imageCounter;
+         this.lastAction = null;
+         this.preferredVisualCol = null;
+         if (this.onChange) {
+--- a/node_modules/@earendil-works/pi-tui/dist/components/editor.d.ts
++++ b/node_modules/@earendil-works/pi-tui/dist/components/editor.d.ts
+@@ -119,6 +119,8 @@
+      * This is atomic for undo - single undo restores entire pre-insert state.
+      */
+     insertTextAtCursor(text: string): void;
++    /** Register a clipboard image as a compact, atomic attachment token. */
++    insertImage(path: string): void;
+     /**
+      * Normalize text for editor storage:
+      * - Normalize line endings (\r\n and \r -> \n)
+--- a/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/interactive-mode.js
++++ b/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/interactive-mode.js
+@@ -2523,7 +2523,8 @@
+                 const fileName = `pi-clipboard-${crypto.randomUUID()}.${ext}`;
+                 const filePath = path.join(tmpDir, fileName);
+                 fs.writeFileSync(filePath, Buffer.from(image.bytes));
+-                this.editor.insertTextAtCursor?.(filePath);
++                if (typeof this.editor.insertImage === "function") this.editor.insertImage(filePath);
++                else this.editor.insertTextAtCursor?.(filePath);
+                 this.ui.requestRender();
+                 return;
+             }
