@@ -57,6 +57,11 @@
   "dependencies": {
     "@raycast/api": "1.104.22"
   },
+  "overrides": {
+    "@raycast/api": {
+      "esbuild": "0.28.1"
+    }
+  },
   "devDependencies": {
     "@raycast/eslint-config": "2.2.0",
     "typescript": "5.9.2"
