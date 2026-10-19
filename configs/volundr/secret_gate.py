@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import tarfile
+import sys
 
 POLICY = Path(__file__).with_name('gitleaks.toml')
 POLICY_SHA256 = '20f9f5b3ccfce8e1f5bc8d61ef041f10486095b2a09642c92d1b808a5ec95922'
@@ -18,6 +19,8 @@ def scan(repo, mode='tree', revision=None, binary='gitleaks', policy=None):
     policy = Path(policy).resolve() if policy else POLICY
     if not policy.is_file() or hashlib.sha256(policy.read_bytes()).hexdigest() != POLICY_SHA256:
         raise RuntimeError('Missing or modified trusted scanner policy')
+    if mode == 'history' and sys.platform == 'android':
+        raise RuntimeError('Android patch-history scan unavailable; verified controller attestation required')
     with tempfile.TemporaryDirectory(prefix='volundr-secret-gate-') as folder:
         folder = Path(folder)
         command = [binary, '--config', str(policy), '--redact=100', '--no-banner',

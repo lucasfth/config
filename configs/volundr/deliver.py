@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import time
 import secret_gate
+import attestation
 
 
 def run(*args):
@@ -49,6 +50,11 @@ def deliver(config, library, host, check=False, inbox=None):
             run('git', '-C', library, 'update-ref', '-d', ref)
         item = {'config_revision': revision, 'target': target, 'created_at': time.time(),
                 'bundle_ref': ref, 'bundle_sha256': hashlib.sha256(bundle.read_bytes()).hexdigest()}
+        key = Path.home() / '.local/state/volundr/history-signing-key'
+        if key.is_file():
+            item['history_proof'] = attestation.sign(item, bundle, key)
+        elif inbox is None:
+            raise RuntimeError('Controller signing key missing; refusing unsigned remote delivery')
         receipt = directory / 'delivery.json'
         receipt.write_text(json.dumps(item) + '\n')
         if inbox is not None:

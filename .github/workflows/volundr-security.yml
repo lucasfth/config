@@ -30,6 +30,7 @@ jobs:
           git -C "$RUNNER_TEMP" commit -m 'Scoped controller source'
           python3 configs/volundr/secret_gate.py tree "$RUNNER_TEMP" --policy configs/volundr/gitleaks.toml
           python3 configs/volundr/secret_gate.test.py -v
+          python3 configs/volundr/attestation.test.py -v
           python3 configs/volundr/automation.test.py -v
           python3 configs/volundr/nightly.test.py -v
           python3 configs/volundr/loki_job.test.py -v

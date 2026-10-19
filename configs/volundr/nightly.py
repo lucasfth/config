@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import secret_gate
+import attestation
 
 
 def run(*args, cwd=None, env=None, check=True):
@@ -169,7 +170,10 @@ def sync(settings):
         git(repo, 'fetch', bundle, ref)
         if git(repo, 'rev-parse', 'FETCH_HEAD') != target:
             raise ValueError('Bundle head differs from published pin')
-        secret_gate.scan(repo, 'history', target, binary=settings.get('gitleaks', 'gitleaks'))
+        if 'history_proof' in item:
+            attestation.verify(item, bundle, item['history_proof'], settings['history_allowed_signers'])
+        else:
+            secret_gate.scan(repo, 'history', target, binary=settings.get('gitleaks', 'gitleaks'))
         secret_gate.scan(repo, 'tree', target, binary=settings.get('gitleaks', 'gitleaks'))
         before = git(repo, 'rev-parse', 'HEAD')
         branch = git(repo, 'symbolic-ref', '--quiet', '--short', 'HEAD', check=False)

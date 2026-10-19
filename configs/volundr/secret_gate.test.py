@@ -47,6 +47,11 @@ class GateTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'trusted scanner policy'):
                 secret_gate.scan(repo, policy=repo / 'gitleaks.toml')
 
+    def test_android_patch_history_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(secret_gate.sys, 'platform', 'android'), self.assertRaisesRegex(RuntimeError, 'attestation required'):
+                secret_gate.scan(Path(directory), 'history')
+
 
 if __name__ == '__main__':
     unittest.main()

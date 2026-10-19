@@ -7,3 +7,6 @@
 [submodule "volundr"]
 	path = volundr
 	url = git@github.com:lucasfth/volundr.git
+[submodule ".zsh/alias-tips"]
+	path = .zsh/alias-tips
+	url = https://github.com/djui/alias-tips.git
