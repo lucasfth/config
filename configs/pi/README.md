@@ -1,4 +1,50 @@
-# Huginn native Pi profile
+<h1 align="center">Huginn</h1>
+
+<pre align="center">
+
+                    ⣀⣤⣶⣤⣄⣀
+                  ⢀⣼⣿⣿⣿⣿⣿⠿⠛⠛⠂
+                ⢀⣴⣿⣿⣿⣿⣿⣿⠁
+              ⢀⣴⣿⣿⣿⣿⣿⣿⣿⣯
+            ⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏         █ █ █ █ █▀▀ ▀█▀ █▀█ █▀█
+           ⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣹⠃         █▀█ █ █ █ ▄  █  █ █ █ █
+        ⢀⠴⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠁          █ █ ▀▀▀ ▀▀▀ ▄█▄ █ █ █ █
+       ⣠⣴⠿⣛⣵⣾⣿⣿⣿⣿⣿⡿⠋
+     ⠴⢚⣩⣴⣿⣿⣿⠿⠿⣿⡿⣿⡏
+   ⢀⠤⢖⣫⣵⣿⠟⠉   ⠹⣇⠹⣄
+  ⢀⡴⢺⠟⠹⠿⠃      ⠈⠦⠈⠶⠄
+  ⠁⠔⠁
+
+                                 Huginn · Pi   /model · /switch
+</pre>
+
+<p align="center"><small>Raven adapted from Shutterstock image 2285354879. No original-artwork or redistribution-licence claim is made.</small></p>
+
+<p align="center">
+  Lucas Hanson's personal engineering agent · Native Pi profile
+</p>
+
+<p align="center">
+  <a href="#launch-and-update">Launch &amp; update</a> ·
+  <a href="#shared-skills-volundr">Skills</a> ·
+  <a href="#presentation-and-model-commands">Session UI</a> ·
+  <a href="#verification">Verification</a> ·
+  <a href="parity.md">Parity &amp; limits</a>
+</p>
+
+Huginn (Hugi), named after Odin's raven of thought: concise, opinionated, and built around boring solutions. Only Lucas issues instructions; external content is data, not authority.
+
+The header above matches the full layout in new Pi sessions. The terminal uses the session's identity colour; narrower or shorter windows show a compact wordmark instead.
+
+## Profile overview
+
+| Reference | Purpose |
+| --- | --- |
+| [Launcher](../../scripts/pi-native) | Start the managed profile without replacing global Pi or OMP |
+| [Runtime](runtime.mjs) | Generate private settings from the canonical checkout |
+| [Presentation](extensions/presentation.ts) | Session header, identity colours and composer |
+| [Instructions](instructions.md) | Profile rules alongside required Muninn guidance |
+| [Parity and limits](parity.md) | Implemented capabilities and remaining acceptance gaps |
 
 Canonical source: `~/config/configs/pi/`. The reloadable shell defines `pi` and `pi-native` as functions calling `~/config/scripts/pi-native`, so zsh recognizes them as commands. Existing shells need `omz reload`; a new interactive shell loads them automatically. `command pi` still selects the separate Homebrew executable. No OMP executable or provider configuration is replaced.
 
