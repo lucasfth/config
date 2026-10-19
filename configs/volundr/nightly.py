@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import secret_gate
 
 
 def run(*args, cwd=None, env=None, check=True):
@@ -168,6 +169,8 @@ def sync(settings):
         git(repo, 'fetch', bundle, ref)
         if git(repo, 'rev-parse', 'FETCH_HEAD') != target:
             raise ValueError('Bundle head differs from published pin')
+        secret_gate.scan(repo, 'history', target, binary=settings.get('gitleaks', 'gitleaks'))
+        secret_gate.scan(repo, 'tree', target, binary=settings.get('gitleaks', 'gitleaks'))
         before = git(repo, 'rev-parse', 'HEAD')
         branch = git(repo, 'symbolic-ref', '--quiet', '--short', 'HEAD', check=False)
         if not branch:

@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import time
+import secret_gate
 
 
 def run(*args):
@@ -32,6 +33,8 @@ def published_pin(config, library):
 
 def deliver(config, library, host, check=False, inbox=None):
     revision, target = published_pin(config, library)
+    secret_gate.scan(library, 'history', target)
+    secret_gate.scan(library, 'tree', target)
     if check:
         return {'status': 'checked', 'config_revision': revision, 'target': target, 'host': host}
     with tempfile.TemporaryDirectory(prefix='volundr-delivery-') as directory:

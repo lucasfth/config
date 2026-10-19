@@ -54,6 +54,16 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(module.sync(self.settings)['status'], 'no-new-bundle')
         self.assertEqual(self.git(self.repo, 'rev-parse', 'HEAD'), self.before)
 
+    def test_untrusted_bundle_secret_is_rejected_before_probe_and_fast_forward(self):
+        (self.source / 'unsafe.md').write_text(' '.join(['curl', '-u', '"' + 'ab' * 16 + ':' + 'cd' * 16 + '"']))
+        self.commit('unsafe candidate')
+        self.delivery()
+        with patch.object(module, 'probe') as probe, self.assertRaises(RuntimeError):
+            module.sync(self.settings)
+        probe.assert_not_called()
+        self.assertEqual(self.git(self.repo, 'rev-parse', 'HEAD'), self.before)
+        self.assertEqual((self.home / 'config.yaml').read_text(), 'unrelated: keep\n')
+
     def test_fast_forward_and_failed_postcheck_restore_named_branch(self):
         (self.source / 'new.md').write_text('new')
         self.commit('upstream')

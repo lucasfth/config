@@ -1,0 +1,45 @@
+name: Volundr security
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  secret-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install checksum-pinned scanner
+        run: |
+          python3 configs/volundr/install_scanner.py --destination "$RUNNER_TEMP/bin/gitleaks"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Gate source tree and exercise planted-secret regressions
+        run: |
+          git archive HEAD configs/volundr | tar -x -C "$RUNNER_TEMP"
+          git -C "$RUNNER_TEMP" init
+          git -C "$RUNNER_TEMP" config user.name CI
+          git -C "$RUNNER_TEMP" config user.email ci@example.invalid
+          git -C "$RUNNER_TEMP" add configs/volundr
+          git -C "$RUNNER_TEMP" commit -m 'Scoped controller source'
+          python3 configs/volundr/secret_gate.py tree "$RUNNER_TEMP" --policy configs/volundr/gitleaks.toml
+          python3 configs/volundr/secret_gate.test.py -v
+          python3 configs/volundr/automation.test.py -v
+          python3 configs/volundr/nightly.test.py -v
+          python3 configs/volundr/loki_job.test.py -v
+          python3 configs/volundr/dream_guard.test.py -v
+      - name: Gate proposed commit range
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE" ] && [ "$BASE" != 0000000000000000000000000000000000000000 ]; then
+            python3 configs/volundr/secret_gate.py history . --revision "$BASE..HEAD -- configs/volundr" --policy configs/volundr/gitleaks.toml
+          else
+            python3 configs/volundr/secret_gate.py history . --revision 'HEAD -- configs/volundr' --policy configs/volundr/gitleaks.toml
+          fi

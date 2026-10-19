@@ -1,0 +1,26 @@
+title = "Volundr publication policy"
+
+[extend]
+useDefault = true
+
+# Exact structural content-hash records, not an exclusion of manifest files.
+[[allowlists]]
+description = "SHA-256 content-manifest entries, reviewed as hashes"
+condition = "AND"
+paths = ['''(^|/)(docs/skill-mapping\.json|docs/loki-reconciliation\.json)$''']
+regexTarget = "line"
+regexes = ['''^\s*"[^"\n]+": "[a-f0-9]{64}",?\s*$''']
+
+[[allowlists]]
+description = "Literal documentation placeholders only; never hex basic-auth pairs"
+condition = "AND"
+paths = ['''(^|/)(skills/spotify/SKILL\.md|sanitized/publication/loki/media/spotify/SKILL\.md)$''']
+regexTarget = "match"
+regexes = ['''CLIENT_ID:CLIENT_SECRET''']
+
+[[rules]]
+id = "hex-basic-auth-pair"
+description = "Credential-shaped client ID and secret, including Spotify examples"
+regex = '''\b([a-fA-F0-9]{32}:[a-fA-F0-9]{32})\b'''
+secretGroup = 1
+keywords = [":"]

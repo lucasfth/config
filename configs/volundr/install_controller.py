@@ -8,7 +8,7 @@ import subprocess
 
 ORIGINS = {'config': 'git@github.com:lucasfth/config.git',
            'library': 'git@github.com:lucasfth/volundr.git'}
-FILES = ('controller.sh', 'controller.py', 'deliver.py')
+FILES = ('controller.sh', 'controller.py', 'deliver.py', 'secret_gate.py', 'gitleaks.toml')
 
 
 def prepare(home, source=Path(__file__).resolve().parent, origins=ORIGINS):

@@ -82,3 +82,17 @@ Loki receipt: `~/.hermes/volundr-nightly/deployment.json`; state/candidates/erro
 Each activated sync retains revision/config backups under `state/rollback-*`. Unknown concurrent work requires manual review, not deletion of drafts. Original migration backups remain separate under `~/.hermes/skill-backups/`.
 
 Publication of these sources does not provision another host, rotate credentials, resolve the Hermes source-updater mismatch, clear opaque Raycast exports, complete historical catalogue audits, or clear the separate Pi integration-context budget issue.
+
+## Credential containment and secret gates
+
+The October 19 security migration rewrote Volundr history to remove captured Spotify material and imported asset access-token queries. The operator deferred Spotify rotation: **the preserved credential is compromised, not safe to use**, and Volundr must remain private until rotation and a separate personal/company-data review. Private recovery copies and provider/GitHub caches are not erased by rewriting main. Do not make this repo public on the strength of a scanner alone.
+
+`secret_gate.py` runs checksum-pinned-policy Gitleaks checks before controller delivery and Loki fast-forward/probing. Runtime gate code/policy are separately installed from config, never imported from an incoming skill checkout. Missing scanner/policy, modified policy, symlinks or findings fail closed. A candidate cannot self-allow using `.gitleaksignore`, inline comments or its own policy. Manifest hash exceptions are structural, not directory exclusions.
+
+Install Gitleaks with `python3 configs/volundr/install_scanner.py --destination ~/.local/bin/gitleaks` on Mac/ARM64 Linux (including Loki) or x86_64 Linux. Re-run `install_controller.py --apply` after source upgrades; it now includes the gate/policy. Loki code deployment must include `secret_gate.py` and `gitleaks.toml`; private settings must set `gitleaks` to the absolute installed binary. Do not run the installer over an active deployment to upgrade code.
+
+Volundr includes opt-in staged/pre-push hooks and a required GitHub `secret-gate` check. The trusted CI gate uses an immutable reviewed security-code revision, separately from candidate tests. Changing trust/policy requires explicit maintainer review; untrusted PR code must never run in the privileged gate job. Normal main updates prohibit force-pushes and enforce checks for admins. The authorized rewrite used a logged one-shot exception and exact lease, with protection restored immediately.
+
+Security regressions: `python3 configs/volundr/secret_gate.test.py -v`, unsafe-delivery test in `automation.test.py`, and unsafe-bundle test in `nightly.test.py`. The history scan takes a Git revision expression: `HEAD` includes its full ancestry, whereas `--all` also scans unrelated fetched refs. Consumer checks scan the selected target's ancestry. Old backups/refs intentionally quarantined outside the live graph will still contain old material and must remain private.
+
+History replacement is a coordinated maintenance action, not an automatic rebase: pause controller and all three Loki jobs, preserve local edits and originals privately, quarantine old bundles/state, install clean sanitized checkouts/mirrors, publish the new config gitlink, manually gate delivery/loading, then restore prior schedules. Never reset dirty Loki work or silently reactivate an old bundle.

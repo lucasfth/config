@@ -38,6 +38,7 @@ class InstallTests(unittest.TestCase):
             (vault / '.dream_state.json').write_text('{"fixture":true}')
             settings = {'repo': str(Path.home() / 'volundr'), 'home': str(home),
                 'state': str(home / 'volundr-nightly/state'), 'inbox': str(root / 'inbox'),
+                'gitleaks': str(Path.home() / '.local/bin/gitleaks'),
                 'path': os.environ['PATH'], 'dream_script': str(home / 'scripts/dream_obsidian.py'),
                 'dream_job_id': original_job['id'], 'delivery_target': 'local'}
             (code / 'settings.json').write_text(json.dumps(settings))
@@ -76,7 +77,7 @@ class InstallTests(unittest.TestCase):
                 self.assertFalse(review['no_agent'])
                 self.assertEqual(review['deliver'], settings['delivery_target'])
             # Exercise all three entrypoints through Hermes' selected dependency interpreter.
-            for name in ['nightly.py', 'loki_job.py', 'dream_guard.py']:
+            for name in ['nightly.py', 'loki_job.py', 'dream_guard.py', 'secret_gate.py', 'gitleaks.toml']:
                 shutil.copy2(HERE / name, code / name)
             marker = root / 'stub-marker';stub = root / 'dream_stub.py'
             stub.write_text('from pathlib import Path\nPath(' + repr(str(marker)) + ').write_text("stub")\n')

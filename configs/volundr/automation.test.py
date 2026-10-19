@@ -66,6 +66,20 @@ class AutomationTests(unittest.TestCase):
             self.assertIn(pin, subprocess.check_output(['git', 'bundle', 'list-heads', str(bundle)], text=True))
             self.assertNotEqual(git('rev-parse', 'HEAD'), pin)
 
+    def test_delivery_rejects_unsafe_pin_before_writing_inbox(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory) / 'repo'
+            subprocess.run(['git', 'init', '-b', 'main', repo], check=True, capture_output=True)
+            def git(*args):
+                return subprocess.check_output(['git', '-C', str(repo), *args], text=True).strip()
+            git('config', 'user.name', 'Fixture');git('config', 'user.email', 'fixture@example.invalid')
+            (repo / 'unsafe.md').write_text('curl -u "' + 'ab' * 16 + ':' + 'cd' * 16 + '"')
+            git('add', '.');git('commit', '-m', 'fixture')
+            inbox = Path(directory) / 'inbox'
+            with patch.object(deliver, 'published_pin', return_value=('fixture', git('rev-parse', 'HEAD'))), self.assertRaises(RuntimeError):
+                deliver.deliver(repo, repo, 'unused', inbox=inbox)
+            self.assertFalse(inbox.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
