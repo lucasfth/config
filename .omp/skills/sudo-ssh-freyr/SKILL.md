@@ -31,18 +31,17 @@ If `ControlMaster` socket errors: `ssh -o ControlMaster=no "$ECORAY_FREYR_USER@$
 
 ## Sudo
 
-Regular SSH handles sudo prompts fine (unlike Tailscale SSH which hung). Password is known.
+Use an interactive SSH TTY for sudo authentication. Never place a password in a command, argument, script, chat message, or log. Do not assume credentials are available.
 
 ## Long-running commands (nixos-rebuild)
 
-Background builds and poll the log:
+Only run a rebuild with Lucas's current approval. Keep the SSH TTY attached while sudo prompts; for a long operation, use an approved remote tmux session and run the command interactively there rather than backgrounding password input.
 
 ```bash
-ssh "$ECORAY_FREYR_USER@$ECORAY_FREYR_IP" 'echo <psw> | sudo -S nixos-rebuild boot --flake ~/config#freyr --impure > /tmp/build.log 2>&1 &'
-sleep 30 && ssh "$ECORAY_FREYR_USER@$ECORAY_FREYR_IP" 'tail -5 /tmp/build.log'
+ssh -t freyr 'sudo nixos-rebuild boot --flake ~/config#freyr --impure'
 ```
 
-"Done. The new configuration is ..." → success.
+A successful build message proves the build completed, not that the new generation was activated or booted. Read back the selected generation and verify the requested consumer path separately.
 
 ## NixOS-specific gotchas
 

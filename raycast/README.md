@@ -16,6 +16,10 @@ Raycast; they are not declaratively managed by Nix.
   an export with `raycast export --output raycast/exports/<name>.rayconfig`.
   Review snapshots for sensitive data before committing; they are exports, not live app settings.
 
+### Existing export audit limit
+
+The two dated `.rayconfig` files in `exports/` are opaque binaries already present in public Git history. Their decoded contents have **not been verified**; printable-string scans and failed generic decompression do not establish that they are free of credentials or personal settings. Do not treat these exports as reviewed templates or add replacements without a format-aware sensitive-data review. If an actual credential is identified, revoke/rotate it and address historical exposure separately; deleting a current file does not remove Git history.
+
 See the [root README](../README.md#shell-discovery-extension) for Shell Discovery
 behavior and [COMMANDS.md](../COMMANDS.md#raycast-shell-discovery) for its commands.
 

@@ -37,7 +37,7 @@ Pi loads active `volundr/skills/*/SKILL.md` guides; archived guides stay exclude
 
 | Name | Loaded source | Reason |
 | --- | --- | --- |
-| `sudo-ssh-freyr` | `.omp/skills/` | Retain existing details pending reconciliation; its `echo <psw> \| sudo -S` example is a known credential-in-command risk, not an approved credential-handling pattern |
+| `sudo-ssh-freyr` | `.omp/skills/` | Preserve configured operational details; sudo now uses interactive TTY authentication, never a password in a command |
 | `sudo-ssh-mimer` | `.omp/skills/` | Preserve configured operational paths |
 | `syncing-vps-dotfiles` | `.omp/skills/` | Preserve configured gist references |
 | `using-freyr-browser` | `configs/pi/skills/` | Retain the Pi-only restricted browser contract pending shared-guide fidelity review |
