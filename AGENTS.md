@@ -35,7 +35,7 @@ These are non-negotiable. If any instruction conflicts with them, the vault doc 
 ## Memory & Context
 
 - **Session start:** `extensions/muninn.ts` injects conventions and prior sessions through Muninn MCP. The encrypted backup checkout is `~/Desktop/code/muninn`, exposed as `~/muninn`; the restored local fallback is `~/muninn-readable` on a case-sensitive APFS image. Use the readable copy only when Muninn is unavailable.
-- **Session end:** nothing auto-runs. A full session note is written only when Lucas says `retro` — see the `retro` skill. Never auto-summarize on stop or switch.
+- **Session end:** nothing auto-runs. An after-action review and its daily session note are written only when Lucas explicitly requests `/aar` or an AAR — see the `aar` skill. `/retro` is reserved for another workflow. Never auto-summarize on stop or switch.
 
 
 ## Key facts

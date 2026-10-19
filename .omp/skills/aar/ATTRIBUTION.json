@@ -1,0 +1,26 @@
+{
+  "sources": [
+    {
+      "source": "huginn:.omp/skills/retro",
+      "declared": {
+        "author_unverified": null,
+        "license_unverified": null
+      },
+      "ownership": "config-source-provenance-unverified",
+      "metadata_status": "Frontmatter claims, unverified; not ownership or permission."
+    },
+    {
+      "source": "https://github.com/coopersimson96/aar-loop",
+      "revision": "a7172d610760ba403af4cf3cb18dc0d895431b2e",
+      "files": [
+        "SKILL.md",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 Cooper Simson",
+      "scope": "Four-question review, concrete lessons and exact-target fix proposals adapted from SKILL.md. No append_lesson.py or LESSONS.md workflow imported."
+    }
+  ],
+  "license_boundary": "AAR Loop adaptations retain LICENSE.aar-loop. Inherited Huginn retro provenance remains unverified and is not relicensed by that notice or the root grant.",
+  "synthesis": true
+}

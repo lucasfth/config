@@ -10,7 +10,7 @@ Raw read supplies anchors required for edits. issue://2 and pr://2 use the curre
 
 /model configures roles; /switch changes session selection. /plan and /commit run one turn on their saved roles then restore the previous model; /commit proposes text, not a git commit. Delegate complete scoped tasks and verify outputs. Advisor is separate from reviewer subagents.
 
-Muninn supplies required safety/project guidance plus a bounded prior-note index; retrieve relevant bodies with memory_recall. Native tree/fork/resume and compaction preserve session history. Only write retros when Lucas requests them.
+Muninn supplies required safety/project guidance plus a bounded prior-note index; retrieve relevant bodies with memory_recall. Native tree/fork/resume and compaction preserve session history. Only run after-action reviews and write their session notes when Lucas explicitly requests `/aar` or an AAR; use the `aar` skill. `/retro` is reserved for another workflow.
 
 ## Visuals and browser
 

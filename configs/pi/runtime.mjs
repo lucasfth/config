@@ -156,6 +156,7 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
     packages,
     extensions: personalExtensions.map(name => path.join(sourceDir, 'extensions', name)),
     skills: canonicalSkillPaths(),
+    prompts: [...new Set([...(sourceSettings.prompts ?? []), ...(previous.prompts ?? []), path.join(sourceDir, 'prompts/aar.md')])],
     subagents: {
       ...sourceSettings.subagents, ...previous.subagents,
       agentScanDirs: [path.join(sourceDir, 'agents')],

@@ -1,0 +1,12 @@
+# Muninn storage
+
+Read `tech/vault-note-writing-rules.md` through Muninn before writing. Follow those rules for frontmatter, tags, links, and index maintenance. If Muninn is unavailable, use a readable local vault only when the runtime's operator instructions explicitly authorize that fallback; otherwise stop persistence and report the unavailable storage. Never invent a storage location or claim an unverified write succeeded.
+
+1. Resolve the repository identity and branch from Git. Without a remote, use `_local/<directory>`; state uncertainty if identity cannot be established. Use the existing daily path `projects/<org>/<repo>/<branch>/YYYY-MM-DD.md` and the local review date. Do not create a new file per review.
+2. Search for the project, branch, date, topic, and related lessons using the available Muninn search tool. Read today's note before modifying it. Reuse 2–5 existing lowercase, kebab-case, singular tags, including a specific topic tag. Keep project and branch in metadata rather than tags by default.
+3. For a new note, include `title`, `type: session-summary`, `project`, `branch`, ISO-8601 `date`, `tags`, `status: active`, and `updated`. Use a descriptive title and matching heading, not just the date. For an existing note, preserve unrelated metadata and prior entries, refresh `updated`, and put current facts and final status in the opening summary.
+4. Append a scoped AAR entry with the four answers, evidence-backed lessons, and fix proposals/status. Update an existing lesson instead of duplicating it. If no corrections occurred, say so; do not fabricate corrections or wins. Keep context-only observations separate from proposed rule changes.
+5. Write with the available Muninn write tool only after reading the existing content. Preserve the dreaming-owned `Related:` line exactly; use body wikilinks for your additions. Never write `personal-notes/` unless Lucas explicitly asks.
+6. Ensure `_INDEX.md` contains the canonical note link without duplicating it. Read the index before changing it. Read back the complete note and index, verifying frontmatter, tags, prior content, links, the unchanged `Related:` line, and exactly one final newline. If any operation fails, report which part failed and do not claim persistence was verified.
+
+Return the note path and the substantive corrections/lessons in chat. No extra LESSONS.md file, session-end hook, automatic instruction edit, or automatic publication is part of this procedure.

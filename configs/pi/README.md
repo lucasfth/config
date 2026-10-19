@@ -49,6 +49,12 @@ Shared edits belong in Volundr, then config records the new submodule commit. Af
 
 Each new Pi launch reads the pinned tree; running sessions are not restarted. Tests use temporary state and do not regenerate the live profile.
 
+### After-action reviews
+
+Use `/aar [focus]` for the combined after-action review and daily Muninn record. `/retro` is reserved and has no alias here. The prompt loads the shared `aar` skill; approval to review is not approval to apply fixes, publish, or deploy.
+
+OMP’s `.omp/skills/aar` is a compatibility mirror of `volundr/skills/aar`. `skill-mirrors.json` documents the mirror and its empty body-exception list. `node --import tsx --test aar.test.mjs` checks body/reference fidelity and the native `/aar` expansion; it does not prove agent compliance or a successful Muninn write. Keep notices and source attribution with both copies.
+
 ## Shell commands
 
 Type `!gst` (or any shell command) to run it without querying the model. `!!gst` also excludes its output from model context. The profile's `user-shell.ts` hook runs these commands with `zsh -ic`, loading your normal `.zshrc`, aliases and functions. Each command uses a fresh shell in the current project; it does not share unsaved shell state or persist `cd` between commands. Pi's streaming output, cancellation and exit codes are retained. The model's `bash` tool stays non-interactive Bash.
