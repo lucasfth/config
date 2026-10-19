@@ -24,10 +24,10 @@ try {
  const {theme}=await import('./node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js');
  const terminal={columns:110,rows:42,start(){},stop(){},write(){},hideCursor(){},showCursor(){},clearLine(){},clearFromCursor(){},moveBy(){},setTitle(){}};
  const tui=new TuiMainScreen(terminal as unknown as Terminal);
- const context={mode:'tui',cwd:'/Users/lucas/Desktop/code/config',model:{id:'gpt-6.1-sol',name:'GPT-6.1 Sol'},getContextUsage:()=>({percent:18}),ui:{theme,setHeader(){},setFooter(fn){footer=fn(tui,theme,{getGitBranch:()=> 'main',onBranchChange:()=>()=>{}})},setEditorComponent(fn){factory=fn}}};
+ const context={mode:'tui',cwd:'/Users/lucas/Desktop/code/config',model:{id:'gpt-6.1-sol',name:'GPT-6.1 Sol'},getContextUsage:()=>({percent:18}),isIdle:()=>true,sessionManager:{getSessionId:()=> 'presentation-fixture'},ui:{theme,setHeader(){},setFooter(fn){footer=fn(tui,theme,{getGitBranch:()=> 'main',onBranchChange:()=>()=>{}})},setEditorComponent(fn){factory=fn}}};
  callbacks.get('session_start')({},context);
  const keys={matches:()=>false};const editor=factory(tui,{},keys);editor.setText('Please inspect the configuration');
- const editorRows=editor.render(110);assert.ok(editorRows.some(line=>line.includes('GPT-6.1 Sol')&&line.includes('config')));assert.deepEqual(footer.render(110),[]);
+ const editorRows=editor.render(110).map(stripTerminalSequences);assert.ok(editorRows.some(line=>line.includes('GPT-6.1 Sol')&&line.includes('config')));assert.deepEqual(footer.render(110),[]);
  assert.ok(editorRows.some(line=>line.includes('Configuration review')), 'Saved session name is visible in composer border');
  let resolver;installToolFrames({registerToolRenderer(fn: unknown){resolver=fn}} as unknown as ExtensionAPI);
  const renderers=resolver('bash',()=>undefined);

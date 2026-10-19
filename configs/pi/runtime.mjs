@@ -196,9 +196,13 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
   const sourceMcp = await jsonFile(path.join(repoDir, '.omp/agent/mcp.json'));
   const generatedMcp = await jsonFile(path.join(ompDir, 'mcp.json'));
   const existingMcp = await jsonFile(path.join(agentDir, 'mcp.json'));
-  await privateJson(path.join(agentDir, 'mcp.json'), { mcpServers: {
-    ...sourceMcp.mcpServers, ...generatedMcp.mcpServers, ...existingMcp.mcpServers,
-  } });
+  const mcpServers = { ...sourceMcp.mcpServers, ...generatedMcp.mcpServers, ...existingMcp.mcpServers };
+  const vercel = mcpServers.vercel;
+  // Vercel advertises only openid on the resource; offline_access is needed for refresh tokens.
+  if (vercel && /^https:\/\/mcp\.vercel\.com\/?$/.test(vercel.url ?? '') && !vercel.oauth?.scope) {
+    mcpServers.vercel = { ...vercel, oauth: { ...vercel.oauth, scope: 'openid offline_access' } };
+  }
+  await privateJson(path.join(agentDir, 'mcp.json'), { mcpServers });
   const subagentConfig = path.join(agentDir, 'extensions/subagent/config.json');
   await privateJson(subagentConfig, {
     asyncByDefault: true, defaultSubagentContext: 'fresh', maxSubagentDepth: 1,

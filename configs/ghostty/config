@@ -9,6 +9,9 @@ unfocused-split-fill = #6c7086
 
 keybind = ctrl+n=new_window
 
+# Send word-delete explicitly without changing Danish Option-character input.
+keybind = alt+backspace=text:\x1b\x7f
+
 keybind = shift+cmd+f=toggle_split_zoom
 
 keybind = shift+cmd+h=resize_split:left,10

@@ -53,3 +53,32 @@ test('prepared keybinding map recognizes Command-V while retaining custom shortc
     assert.ok(keys.matches('\x1b[110;7u', 'app.session.new'), 'Unrelated user shortcuts survive');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('Vercel requests refreshable OAuth without replacing credentials or explicit server choices', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-vercel-oauth-'));
+  const env = { NEO_PROXY_URL: 'https://proxy.invalid/v1' };
+  const options = { agentDir: dir, env, ompDir: path.join(dir, 'absent') };
+  try {
+    const auth = '{"synthetic":{"tokens":{"access_token":"keep","refresh_token":"keep-refresh"}}}\n';
+    await writeFile(path.join(dir, 'mcp-auth.json'), auth);
+    await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: {
+      vercel: { type: 'http', url: 'https://mcp.vercel.com/', oauth: { callbackUrl: 'http://localhost:4321/callback' } },
+    } }));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await prepareRuntime(options);
+      const mcp = JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8'));
+      assert.equal(mcp.mcpServers.vercel.oauth.scope, 'openid offline_access');
+      assert.equal(mcp.mcpServers.vercel.oauth.callbackUrl, 'http://localhost:4321/callback');
+      assert.equal(await readFile(path.join(dir, 'mcp-auth.json'), 'utf8'), auth);
+    }
+    for (const server of [
+      { url: 'https://mcp.vercel.com', oauth: { scope: 'openid profile' } },
+      { url: 'https://custom.invalid/mcp' },
+    ]) {
+      await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { vercel: server } }));
+      await prepareRuntime(options);
+      const mcp = JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8'));
+      assert.deepEqual(mcp.mcpServers.vercel, server);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
