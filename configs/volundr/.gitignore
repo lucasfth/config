@@ -1,0 +1,6 @@
+# Machine-specific runtime settings and receipts must never be published.
+settings.json
+deployment*.json
+dream-backup-*/
+inbox/
+state/

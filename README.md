@@ -45,6 +45,7 @@ and activation steps before applying it to another machine.
 | [Freyr browser skill](.omp/skills/using-freyr-browser/SKILL.md) | Required browser workflow using Freyr's signed-in Chromium |
 | [Native Pi profile](configs/pi/README.md) | `pi` launcher, UI, local JS/TS source outlines, `/cache-report`, updates, verification and OMP parity gaps |
 | [Shared skills](configs/pi/README.md#shared-skills-volundr) | Pinned Volundr submodule, Pi selection rules and explicit cross-machine updates |
+| [Nightly shared-skill delivery](configs/volundr/README.md) | Controller delivery, Loki's published-pin sync, guarded dreaming, verification and rollback |
 | [Tests](tests/README.md) | Focused checks and their prerequisites |
 | [Command reference](COMMANDS.md) | Shell commands, key bindings, and shortcuts |
 | [Nix recovery](docs/nix-recovery.md) | Recovery after a macOS update removes Nix |

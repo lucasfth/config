@@ -58,6 +58,18 @@ in {
     };
   };
 
+  # Delivery while awake, gated once daily after 02:31 Europe/Copenhagen.
+  launchd.user.agents.volundr-delivery = {
+    serviceConfig = {
+      ProgramArguments = ["/bin/sh" "${homeDirectory}/.local/libexec/volundr/controller.sh"];
+      EnvironmentVariables.HOME = homeDirectory;
+      RunAtLoad = true;
+      StartCalendarInterval = [{Minute = 1;} {Minute = 31;}];
+      StandardOutPath = "${homeDirectory}/.local/state/volundr/delivery.log";
+      StandardErrorPath = "${homeDirectory}/.local/state/volundr/delivery-error.log";
+    };
+  };
+
   # Clean up leaked Tailwind CSS v4 oxide-helper processes
   launchd.user.agents.tailwind-cleanup = {
     serviceConfig = {
