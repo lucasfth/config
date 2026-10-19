@@ -64,6 +64,17 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.git(self.repo, 'rev-parse', 'HEAD'), self.before)
         self.assertEqual((self.home / 'config.yaml').read_text(), 'unrelated: keep\n')
 
+    def test_invalid_history_proof_blocks_before_probe(self):
+        self.delivery()
+        p = self.inbox / 'delivery.json'
+        item = json.loads(p.read_text()); item['history_proof'] = {'receipt': '{}', 'signature': 'invalid'}
+        module.save(p, item)
+        self.settings['history_allowed_signers'] = str(self.root / 'missing-signers')
+        with patch.object(module, 'probe') as probe, self.assertRaisesRegex(RuntimeError, 'Missing pinned controller trust key'):
+            module.sync(self.settings)
+        probe.assert_not_called()
+        self.assertEqual(self.git(self.repo, 'rev-parse', 'HEAD'), self.before)
+
     def test_fast_forward_and_failed_postcheck_restore_named_branch(self):
         (self.source / 'new.md').write_text('new')
         self.commit('upstream')
