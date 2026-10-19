@@ -25,6 +25,30 @@ Private settings, sessions and generated provider/MCP configuration live in `~/.
 
 Each launch regenerates settings from this checkout, retaining saved role choices. Canonical skills are included once; project-provided skill names take precedence. Project skill scanning stops at this checkout's repository root, so an enclosing checkout cannot hide a nested worktree's canonical skills. The isolated checks regenerate temporary state, not the live profile.
 
+## Shared skills (Volundr)
+
+The root `volundr/` Git submodule pins the shared Huginn/Loki library. Initialize only this submodule from the config root:
+
+```sh
+git submodule update --init -- volundr
+```
+
+Pi loads active `volundr/skills/*/SKILL.md` guides; archived guides stay excluded. Volundr wins overlapping names, with five explicit temporary local overrides:
+
+| Name | Loaded source | Reason |
+| --- | --- | --- |
+| `sudo-ssh-freyr` | `.omp/skills/` | Retain existing details pending reconciliation; its `echo <psw> \| sudo -S` example is a known credential-in-command risk, not an approved credential-handling pattern |
+| `sudo-ssh-mimer` | `.omp/skills/` | Preserve configured operational paths |
+| `syncing-vps-dotfiles` | `.omp/skills/` | Preserve configured gist references |
+| `typesafe-ai` | `.omp/skills/` | Shared Noul description needs correction; Noul is a yes/no probability judgment |
+| `using-freyr-browser` | `configs/pi/skills/` | Retain the Pi-only restricted browser contract pending shared-guide fidelity review |
+
+Config-only `.omp/skills` names remain fallbacks. Project `.pi/skills` names take precedence; do not keep ignored copies in this config checkout because they shadow the pinned catalogue only on one machine. OMP still uses its existing `.omp/skills` symlinks; this change does not rewire OMP.
+
+Shared edits belong in Volundr, then config records the new submodule commit. After an approved pin update, run `git submodule update --init -- volundr` on each consumer. Do not use `--remote` for routine synchronization: that bypasses the config pin. Loki must consume the same Volundr commit through its own configuration; this config change does not install, update or restart Hermes. Synchronization is explicit, not automatic.
+
+Each new Pi launch reads the pinned tree; running sessions are not restarted. Tests use temporary state and do not regenerate the live profile.
+
 ## Shell commands
 
 Type `!gst` (or any shell command) to run it without querying the model. `!!gst` also excludes its output from model context. The profile's `user-shell.ts` hook runs these commands with `zsh -ic`, loading your normal `.zshrc`, aliases and functions. Each command uses a fresh shell in the current project; it does not share unsaved shell state or persist `cd` between commands. Pi's streaming output, cancellation and exit codes are retained. The model's `bash` tool stays non-interactive Bash.

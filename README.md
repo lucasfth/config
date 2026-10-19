@@ -44,6 +44,7 @@ and activation steps before applying it to another machine.
 | [Scripts](scripts/README.md) | Maintenance and configuration helpers |
 | [Freyr browser skill](.omp/skills/using-freyr-browser/SKILL.md) | Required browser workflow using Freyr's signed-in Chromium |
 | [Native Pi profile](configs/pi/README.md) | `pi` launcher, UI, local JS/TS source outlines, `/cache-report`, updates, verification and OMP parity gaps |
+| [Shared skills](configs/pi/README.md#shared-skills-volundr) | Pinned Volundr submodule, Pi selection rules and explicit cross-machine updates |
 | [Tests](tests/README.md) | Focused checks and their prerequisites |
 | [Command reference](COMMANDS.md) | Shell commands, key bindings, and shortcuts |
 | [Nix recovery](docs/nix-recovery.md) | Recovery after a macOS update removes Nix |
@@ -288,6 +289,7 @@ Applications do not universally reload when a file changes.
   docs/                      # recovery runbook and dated plans/specs
   .omp/                      # canonical OMP configuration and skills
   omp/                       # OMP configuration submodule
+  volundr/                   # pinned shared skill library (Pi; Loki consumption configured separately)
 ```
 ## How to...
 

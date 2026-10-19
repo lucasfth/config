@@ -1,4 +1,4 @@
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import os from 'node:os';
@@ -10,23 +10,56 @@ export const sourceDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoDir = path.resolve(sourceDir, '../..');
 
 
-const canonicalSkillsDir = path.join(repoDir, '.omp/skills');
+// Temporary local exceptions until their shared replacements preserve the
+// operational details, TypeSafe Noul semantics and Pi-only browser boundary.
+const localSkillOverrides = new Map([
+  ['sudo-ssh-freyr', '.omp/skills/sudo-ssh-freyr/SKILL.md'],
+  ['sudo-ssh-mimer', '.omp/skills/sudo-ssh-mimer/SKILL.md'],
+  ['syncing-vps-dotfiles', '.omp/skills/syncing-vps-dotfiles/SKILL.md'],
+  ['typesafe-ai', '.omp/skills/typesafe-ai/SKILL.md'],
+  ['using-freyr-browser', 'configs/pi/skills/using-freyr-browser/SKILL.md'],
+]);
 
-function canonicalSkillPaths() {
+export function canonicalSkillPaths({ rootDir = repoDir, cwd = process.cwd() } = {}) {
+  const sharedDir = path.join(rootDir, 'volundr/skills');
+  if (!existsSync(sharedDir)) {
+    throw new Error('Volundr skills are missing. Run git submodule update --init -- volundr in the config checkout.');
+  }
   const projectSkills = new Set();
-  let directory = process.cwd();
+  let directory = cwd;
   for (;;) {
     const root = path.join(directory, '.pi/skills');
     if (existsSync(root)) for (const entry of readdirSync(root, { withFileTypes: true })) {
       if (existsSync(path.join(root, entry.name, 'SKILL.md'))) projectSkills.add(entry.name);
     }
     const parent = path.dirname(directory);
-    if (parent === directory || directory === repoDir || directory === os.homedir()) break;
+    if (parent === directory || directory === rootDir || directory === os.homedir()) break;
     directory = parent;
   }
-  return readdirSync(canonicalSkillsDir, { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && entry.name !== 'using-freyr-browser' && !projectSkills.has(entry.name) && existsSync(path.join(canonicalSkillsDir, entry.name, 'SKILL.md')))
-    .map(entry => path.join(canonicalSkillsDir, entry.name, 'SKILL.md'));
+  const selected = new Map();
+  const archived = new Set();
+  for (const entry of readdirSync(sharedDir).sort()) {
+    const file = path.join(sharedDir, entry, 'SKILL.md');
+    if (!existsSync(file)) continue;
+    const text = readFileSync(file, 'utf8');
+    const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    const metadata = frontmatter && YAML.parse(frontmatter[1]);
+    if (metadata?.name !== entry || !['active', 'archived'].includes(metadata?.metadata?.status)) {
+      throw new Error(`Invalid Volundr skill metadata: ${file}`);
+    }
+    if (metadata.metadata.status === 'archived') archived.add(entry);
+    else selected.set(entry, file);
+  }
+  const localDir = path.join(rootDir, '.omp/skills');
+  if (existsSync(localDir)) for (const name of readdirSync(localDir).sort()) {
+    const file = path.join(localDir, name, 'SKILL.md');
+    if (!selected.has(name) && !archived.has(name) && existsSync(file)) selected.set(name, file);
+  }
+  for (const [name, relative] of localSkillOverrides) {
+    const file = path.join(rootDir, relative);
+    if (existsSync(file)) selected.set(name, file);
+  }
+  return [...selected].filter(([name]) => !projectSkills.has(name)).map(([, file]) => file);
 }
 async function jsonFile(filename, fallback = {}) {
   try { return JSON.parse(await readFile(filename, 'utf8')); }
@@ -122,10 +155,7 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
     contextPrune: { ...previous.contextPrune, ...sourceSettings.contextPrune, summarizerModel: `${roles.summary.provider}/${roles.summary.modelId}`, summarizerThinking: roles.summary.thinkingLevel },
     packages,
     extensions: personalExtensions.map(name => path.join(sourceDir, 'extensions', name)),
-    skills: [
-      ...canonicalSkillPaths(),
-      path.join(sourceDir, 'skills', 'using-freyr-browser', 'SKILL.md'),
-    ],
+    skills: canonicalSkillPaths(),
     subagents: {
       ...sourceSettings.subagents, ...previous.subagents,
       agentScanDirs: [path.join(sourceDir, 'agents')],
