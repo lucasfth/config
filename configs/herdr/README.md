@@ -129,9 +129,10 @@ unavailable `zsh` on PATH; Mimer now uses its installed
 `/home/ecoray-admin/.nix-profile/bin/zsh`, VPS2 `/usr/bin/bash`. Both server reloads
 returned no diagnostics and actual shell workspace creation succeeded.
 The patched release client is installed at `~/.local/libexec/herdr-patched`.
-The macOS `herdr` alias in live-linked `nix/common/shell/interactive.zsh` selects
-it independently of Homebrew. Run **`omz reload`** in an existing shell, detach
-the old client, then run **`herdr`**. `command herdr` bypasses the alias and uses
+The macOS `herdr` function in live-linked `nix/common/shell/interactive.zsh` selects
+it independently of Homebrew and keeps Zsh syntax highlighting correct. Run
+**`omz reload`** in an existing shell, detach the old client, then run **`herdr`**.
+`command herdr` bypasses the function and uses
 Homebrew's stock version (currently 0.9.5). A previous Cellar overwrite was
 replaced by Homebrew; do not use that as the patch installation method.
 The complete client diff is captured in [`client.patch`](client.patch), with exact

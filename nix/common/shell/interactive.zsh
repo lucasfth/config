@@ -19,9 +19,13 @@ if (( $+functions[compdef] && $+functions[_pi] )); then
   compdef _pi pi pi-native
 fi
 
-# Keep the local sidebar patch independent of Homebrew upgrades.
+# Keep the local sidebar patch independent of Homebrew upgrades. A function also
+# keeps the command recognizable to zsh-syntax-highlighting (see Pi above).
 if [[ $OSTYPE == darwin* ]]; then
-  alias herdr='"$HOME/.local/libexec/herdr-patched"'
+  unalias herdr 2>/dev/null || true
+  function herdr {
+    "$HOME/.local/libexec/herdr-patched" "$@"
+  }
 fi
 
 # Select by OS, not whether darwin-rebuild happens to be on PATH.

@@ -191,7 +191,9 @@ the managed sidebar layout are separate; see the guide for limits and setup.
 The accepted patched client is reproducible with
 `bash scripts/build-herdr-client.sh --install`; source revision, toolchain pins
 and the complete patch live under `configs/herdr/`. Installation never restarts
-the running server.
+the running server. On macOS, the reloadable `herdr` shell function selects that
+client and keeps Zsh syntax highlighting correct; `command herdr` uses the stock
+client. Run `omz reload` to load shell changes without a system rebuild.
 
 
 ## Shell Discovery

@@ -57,9 +57,10 @@ Ghostty 1.3+ key tables and Herdr's native agent actions, not its Go To picker.
 Deploy and reload both configurations together; see [deployment details](configs/herdr/README.md).
 
 On macOS, `herdr` selects `~/.local/libexec/herdr-patched` through the reloadable
-shell alias. Run `omz reload` before using it from an existing shell. Detach the
-current client first; reattaching preserves server sessions. `command herdr`
-bypasses the alias and launches Homebrew's stock client.
+shell function (also recognized by Zsh syntax highlighting). Run `omz reload`
+before using it from an existing shell. Detach the current client first;
+reattaching preserves server sessions. `command herdr` bypasses the function
+and launches Homebrew's stock client.
 The installed patched client and local server are currently 0.9.5. After a client
 binary upgrade, detach and run `herdr` again; config reload cannot replace a
 running client. Direct self-update can discard the local sidebar patch.
