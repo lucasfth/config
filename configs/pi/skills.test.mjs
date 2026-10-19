@@ -12,7 +12,6 @@ const localOverrides = new Map([
   ['sudo-ssh-freyr', path.join(repoDir, '.omp/skills/sudo-ssh-freyr/SKILL.md')],
   ['sudo-ssh-mimer', path.join(repoDir, '.omp/skills/sudo-ssh-mimer/SKILL.md')],
   ['syncing-vps-dotfiles', path.join(repoDir, '.omp/skills/syncing-vps-dotfiles/SKILL.md')],
-  ['typesafe-ai', path.join(repoDir, '.omp/skills/typesafe-ai/SKILL.md')],
   ['using-freyr-browser', path.join(sourceDir, 'skills/using-freyr-browser/SKILL.md')],
 ]);
 

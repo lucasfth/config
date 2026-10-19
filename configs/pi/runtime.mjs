@@ -10,13 +10,12 @@ export const sourceDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoDir = path.resolve(sourceDir, '../..');
 
 
-// Temporary local exceptions until their shared replacements preserve the
-// operational details, TypeSafe Noul semantics and Pi-only browser boundary.
+// Temporary local exceptions for unreconciled operational details and the
+// Pi-only browser boundary. TypeSafe now uses the corrected shared guide.
 const localSkillOverrides = new Map([
   ['sudo-ssh-freyr', '.omp/skills/sudo-ssh-freyr/SKILL.md'],
   ['sudo-ssh-mimer', '.omp/skills/sudo-ssh-mimer/SKILL.md'],
   ['syncing-vps-dotfiles', '.omp/skills/syncing-vps-dotfiles/SKILL.md'],
-  ['typesafe-ai', '.omp/skills/typesafe-ai/SKILL.md'],
   ['using-freyr-browser', 'configs/pi/skills/using-freyr-browser/SKILL.md'],
 ]);
 
