@@ -13,7 +13,7 @@ Only run when explicitly requested. `/aar [focus]` requests a review and its Mun
 
 ## Review the evidence
 
-Use the requested task or session scope. Recover relevant conversation and tool evidence when needed; state what is unavailable rather than reconstructing it as fact. Answer briefly:
+Use the requested task or session scope. When Lucas asks to "just write the AAR", deliver the substantive review in chat, not another completion report or a promise to write it. Review the existing conversation and incident record first; retrieve only evidence needed to resolve a material gap. Do not reopen completed implementation, rerun infrastructure checks, publish changes or launch another backup merely to write the review. Label prior test results as historical rather than implying fresh execution. State what is unavailable rather than reconstructing it as fact. Answer briefly:
 
 1. **What was supposed to happen?** Name the instruction, plan, and expected result.
 2. **What actually happened?** Include the final state, corrections, partial work, and failures. Distinguish source edits, commits, publication, loaded configuration, and observed behavior.
@@ -37,6 +37,6 @@ Applying fixes requires separate approval for the named edit. Bare `/aar`, gener
 
 Use [the Muninn storage procedure](references/muninn.md). Do not create a LESSONS.md or another parallel memory log. Preserve the daily session-note convention, existing metadata, prior entries, and index links. Never include credentials or unnecessary private details in a lesson.
 
-Report the four answers, lessons, proposed fixes and their actual status, and the verified note path. If storage fails, report the review in chat and clearly say it was not persisted. A stored lesson is not an applied fix; an applied fix is not proof a future session loaded it.
+Lead the final response with the four answers and concrete lessons, using short headings and bullets. Include proposed fixes only where a durable change is needed; end with actual fix status and the verified note path. A saved-file announcement or checklist of completed work is not the requested review. If storage fails, still deliver the review in chat and clearly say it was not persisted. A stored lesson is not an applied fix; an applied fix is not proof a future session loaded it.
 
 Attribution and source-license scope are recorded in [ATTRIBUTION.json](ATTRIBUTION.json). The adapted AAR Loop material retains its [MIT notice](LICENSE.aar-loop); that notice does not relicense the inherited Huginn material.
