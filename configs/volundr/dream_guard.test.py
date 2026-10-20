@@ -24,6 +24,27 @@ def proactive_skill_patching(state, error_report):
 
 
 class DreamGuardTests(unittest.TestCase):
+    def test_optional_learning_runs_only_when_explicitly_configured(self):
+        import sys
+        import types
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings = root / 'settings.json'
+            calls = []
+            consolidation = types.SimpleNamespace(consolidation=lambda config: calls.append('consolidate'))
+            learning = types.SimpleNamespace(nightly=lambda config: calls.append(('learning', config)) or {'processed': []})
+            runner = types.SimpleNamespace(returncode=0)
+            settings.write_text(json.dumps({'state': str(root / 'state')}))
+            with patch.dict(sys.modules, {'nightly': consolidation, 'aar_learning': learning}), \
+                    patch.object(module.subprocess, 'run', return_value=runner):
+                self.assertEqual(module.run_dream(settings, root / 'never-executed.py'), 0)
+                self.assertEqual(calls, ['consolidate'])
+                calls.clear()
+                config = root / 'aar-learning.json'
+                settings.write_text(json.dumps({'state': str(root / 'state'), 'aar_learning_config': str(config)}))
+                self.assertEqual(module.run_dream(settings, root / 'never-executed.py'), 0)
+                self.assertEqual(calls, ['consolidate', ('learning', config)])
+
     def test_all_return_paths_without_a_report_local(self):
         text = module.guarded_source(FIXTURE)
         namespace = {}

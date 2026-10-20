@@ -107,6 +107,11 @@ def run_dream(settings_path, script):
         # Only deterministic evidence generation precedes the already-scheduled dream.
         import nightly
         nightly.consolidation(settings)
+        # Source-only opt-in; existing deployments have no config key and stay unchanged.
+        if settings.get('aar_learning_config'):
+            import aar_learning
+            result = aar_learning.nightly(Path(settings['aar_learning_config']))
+            print('AAR learning: ' + json.dumps(result))
         return subprocess.run([sys.executable, str(script)], check=False, env=os.environ).returncode
 
 

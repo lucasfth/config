@@ -124,16 +124,58 @@ export async function buildSessionContext(project: Project, client: VaultClient)
     const tech = await Promise.all(techPaths.map(async filename => {
       try {
         const { content } = await client.read(filename);
-        return `## ${basename(filename, ".md")}\n\n${cleanBody(content)}`;
+        // Hide only the retired generated block; keep curated rules and raw recall intact.
+        const curated = cleanBody(content).replace(/^## Auto-Generated Correction Log[^\n]*\n[\s\S]*?<!-- OMP-sessions-refresh -->\n?/gmu, "");
+        return `## ${basename(filename, ".md")}\n\n${curated}`;
       } catch (error) {
         return `## ${basename(filename, ".md")}\n\nUnavailable: ${errorText(error)}`;
       }
     }));
     sections.push(...tech);
+    // Approved supplements only. Candidate prose and arbitrary JSON fields are never injected.
+    const scopes = ["general"];
+    if ([project.org, project.repo].every(part => /^[\w.-]+$/u.test(part) && part !== "..")) {
+      scopes.push(`${project.org}/${project.repo}`);
+    }
+    const supplements = await Promise.all(scopes.map(async scope => {
+      const filename = scope === "general" ? "tech/learning/general.md" : `tech/learning/projects/${scope}.md`;
+      try {
+        const { content } = await client.read(filename);
+        if (content.length > 80_000) return "";
+        const block = content.match(/^```json\n([\s\S]*?)\n```\s*$/mu)?.[1];
+        if (!block) return "";
+        const payload = JSON.parse(block) as { schema?: unknown; scope?: unknown; entries?: unknown };
+        if (payload.schema !== 1 || payload.scope !== scope || !Array.isArray(payload.entries)) return "";
+        const heading = `## Approved supplemental learning — ${scope}\n\n`;
+        let budget = 8_000 - heading.length;
+        const lines: string[] = [];
+        for (const entry of payload.entries.slice(0, 20)) {
+          if (!entry || typeof entry !== "object") continue;
+          const e = entry as Record<string, unknown>;
+          const source = e.source as { path?: unknown; sha256?: unknown } | undefined;
+          if (e.status === "candidate" || e.approved_by !== "Lucas" ||
+              typeof e.approved_at !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(e.approved_at) ||
+              typeof e.approval_reference !== "string" || !e.approval_reference.trim() || e.approval_reference.length > 500 ||
+              typeof e.text !== "string" || !e.text.trim() || e.text.length > 1_500 ||
+              !source || typeof source.path !== "string" || !/^projects\/[\w./-]+\.md$/u.test(source.path) ||
+              source.path.split("/").includes("..") || typeof source.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(source.sha256)) continue;
+          const line = `- ${e.text}\n  Approval: Lucas, ${e.approved_at}. Source: ${source.path} (${source.sha256}).`;
+          const cost = line.length + (lines.length ? 2 : 0);
+          if (cost > budget) break;
+          lines.push(line);
+          budget -= cost;
+        }
+        return lines.length ? heading + lines.join("\n\n") : "";
+      } catch {
+        // Optional learning must not prevent mandatory guidance or the prior-note index.
+        return "";
+      }
+    }));
+    sections.push(...supplements.filter(Boolean));
     const pattern = `projects/${project.org}/${project.repo}/${project.branch}/*.md`;
     try {
       const { files } = await client.list(pattern);
-      const index = files.sort().slice(-MAX_INDEX_NOTES).map(filename => `- ${filename}`);
+      const index = files.filter(filename => !filename.startsWith("projects/_archive/")).sort().slice(-MAX_INDEX_NOTES).map(filename => `- ${filename}`);
       sections.push(`## Prior session index\n\nProject: ${project.org}/${project.repo}  \nBranch: ${project.branch}\n\n${index.length ? index.join("\n") : "No prior session notes."}\n\nUse memory_recall with selected paths to retrieve note bodies on demand.`);
     } catch (error) {
       sections.push(`## Prior session index\n\nPrior session index unavailable: ${errorText(error)}`);
@@ -152,9 +194,18 @@ export function createMemoryRecall(client: VaultClient): (paths: string[], maxCh
     const notes = await Promise.all(paths.map(async filename => {
       if (!/^(?:tech|life|projects)\/[\w./-]+\.md$/u.test(filename) || filename.split("/").includes("..")) return `### ${filename}\n\nRejected unsafe Muninn note path.`;
       try {
-        const { content } = await client.read(filename);
+        let content: string;
+        let resolved = filename;
+        try {
+          ({ content } = await client.read(filename));
+        } catch (error) {
+          if (!filename.startsWith("projects/") || filename.startsWith("projects/_archive/")) throw error;
+          resolved = filename.replace(/^projects\//u, "projects/_archive/");
+          ({ content } = await client.read(resolved));
+        }
         const body = cleanBody(content).slice(0, limit);
-        return `### ${filename}\n\n${body || "No content."}${cleanBody(content).length > limit ? "\n\n[Note truncated to the configured bound.]" : ""}`;
+        const location = resolved === filename ? "" : `Archived source: ${resolved}\n\n`;
+        return `### ${filename}\n\n${location}${body || "No content."}${cleanBody(content).length > limit ? "\n\n[Note truncated to the configured bound.]" : ""}`;
       } catch (error) {
         return `### ${filename}\n\nMuninn note unavailable: ${errorText(error)}`;
       }

@@ -79,6 +79,36 @@ Remove/disable the Nix declaration before a later activation if retiring it.
 
 Loki receipt: `~/.hermes/volundr-nightly/deployment.json`; state/candidates/errors: `~/.hermes/volundr-nightly/state/`. Read job IDs and original dream definition from that **private receipt**, then pause the two new jobs before rollback. Compare the current dream script against the receipt's `after` hash, atomically restore its backed-up original, and restore only the existing dream job's `script` field. Keep new jobs paused afterwards. Preserve newer dream notes/runtime results; never replace the whole cron store or vault from a stale snapshot. No gateway restart is needed.
 
+### Legacy correction-table writer disable
+
+After explicit approval, `disable_correction_writer.py` disables only
+`_update_coding_style_corrections()` with an immediate return after its docstring.
+Session analysis/counting stays intact. Existing correction tables, all other
+dream steps, cron definitions and the Pi startup hook are unchanged.
+
+The maintenance operation takes the existing sync lock, refuses a running dream
+job, verifies the expected live SHA-256 and receipt baseline, makes private
+script/receipt backups, and records the new `dream_guard.after` hash. It does not
+run dreaming or install Volundr. Use `--script`, `--deployment`, `--expected` and
+`--apply` only for an approved live operation; without `--apply` it checks a copy.
+
+Rollback warning: the original Volundr installation backup predates this disable.
+Restoring that historical script would re-enable the writer and requires explicit
+approval; do not treat that restore as preserving the disable. A future installer
+failure rollback computes its baseline from its own input, not a fixed hash;
+the captured comparison round-trips disabled input, and a separate handler fixture
+checks that an unexpected concurrent disable is not overwritten. These are isolated
+checks, not an end-to-end installer run. No installer code or schedules are changed
+by this maintenance operation.
+
+Fixture-only regression (private captured script and adjacent captured
+`dream_guard.py` / `install_loki.py`, never import or run the live dream):
+
+```sh
+CORRECTION_DREAM_SOURCE=/private/capture/pristine.py \
+  PYTHONDONTWRITEBYTECODE=1 python3 configs/volundr/correction_writer.test.py -v
+```
+
 Each activated sync retains revision/config backups under `state/rollback-*`. Unknown concurrent work requires manual review, not deletion of drafts. Original migration backups remain separate under `~/.hermes/skill-backups/`.
 
 Publication of these sources does not provision another host, rotate credentials, resolve the Hermes source-updater mismatch, clear opaque Raycast exports, complete historical catalogue audits, or clear the separate Pi integration-context budget issue.
