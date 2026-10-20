@@ -45,5 +45,5 @@ export async function pickModelOverlay(ctx: ExtensionCommandContext, title: stri
         }
       },
     };
-  }, { overlay: true, overlayOptions: { width: '86%', maxHeight: '70%', anchor: 'center', margin: 1 } });
+  }, { overlay: true, overlayOptions: { width: '86%', maxHeight: '70%', anchor: 'bottom-center', margin: 1 } });
 }

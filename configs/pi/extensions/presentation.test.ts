@@ -31,7 +31,7 @@ test("grapheme-aware truncation handles emoji and combining sequences", () => {
   assert.ok(!line.includes("�"));
 });
 
-function createProfileEditor(appearance = 'dark', sessionId = 'session-a') {
+function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh = false) {
   initTheme(appearance, false);
   const callbacks = new Map<string, Array<(event: unknown, ctx: ExtensionContext) => void>>();
   let factory: ((tui: TUI, theme: EditorTheme, keys: KeybindingsManager) => CustomEditor) | undefined;
@@ -50,7 +50,7 @@ function createProfileEditor(appearance = 'dark', sessionId = 'session-a') {
   const ctx = {
     mode: 'tui', cwd: '/work/config', model: { id: 'sol', name: 'Sol' },
     getContextUsage: () => ({ percent: 9 }),
-    sessionManager: { getSessionId: () => sessionId },
+    sessionManager: { getSessionId: () => sessionId, getBranch: () => fresh ? [] : [{ type: 'message', message: { role: 'user' } }] },
     isIdle: () => true,
     ui: {
       theme, setHeader(fn: Parameters<ExtensionContext['ui']['setHeader']>[0]) { header = fn?.(tui, theme); },
@@ -272,13 +272,13 @@ test('startup wordmark matches session identity, shrinks to Hugi and stays withi
   for (const appearance of ['dark', 'light'] as const) {
     const { header, terminal } = createProfileEditor(appearance);
     const full = header.render(100);
-    assert.equal(full.length, 15, 'selected Braille raven plus final command hints');
+    assert.equal(full.length, 20, '15 artwork rows plus three-row sample and two-line legend');
     const plain = full.map(stripTerminalSequences);
-    assert.match(plain.at(-1)!, /Huginn · Pi.*\/model.*\/switch/);
+    assert.match(plain[14], /Huginn · Pi.*\/model.*\/switch/);
     assert.equal(plain[1], '                    ⣀⣤⣶⣤⣄⣀');
     assert.equal(plain[5], '            ⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏'.padEnd(33) + '█ █ █ █ █▀▀ ▀█▀ █▀█ █▀█');
     const short = header.render(62).map(stripTerminalSequences);
-    assert.equal(short.length, 4, 'narrow panes keep just the wordmark');
+    assert.equal(short.length, 8, 'narrow panes keep the wordmark plus wrapped legend');
     assert.equal(short[0], '█ █ █ █ █▀▀ ▀█▀ █▀█ █▀█');
     assert.equal(header.render(22).map(stripTerminalSequences)[0], '█ █ █ █ █▀▀ ▀█▀');
     const { base } = composerColors('session-a', appearance, 'idle');
@@ -290,9 +290,9 @@ test('startup wordmark matches session identity, shrinks to Hugi and stays withi
       }
     }
     terminal.rows = 29;
-    assert.equal(header.render(100).length, 4, 'shorter windows keep the compact header');
+    assert.equal(header.render(100).length, 9, 'shorter windows keep the compact header plus sample and legend');
     terminal.rows = 30;
-    assert.equal(header.render(63).length, 15, 'selected artwork fits exactly');
+    assert.equal(header.render(63).length, 20, 'sample and legend fit a 30-row terminal');
     assert.equal(header.render(4).map(stripTerminalSequences).join(''), 'Hugi');
     terminal.rows = 10;
     assert.equal(header.render(100).length, 1, 'short terminals retain editor space');
@@ -319,4 +319,120 @@ test('raven layout boundaries preserve the approved drawing and wordmark columns
   assert.deepEqual(headerLayout(62, 30), headerLayout(100, 29));
   assert.equal(headerLayout(62, 30).length, 4);
   assert.equal(full.at(-1), ' '.repeat(33) + 'Huginn · Pi   /model · /switch');
+});
+
+test('separated header legend uses exact activity swatches and wraps without stealing composer space', () => {
+  for (const appearance of ['dark', 'light'] as const) {
+    const { header, terminal } = createProfileEditor(appearance);
+    for (const width of [40, 62, 63, 80, 100, 115, 160]) {
+      terminal.rows = 30;
+      const lines = header.render(width);
+      const plain = lines.map(stripTerminalSequences);
+      const start = plain.findIndex(line => line.startsWith('Activity type'));
+      assert.ok(start > 0, `legend present at ${width} columns`);
+      if (width >= 63) {
+        assert.match(plain[start - 3], /^╭.*Session colour.*╮$/u);
+        assert.match(plain[start - 2], /^│ +│$/u, 'dummy input interior stays empty');
+        assert.match(plain[start - 1], /^╰.*Activity type.*╯$/u);
+        assert.equal(visibleWidth(lines[start - 1]), width, 'sample follows available header width');
+      } else assert.match(plain[start - 1], /^─+$/u, 'small panes retain text-only legend');
+      assert.ok(plain.slice(0, start).some(line => line.includes('/switch')));
+      const legend = lines.slice(start).join('\n');
+      for (const [activity, label] of [['model', 'Responding'], ['tool', 'Tools'], ['waiting', 'Waiting / retry'], ['compaction', 'Compacting'], ['error', 'Error']] as const) {
+        const { target } = composerColors('session-a', appearance, activity);
+        assert.ok(legend.includes(theme.style('■', { fg: target }) + theme.fg('muted', ` ${label}`)), `${appearance}: ${activity} swatch and muted label`);
+      }
+      assert.ok(stripTerminalSequences(legend).includes('Idle · session colour'));
+      assert.ok(lines.every(line => visibleWidth(line) <= width));
+      assert.ok(lines.length <= terminal.rows - 8, 'leave at least eight rows outside header');
+    }
+    terminal.rows = 15;
+    assert.ok(!header.render(100).some(line => stripTerminalSequences(line).includes('Activity type')));
+    terminal.rows = 40;
+    assert.ok(!header.render(39).some(line => stripTerminalSequences(line).includes('Activity type')));
+  }
+});
+
+test('sample border follows composer endpoints with one compact text row', () => {
+  for (const appearance of ['dark', 'light'] as const) {
+    const { header, editor, emit, tui } = createProfileEditor(appearance);
+    const check = (state: Parameters<typeof composerColors>[2]) => {
+      const lines = header.render(100);
+      assert.equal(lines.length, 20, 'one interior row added to the compact sample');
+      const { base, target } = composerColors('session-a', appearance, state);
+      assert.ok(lines[15].startsWith(theme.style('╭', { fg: base })));
+      assert.ok(lines[17].endsWith(theme.style('╯', { fg: target })));
+      assert.ok(lines[15].includes(theme.fg('muted', 'S')));
+      assert.ok(lines[17].includes(theme.fg('muted', 'A')));
+    };
+    check('idle');
+    emit('agent_start');
+    check('model');
+    emit('tool_execution_start', { toolCallId: 'preview-tool' });
+    check('tool');
+    emit('ui_prompt_start');
+    check('waiting');
+    emit('ui_prompt_end');
+    const status = new RetryStatusIndicator(tui, 1, 3, 30_000);
+    try {
+      editor.setWorkingStatusIndicator(status);
+      check('retry');
+    } finally { editor.setWorkingStatusIndicator(undefined); status.dispose(); }
+    emit('agent_settled');
+    check('idle');
+  }
+});
+
+test('fresh header demos colours only until first submitted prompt and cleans up its timer', t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const { header, editor, emit, renderRequests } = createProfileEditor('dark', 'session-a', true);
+  const endpoint = () => lastForeground(header.render(100)[17]);
+  const composer = editor.render(100);
+  assert.match(stripTerminalSequences(header.render(100)[17]), /Activity type/);
+  assert.equal(visibleWidth(header.render(100)[17]), 100);
+  const model = endpoint();
+  t.mock.timers.tick(1600);
+  assert.notDeepEqual(endpoint(), model, 'fades between activity colours');
+  t.mock.timers.tick(400);
+  assert.deepEqual(endpoint(), [250, 179, 135], 'next demo colour is tools');
+  assert.deepEqual(editor.render(100), composer, 'demo never changes the real composer');
+  for (const [width, rows] of [[63, 30], [80, 30], [160, 40]]) {
+    assert.equal(visibleWidth(header.render(width)[15]), width);
+    assert.ok(header.render(width).length <= rows - 8);
+  }
+  emit('input', { text: 'First prompt', source: 'interactive' });
+  const requests = renderRequests();
+  const stopped = header.render(100);
+  assert.match(stripTerminalSequences(stopped[17]), /Activity type/);
+  t.mock.timers.tick(12_000);
+  assert.equal(renderRequests(), requests, 'first input clears the interval');
+  assert.deepEqual(header.render(100), stopped);
+  emit('agent_start');
+  assert.deepEqual(endpoint(), [137, 180, 250], 'real activity takes over');
+  emit('agent_settled');
+  t.mock.timers.tick(12_000);
+  assert.deepEqual(editor.render(100), composer);
+  assert.ok(!stripTerminalSequences(header.render(100)[17]).includes('demo'));
+  emit('session_shutdown');
+});
+
+test('header demo stops on agent start, session replacement and shutdown', t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const { emit, renderRequests } = createProfileEditor('light', 'session-a', true);
+  t.mock.timers.tick(200);
+  let requests = renderRequests();
+  assert.ok(requests > 0);
+  emit('session_start');
+  requests = renderRequests();
+  t.mock.timers.tick(100);
+  assert.equal(renderRequests(), requests + 1, 'session replacement leaves exactly one timer');
+  emit('agent_start');
+  requests = renderRequests();
+  t.mock.timers.tick(5000);
+  assert.equal(renderRequests(), requests);
+  emit('session_start');
+  emit('session_shutdown');
+  requests = renderRequests();
+  t.mock.timers.tick(5000);
+  assert.equal(renderRequests(), requests, 'shutdown clears animation timer');
 });

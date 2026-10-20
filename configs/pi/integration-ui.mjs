@@ -6,6 +6,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { prepareRuntime, sourceDir } from './runtime.mjs';
+import headless from '@xterm/headless';
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'huginn-pi-ui-'));
 let unexpectedModelRequests = 0;
@@ -18,6 +19,32 @@ Object.assign(env, { PI_CODING_AGENT_DIR: root, NEO_PROXY_API_KEY: 'synthetic-ui
 const shellCommand = `export NEO_PROXY_URL=${JSON.stringify(`http://127.0.0.1:${server.address().port}/v1`)}; export NEO_PROXY_API_KEY=synthetic-ui-only; export HUGINN_OMP_AGENT_DIR=${JSON.stringify(path.join(root, 'absent'))}; pi --offline --no-mcp --no-session --no-context-files --no-skills --tui-mode regular`;
 let child, pty;
 let raw = '';
+const terminal = new headless.Terminal({ cols: 110, rows: 40, allowProposedApi: true });
+const screen = () => {
+  const view = terminal.buffer.active;
+  return Array.from({ length: 40 }, (_, y) => view.getLine(view.viewportY + y)?.translateToString(true) ?? '');
+};
+const painted = () => new Promise(resolve => terminal.write('', resolve));
+const waitScreen = async (predicate, label) => {
+  for (let attempt = 0; attempt < 250; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+    await painted();
+    if (predicate(screen())) return;
+  }
+  assert.fail(`Terminal screen deadline: ${label}`);
+};
+const capturePicker = async label => {
+  await waitScreen(lines => lines.some(line => line.includes('Type to filter')) &&
+    (label === 'filtered' ? lines[38].includes('→ claude-haiku-5-5') : /^\s*\(\d+\/\d+\)/u.test(lines[38])),
+    `${label}: complete bottom-anchored picker repaint`);
+  const lines = screen();
+  const hintY = lines.findIndex(line => line.includes('Type to filter'));
+  assert.ok(hintY >= 20, `${label}: picker opens in lower half, hint row ${hintY}`);
+  const last = lines.findLastIndex(line => line.trim());
+  assert.equal(last, 38, `${label}: picker content ends one row above terminal bottom`);
+  await writeFile(`/tmp/pi-switch-${label}-proof.txt`, lines.join('\n'));
+  await writeFile(`/tmp/pi-switch-${label}-proof.ansi`, raw);
+};
 try {
   await prepareRuntime({ agentDir: root, env: { ...env, NEO_PROXY_URL: `http://127.0.0.1:${server.address().port}/v1` }, ompDir: path.join(root, 'absent') });
   const configuredModels = JSON.parse(await readFile(path.join(root, 'models.json'), 'utf8'));
@@ -78,6 +105,7 @@ try {
   pty = spawnPty('zsh', ['-lic', shellCommand], { cwd: root, env, cols: 110, rows: 40 });
   pty.onData(data => {
     const text = String(data); raw += text;
+    terminal.write(text);
     if (text.includes('\x1b[c')) pty.write('\x1b[?62;c');
     if (text.includes('\x1b[6n')) pty.write('\x1b[1;1R');
     if (text.includes('\x1b[16t')) pty.write('\x1b[6;20;16t');
@@ -88,9 +116,18 @@ try {
   await pty.waitFor('Session model:', { timeout: 10000 });
   pty.write('/switch\r');
   await pty.waitFor('Type to filter', { timeout: 10000 });
+  await capturePicker('open');
   pty.write('claude-haiku-5-5');
+  await waitScreen(lines => lines.some(line => line.includes('claude-haiku-5-5')) && !lines.some(line => line.includes('gpt-6.1-sol')), 'filtered picker');
+  await capturePicker('filtered');
   pty.write('\r');
   await pty.waitFor('Session model: neo-proxy/claude-haiku-5-5', { timeout: 10000 });
+  await waitScreen(lines => !lines.some(line => line.includes('Type to filter')), 'selection dismisses picker');
+  pty.write('/switch\r');
+  await waitScreen(lines => lines.some(line => line.includes('Type to filter')), 'fresh picker opens');
+  await capturePicker('reopen');
+  pty.write('\x1b');
+  await waitScreen(lines => !lines.some(line => line.includes('Type to filter')), 'Escape dismisses picker');
   pty.write('/visuals demo\r');
   await pty.waitFor('Native SVG preview shown', { timeout: 10000 });
   assert.ok(raw.includes('\x1b_G'), 'Terminal must receive Kitty image protocol');
@@ -109,6 +146,7 @@ try {
   throw error;
 } finally {
   child?.kill(); pty?.kill(); server.closeAllConnections();
+  terminal.dispose();
   await new Promise(resolve => server.close(resolve));
   await rm(root, { recursive: true, force: true });
 }

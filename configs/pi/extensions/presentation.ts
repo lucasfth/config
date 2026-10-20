@@ -100,8 +100,16 @@ export default function presentationExtension(pi: ExtensionAPI) {
   let activity: ComposerActivity = 'idle';
   const tools = new Set<string>();
   let promptDepth = 0;
+  let demoTimer: ReturnType<typeof setInterval> | undefined;
+  let demoMs = 0;
+  const demoStates = ['model', 'tool', 'waiting', 'compaction', 'error'] as const;
+  const stopDemo = () => {
+    if (demoTimer !== undefined) clearInterval(demoTimer);
+    demoTimer = undefined;
+  };
   const update = (next: ComposerActivity) => { activity = next; render?.(); };
-  pi.on('agent_start', () => { tools.clear(); update('model'); });
+  pi.on('input', () => { stopDemo(); render?.(); });
+  pi.on('agent_start', () => { stopDemo(); tools.clear(); update('model'); });
   pi.on('turn_start', () => update('model'));
   pi.on('tool_execution_start', event => { tools.add(event.toolCallId); render?.(); });
   pi.on('tool_execution_end', event => { tools.delete(event.toolCallId); render?.(); });
@@ -120,23 +128,66 @@ export default function presentationExtension(pi: ExtensionAPI) {
   pi.on('thinking_level_select', () => render?.());
   pi.on('session_info_changed', () => render?.());
   pi.on('message_end', () => render?.());
-  pi.on('session_shutdown', () => { active = undefined; render = undefined; tools.clear(); promptDepth = 0; activity = 'idle'; });
+  pi.on('session_shutdown', () => { stopDemo(); active = undefined; render = undefined; tools.clear(); promptDepth = 0; activity = 'idle'; });
   pi.on('session_start', (_event, ctx) => {
+    stopDemo();
     if (ctx.mode !== 'tui') return;
     active = ctx;
     tools.clear();
     promptDepth = 0;
     activity = ctx.isIdle() ? 'idle' : 'model';
     const sessionId = ctx.sessionManager.getSessionId();
+    let profileStatus: ProfileStatus;
     ctx.ui.setHeader(tui => ({
       render(width) {
         if (width <= 0) return [];
         const theme = ctx.ui.theme;
         const { base } = composerColors(sessionId, theme.appearance, 'idle');
         const lines = headerLayout(width, tui.terminal.rows);
-        return lines.map((line, i) => lines.length > 1 && i === lines.length - 1
+        const artwork = lines.map((line, i) => lines.length > 1 && i === lines.length - 1
           ? theme.fg('muted', line)
           : theme.style(line, { fg: base }));
+        if (width < 40 || tui.terminal.rows < 20) return artwork;
+        const entries = ([['model', 'Responding'], ['tool', 'Tools'], ['waiting', 'Waiting / retry'],
+          ['compaction', 'Compacting'], ['error', 'Error']] as const).map(([state, label]) =>
+          theme.style('■', { fg: composerColors(sessionId, theme.appearance, state).target }) + theme.fg('muted', ` ${label}`));
+        entries.push(theme.fg('muted', 'Idle · session colour'));
+        const label = 'Activity type  ';
+        const indent = visibleWidth(label);
+        const legend = [theme.fg('muted', label)];
+        for (const entry of entries) {
+          const last = legend.length - 1;
+          const gap = visibleWidth(legend[last]) > indent ? '   ' : '';
+          if (visibleWidth(legend[last]) + gap.length + visibleWidth(entry) > width) {
+            legend.push(' '.repeat(indent) + entry);
+          } else legend[last] += gap + entry;
+        }
+        const sample = ['', theme.fg('muted', '─'.repeat(width))];
+        if (width >= 63) {
+          const state = demoTimer !== undefined ? 'model' : composerActivity(activity, profileStatus, promptDepth, tools.size);
+          let { target } = composerColors(sessionId, theme.appearance, state);
+          if (demoTimer !== undefined) {
+            const phase = demoMs / 2000;
+            const index = Math.floor(phase) % demoStates.length;
+            const amount = phase % 1;
+            target = mixColors(composerColors(sessionId, theme.appearance, demoStates[index]).target,
+              composerColors(sessionId, theme.appearance, demoStates[(index + 1) % demoStates.length]).target,
+              amount * amount * (3 - 2 * amount), 'srgb');
+          }
+          const sampleWidth = width;
+          const caption = 'Activity type';
+          const borders = [fitBoxBorder('Session colour', '', sampleWidth),
+            `│${' '.repeat(sampleWidth - 2)}│`,
+            `╰${'─'.repeat(sampleWidth - visibleWidth(caption) - 4)} ${caption} ╯`];
+          sample.splice(0, 2, ...borders.map((line, row) => [...line].map((char, column) => {
+            if (!'╭╮╰╯─│'.includes(char)) return theme.fg('muted', char);
+            const across = Math.max(0, column - 16) / (sampleWidth - 17);
+            const amount = state === 'idle' ? 0 : (across + row / 2) / 2;
+            return theme.style(char, { fg: mixColors(base, target, amount, 'srgb') });
+          }).join('')));
+        }
+        const extra = [...sample, ...legend];
+        return artwork.length + extra.length <= tui.terminal.rows - 8 ? [...artwork, ...extra] : artwork;
       },
       invalidate() {},
     }));
@@ -147,11 +198,10 @@ export default function presentationExtension(pi: ExtensionAPI) {
       return { dispose: unsubscribe, invalidate() {}, render: () => [] };
     });
     class ProfileEditor extends CustomEditor {
-      private profileStatus: Parameters<CustomEditor['setWorkingStatusIndicator']>[0];
       private identityColumns = 0;
       override setWorkingStatusIndicator(indicator: Parameters<CustomEditor['setWorkingStatusIndicator']>[0]) {
         super.setWorkingStatusIndicator(indicator);
-        this.profileStatus = indicator;
+        profileStatus = indicator;
         render?.();
       }
       constructor(tui: TUI, theme: EditorTheme, keys: KeybindingsManager) {
@@ -168,11 +218,11 @@ export default function presentationExtension(pi: ExtensionAPI) {
         const percent = usage?.percent == null ? '0%' : `${Math.round(usage.percent)}%`;
         const title = pi.getSessionName();
         const details = `${percent} · ${pi.getThinkingLevel()}${title ? ` · ${title}` : ''}${hiddenLines ? ` · ↑${hiddenLines}` : ''}`;
-        const status = this.profileStatus
-          ? this.profileStatus.kind === 'working'
+        const status = profileStatus
+          ? profileStatus.kind === 'working'
             // The host colours this with the thinking level; the composer owns its visible colour.
-            ? stripTerminalSequences(this.profileStatus.renderSpinnerInBorder(1))
-            : this.profileStatus.renderInBorder(Math.max(1, Math.floor(width / 2)))
+            ? stripTerminalSequences(profileStatus.renderSpinnerInBorder(1))
+            : profileStatus.renderInBorder(Math.max(1, Math.floor(width / 2)))
           : '◉';
         const label = ` ${status} ${model}  ›  ▰ ${location}${branch ? `  ⎇ ${branch}` : ''} `;
         this.identityColumns = Math.max(0, Math.min(width - 2, visibleWidth(`   ${status} ${model}`)));
@@ -192,7 +242,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
         const bottom = lines.findIndex(line => stripTerminalSequences(line).startsWith('╰'));
         if (bottom < 0) return lines;
         const theme = ctx.ui.theme;
-        const state = composerActivity(activity, this.profileStatus, promptDepth, tools.size);
+        const state = composerActivity(activity, profileStatus, promptDepth, tools.size);
         const { base, target } = composerColors(sessionId, theme.appearance, state);
         const paint = (text: string, column: number, row: number) => {
           const across = Math.max(0, column - this.identityColumns) / Math.max(1, width - 1 - this.identityColumns);
@@ -216,5 +266,10 @@ export default function presentationExtension(pi: ExtensionAPI) {
       }
     }
     ctx.ui.setEditorComponent((tui, theme, keys) => new ProfileEditor(tui, theme, keys));
+    if (ctx.isIdle() && !ctx.sessionManager.getBranch?.().some(entry => entry.type === 'message' && entry.message.role === 'user')) {
+      demoMs = 0;
+      demoTimer = setInterval(() => { demoMs += 100; render?.(); }, 100);
+      demoTimer.unref();
+    }
   });
 }
