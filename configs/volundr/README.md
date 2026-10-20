@@ -113,6 +113,110 @@ Each activated sync retains revision/config backups under `state/rollback-*`. Un
 
 Publication of these sources does not provision another host, rotate credentials, resolve the Hermes source-updater mismatch, clear opaque Raycast exports, complete historical catalogue audits, or clear the separate Pi integration-context budget issue.
 
+## AAR learning — source implementation and activation
+
+`aar_learning.py` is the separate bounded distillation/review/archive entry point.
+This source implementation has fixture tests; it has **not been installed on Loki**.
+The optional `dream_guard.run_dream` call is used only when private settings include
+`aar_learning_config`. No existing cron definitions are changed by these sources.
+Do not run the full installer over the active deployment to pick up this change.
+
+### Data flow and approval
+
+- Nightly reads at most eight previously unprocessed AAR/correction notes per run.
+  Each source is limited to 24,000 characters, with no silent truncation. It reuses
+  only the local dream script's model-call function, not module setup or agent tools.
+- Candidate Markdown and illustrative diffs go to `dreams/aar-learning/`. They are
+  evidence, never startup instructions. The external JSON ledger binds source and
+  proposal hashes and preserves explicit review decisions.
+- `review --decision approved` requires a Lucas approval reference and an explicit
+  `general` or exact `org/repo` scope. A model cannot supply approval fields.
+  Existing-coverage findings cannot be promoted as duplicate rules. `covered` and
+  `rejected` dispositions are also explicit review actions.
+- Approved supplements live at `tech/learning/general.md` and
+  `tech/learning/projects/<org>/<repo>.md`. Each is capped at 20 entries and 8,000
+  rendered UTF-16 units; approval refuses overflow before writing the note/ledger.
+- The existing Pi startup hook reads only these exact approved paths. It validates
+  approval/provenance fields, excludes candidates, and never loads candidate prose.
+  Retired generated correction tables are filtered from initial context without
+  deleting source text; explicit recall still returns the original documents.
+
+### Archival
+
+`obligations --items <JSON array> --reference <review>` explicitly reconciles
+historical open-item candidates. Durable obligations are written to
+`tech/learning/open-items.md` before the ledger records the review. Neither the
+model nor archival marks obligations resolved.
+
+`plan-archive` is read-only. A source is eligible only after 30 days, unchanged
+source bytes, dispositions for every lesson, and explicit obligation review.
+`archive --apply` moves it to `projects/_archive/<org>/<repo>/<branch>/<file>.md`
+using verified hard-link/journal/unlink steps, with interruption recovery and no
+overwrite of unrelated collisions. Keep vault and archive on the same filesystem.
+Original paths remain in provenance; Pi recall tries the deterministic archive path
+if the original cannot be read, and startup excludes archived session-index entries.
+
+Nightly always returns an archive plan. Actual automatic archival additionally
+requires `archive_enabled: true` in the private config; default/missing is off.
+Do not enable it until a live dry-run and its candidate dispositions are reviewed.
+
+### Private configuration and commands
+
+Create private config only during an approved activation; the following is a
+template, not a deployed file. Use absolute host paths, external private state,
+and the existing installed dream script; no credentials or delivery targets belong
+in this config. Model credentials must already be present in the job environment.
+
+```json
+{
+  "enabled": false,
+  "archive_enabled": false,
+  "vault": "/absolute/private/vault",
+  "state": "/absolute/private/aar-state",
+  "dream_script": "/absolute/private/dream_obsidian.py"
+}
+```
+
+```sh
+python3 configs/volundr/aar_learning.py nightly --config /private/aar-config.json
+python3 configs/volundr/aar_learning.py plan-archive --config /private/aar-config.json
+# Only after the specific proposal/obligations have been explicitly reviewed:
+python3 configs/volundr/aar_learning.py review --config /private/aar-config.json \
+  --id PROPOSAL_SHA256 --index 0 --decision approved --scope org/repo \
+  --reference 'Lucas approval reference' --apply
+python3 configs/volundr/aar_learning.py obligations --config /private/aar-config.json \
+  --id PROPOSAL_SHA256 --items /private/reconciled-items.json \
+  --reference 'Lucas reconciliation reference' --apply
+```
+
+Activation is a separate operation: back up/hash the existing private runtime,
+copy only reviewed learning/wrapper sources, configure the opt-in, then exercise
+one bounded distillation without the full dream. Real guidance approval and real
+archival are separate from that candidate-generation run. Do not restart gateways,
+reinstall Volundr, or change cron/delivery targets as part of this source update.
+
+Rollback: remove the private `aar_learning_config` setting or set `enabled` false
+to stop new processing; preserve the ledger, generated notes and archive evidence.
+Approved guidance remains until explicitly withdrawn/curated. Restore an archived
+source only after checking source absence, archive bytes and ledger state. Never
+restore a pre-disable dream script as a shortcut: that can re-enable the old writer.
+The requested writer-preserving rollback policy is not yet enforced by tooling.
+
+Local verification (no real vault, provider, cron or archival):
+
+```sh
+python3 configs/volundr/aar_learning.test.py -v
+python3 configs/volundr/dream_guard.test.py -v
+cd configs/pi
+node --import tsx --test extensions/muninn.test.ts extensions/muninn-learning.test.ts
+npm run typecheck
+node integration-learning.mjs
+```
+
+The SDK integration uses the actual startup hook and MCP client with a fixture
+server and synthetic provider. It proves two fresh-session context fetches, not
+live Loki scheduling, actual Muninn approvals, or improved agent behavior.
+
 ## Credential containment and secret gates
 
 The October 19 security migration rewrote Volundr history to remove captured Spotify material and imported asset access-token queries. The operator deferred Spotify rotation: **the preserved credential is compromised, not safe to use**, and Volundr must remain private until rotation and a separate personal/company-data review. Private recovery copies and provider/GitHub caches are not erased by rewriting main. Do not make this repo public on the strength of a scanner alone.
