@@ -1,6 +1,9 @@
 # Source after the host's existing interactive startup; preserve its prompt hooks.
 [[ $- == *i* ]] || return 0
 [[ -z ${HUGINN_SHELL_MANAGED-} && -n ${SSH_CONNECTION-}${SSH_TTY-} ]] || return 0
+if [[ -r ${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.bash ]]; then
+    source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.bash"
+fi
 # Older repo prompts already own the right-hand label; the exported label above
 # updates their identity without stacking another cursor-saving prefix.
 if declare -F __huginn_prompt >/dev/null || declare -F __huginn_ssh_identity >/dev/null; then

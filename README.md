@@ -456,7 +456,27 @@ Plato and Loki retain Bash; Sigyn uses a dependency-free minimal Zsh profile.
 Every updated SSH shell shows its stable alias on the right in teal. The
 managed launcher also shows it without SSH environment variables, including new
 Herdr panes. Existing panes keep their current shells. Plain SSH retains the
-account's existing shell and host-specific startup, with an additive identity hook.
+account's existing shell and host-specific startup, with additive identity and
+portable keybinding hooks (`shell/keybindings.zsh` and `shell/keybindings.bash`).
+`Ctrl+X Ctrl+L` clears screen/scrollback without executing or losing the pending
+command in both Zsh and Bash. Zsh also shares `Ctrl+X c` / `Ctrl+X Ctrl+E`
+(Vim buffer editor) and `Ctrl+X g c` (insert a Git commit template) with the Mac.
+The hooks preserve the host's editing mode and prompt; the full plugin/alias
+profile still requires the managed launcher when preserving an existing `.zshrc`.
+If `.zshrc` is absent, the Zsh installer creates a guarded startup file loading
+the full shared profile. VPS2’s separately approved login-shell change uses
+`/usr/bin/zsh`; the installer itself never runs `chsh`.
+To update an already-open shell:
+
+```sh
+# In an existing Zsh pane:
+source "$HOME/.local/share/huginn-shell/keybindings.zsh"
+# In an existing Bash pane (including Loki):
+. "$HOME/.local/share/huginn-shell/keybindings.bash"
+```
+
+Run these only at a shell prompt, not inside Vim or another running program.
+For the complete shared profile, start `~/.local/bin/huginn-shell` instead.
 VPS1's pinned OpenClaw Bash wrapper and Ecoray3D's `remote.bash` source and original
 `.bashrc.pre-huginn` backup are retained. No gateway configuration is copied.
 

@@ -18,22 +18,9 @@ SAVEHIST=20000
 setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_SPACE HIST_IGNORE_ALL_DUPS HIST_SAVE_NO_DUPS HIST_FIND_NO_DUPS
 
 bindkey -e
-zle -N edit-command-line
-typeset _huginn_editor=vim
-command -v vim >/dev/null 2>&1 || _huginn_editor=vi
-zstyle ':zle:edit-command-line' editor "$_huginn_editor"
-bindkey -M emacs '^Xc' edit-command-line
-bindkey -M emacs '^X^E' edit-command-line
+source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.zsh"
 bindkey -M emacs '^P' history-beginning-search-backward
 bindkey -M emacs '^N' history-beginning-search-forward
-bindkey -M emacs ' ' magic-space
-
-_huginn_minimal_clear_scrollback() {
-  print -rn -- $'\e[H\e[2J\e[3J' > /dev/tty 2>/dev/null || true
-  zle redisplay
-}
-zle -N _huginn_minimal_clear_scrollback
-bindkey -M emacs '^X^L' _huginn_minimal_clear_scrollback
 
 # Show Git branches using Zsh's built-in vcs_info when Git is available.
 if command -v git >/dev/null 2>&1; then

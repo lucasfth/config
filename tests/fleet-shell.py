@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end tests for the isolated fleet shell installer."""
+import importlib.util
 import os
+import pty
+import select
+import signal
+import time
 import pathlib
 import shutil
 import subprocess
@@ -9,6 +14,9 @@ import unittest
 
 SOURCE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SETUP_SOURCE = SOURCE_ROOT / "shell" / "setup.sh"
+DEPLOY_SPEC = importlib.util.spec_from_file_location("deploy_shell", SOURCE_ROOT / "scripts/deploy-shell.py")
+DEPLOY = importlib.util.module_from_spec(DEPLOY_SPEC)
+DEPLOY_SPEC.loader.exec_module(DEPLOY)
 
 
 class FleetShellInstallerTests(unittest.TestCase):
@@ -20,12 +28,8 @@ class FleetShellInstallerTests(unittest.TestCase):
         self.home.mkdir()
         self.payload = self.home / ".local/share/huginn-shell"
         self.payload.mkdir(parents=True)
-        shutil.copy2(SETUP_SOURCE, self.payload / "setup.sh")
-        shutil.copy2(SOURCE_ROOT / "shell/fleet.bash", self.payload / "fleet.bash")
-        shutil.copy2(SOURCE_ROOT / "shell/fleet.zsh", self.payload / "fleet.zsh")
-        shutil.copy2(SOURCE_ROOT / "shell/minimal.zsh", self.payload / "minimal.zsh")
-        shutil.copy2(SOURCE_ROOT / "shell/identity.bash", self.payload / "identity.bash")
-        shutil.copy2(SOURCE_ROOT / "shell/identity.zsh", self.payload / "identity.zsh")
+        for name in DEPLOY.SHELL_FILES:
+            shutil.copy2(SOURCE_ROOT / "shell" / name, self.payload / name)
         self.bin = self.base / "bin"
         self.bin.mkdir()
         for executable in ("bash", "zsh"):
@@ -176,6 +180,25 @@ class FleetShellInstallerTests(unittest.TestCase):
         self.assertIn("ls -alFh", result.stdout)
         self.assertTrue(startup.read_text().startswith(original))
 
+    def test_zsh_profile_creates_missing_startup_for_plain_login(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        self.run_setup("--host", "vps2", "--profile", "zsh")
+        startup = self.home / ".zshrc"
+        self.assertTrue(startup.is_file())
+        original = startup.read_bytes()
+        self.run_setup("--host", "vps2", "--profile", "zsh")
+        self.assertEqual(startup.read_bytes(), original)
+        result = subprocess.run([shutil.which("zsh"), "-lic",
+            'printf "ZSH=%s\\n" "$ZSH_VERSION"; alias ll; bindkey -M emacs "^X^L"'],
+            env=self.env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ZSH=", result.stdout)
+        self.assertIn("ls -alFh", result.stdout)
+        self.assertIn('"^X^L" clear-screen-and-scrollback', result.stdout)
+        generated_startup = original.split(b"# BEGIN HUGINN SHELL IDENTITY zsh\n", 1)[0]
+        self.assertEqual((self.payload / "backups/.zshrc").read_bytes(), generated_startup)
+
     def test_minimal_zsh_installs_identity_hook_without_overwriting_startup(self):
         if not shutil.which("zsh"):
             self.skipTest("Zsh unavailable")
@@ -236,6 +259,79 @@ class FleetShellInstallerTests(unittest.TestCase):
         self.run_setup("--host", "sigyn", "--profile", "minimal-zsh", env=env)
         self.assertTrue((self.home / ".local/bin/huginn-shell").is_file())
         self.assertFalse(self.config.exists())
+
+    def test_shared_zsh_shortcuts_load_in_plain_ssh_and_launcher(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        for profile in ("zsh", "minimal-zsh"):
+            with self.subTest(profile=profile):
+                (self.home / ".zshrc").write_text("# host startup\n")
+                self.run_setup("--host", "neo", "--profile", profile)
+                for executable in (shutil.which("zsh"), str(self.home / ".local/bin/huginn-shell")):
+                    result = subprocess.run([executable, "-i", "-c",
+                        'for map in emacs viins; do binding=(${(z)$(bindkey -M $map "^X^L")}); '
+                        '[[ $binding[2] != undefined-key && -n $widgets[$binding[2]] ]] || exit 1; '
+                        'print CLEAR_BOUND; done; '
+                        'bindkey -M emacs "^Xc"; bindkey -M emacs "^Xgc"'],
+                        env=self.env, text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.count('CLEAR_BOUND'), 2)
+                    self.assertIn('"^Xc" edit-command-line', result.stdout)
+                    self.assertIn('git commit -m', result.stdout)
+
+    def test_bash_shortcuts_load_before_legacy_identity_return(self):
+        (self.home / ".bashrc").write_text("__huginn_prompt() { :; }\n")
+        self.run_setup("--host", "loki", "--profile", "bash")
+        for command in ([shutil.which("bash"), "--rcfile", str(self.home / ".bashrc")],
+                        [str(self.home / ".local/bin/huginn-shell")]):
+            result = subprocess.run([*command, "-i", "-c",
+                'bind -m emacs-standard -X; bind -m vi-insert -X'],
+                env=self.env, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.count('huginn_clear_scrollback'), 2)
+
+    def test_clear_key_emits_sequence_and_preserves_pending_command(self):
+        for profile in ("zsh", "minimal-zsh", "bash"):
+            if profile != "bash" and not shutil.which("zsh"):
+                continue
+            (self.home / ".zshrc").write_text("# host startup\n")
+            (self.home / ".bashrc").write_text("# host startup\n")
+            self.run_setup("--host", "neo", "--profile", profile)
+            launcher = str(self.home / ".local/bin/huginn-shell")
+            plain = [shutil.which("bash"), "--rcfile", str(self.home / ".bashrc")] if profile == "bash" else [shutil.which("zsh")]
+            for command in ([launcher], plain):
+                with self.subTest(profile=profile, command=command):
+                    pid, fd = pty.fork()
+                    if pid == 0:
+                        try:
+                            os.execvpe(command[0], [*command, "-i"], {**self.env, "TERM": "xterm-256color"})
+                        except BaseException:
+                            os._exit(127)
+                    def receive_until(marker):
+                        data = b""
+                        deadline = time.monotonic() + 8
+                        while marker not in data and time.monotonic() < deadline:
+                            if select.select([fd], [], [], 0.1)[0]:
+                                try:
+                                    data += os.read(fd, 65536)
+                                except OSError:
+                                    break
+                        self.assertIn(marker, data)
+                        return data
+                    try:
+                        os.write(fd, b"printf 'READY:%s\\n' shell\n")
+                        receive_until(b"READY:shell\r\n")
+                        os.write(fd, b"printf 'KEPT:%s\\n' intact")
+                        # Wait until Readline/ZLE has accepted the pending input.
+                        receive_until(b"intact")
+                        os.write(fd, b"\x18\x0c")
+                        receive_until(b"\x1b[H\x1b[2J\x1b[3J")
+                        os.write(fd, b"\n")
+                        receive_until(b"KEPT:intact\r\n")
+                    finally:
+                        os.close(fd)
+                        os.kill(pid, signal.SIGTERM)
+                        os.waitpid(pid, 0)
 
     def test_identity_preserves_existing_zsh_right_prompt_without_duplicates(self):
         if not shutil.which("zsh"):

@@ -25,6 +25,7 @@ command -v vim >/dev/null 2>&1 || { export EDITOR=vi VISUAL=vi; }
 bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 bind '"\C-x\C-e": edit-and-execute-command'
+source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.bash"
 
 # fzf's bundled Bash widget supplies Ctrl+R when available. Older packaged
 # fzf releases without `--bash` can use the standard key-bindings script.

@@ -1,6 +1,9 @@
 # Source after the host's existing interactive startup; never changes its left prompt.
 [[ -o interactive ]] || return 0
 [[ -z ${HUGINN_SHELL_MANAGED-} && -n ${SSH_CONNECTION-}${SSH_TTY-} ]] || return 0
+if [[ -r ${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.zsh ]]; then
+  source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.zsh"
+fi
 _huginn_ssh_identity() {
   local previous_status=$?
   local label="%F{#94e2d5}${HUGINN_HOST_LABEL:-${HOST%%.*}}%f"

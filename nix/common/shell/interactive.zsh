@@ -85,27 +85,9 @@ copy-public-key() {
 }
 alias -s pub=copy-public-key
 
-# Edit the command buffer in Vim; saving returns it without executing.
-autoload -Uz edit-command-line
-zle -N edit-command-line
-zstyle ':zle:edit-command-line' editor vim
-bindkey -M emacs '^Xc' edit-command-line
-bindkey -M emacs '^X^E' edit-command-line
-bindkey -M emacs ' ' magic-space
-bindkey -M emacs '^P' history-search-backward
-bindkey -M emacs '^N' history-search-forward
-
+# Resolve relative to this file, including when loaded through ~/.zshrc_local.
+source "${${(%):-%x}:A:h:h:h:h}/shell/keybindings.zsh"
 autoload -Uz zmv
-
-clear-screen-and-scrollback() {
-  printf '\033[H\033[2J\033[3J' > "$TTY"
-  if [[ -n ${TMUX-} ]]; then
-    command tmux clear-history
-  fi
-  zle redisplay
-}
-zle -N clear-screen-and-scrollback
-bindkey -M emacs '^X^L' clear-screen-and-scrollback
 
 if command -v pbcopy >/dev/null 2>&1; then
   copy-command-buffer() {
@@ -115,6 +97,3 @@ if command -v pbcopy >/dev/null 2>&1; then
   zle -N copy-command-buffer
   bindkey -M emacs '^X^Y' copy-command-buffer
 fi
-
-# Insert a template without executing it; Ctrl+B enters the quotes.
-bindkey -M emacs -s '^Xgc' 'git commit -m ""\C-b'

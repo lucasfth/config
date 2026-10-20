@@ -12,6 +12,8 @@ import tempfile
 import urllib.request
 
 REPO = Path(__file__).resolve().parent.parent
+SHELL_FILES = ("setup.sh", "fleet.zsh", "fleet.bash", "minimal.zsh", "identity.zsh", "identity.bash",
+               "keybindings.zsh", "keybindings.bash")
 HOSTS = {
     "neo": ("darwin-arm64", "zsh"),
     "mini": ("darwin-arm64", "zsh"),
@@ -108,7 +110,7 @@ def main():
         args.cache.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="huginn-shell-payload-") as temporary:
             root = Path(temporary)
-            for name in ("setup.sh", "fleet.zsh", "fleet.bash", "minimal.zsh", "identity.zsh", "identity.bash"):
+            for name in SHELL_FILES:
                 (root / name).write_bytes((REPO / "shell" / name).read_bytes())
             for name in ("starship.toml", "starship-ssh.toml"):
                 (root / name).write_bytes((REPO / "configs/starship" / name).read_bytes())
