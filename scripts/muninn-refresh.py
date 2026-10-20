@@ -121,6 +121,24 @@ def mount_volume(home):
     return volume
 
 
+def require_restore_space(home, volume, vault):
+    # Salt's index is encrypted: the current plaintext size is only an estimate.
+    # Allow twice that size plus 1 GiB; a much larger incoming vault can still exceed it.
+    size = sum((Path(directory) / name).stat().st_size
+               for directory, _, names in os.walk(vault) for name in names)
+    required = 2 * size + 1024 ** 3
+    for path in (volume, home):
+        free = shutil.disk_usage(path).free
+        if free < required:
+            raise RefreshError(
+                f"Not enough free space on {path}: {free / 1024**3:.1f} GiB free; "
+                f"estimated restore headroom {required / 1024**3:.1f} GiB. "
+                "Current vault and all rollback snapshots are preserved. "
+                "Grow the readable sparsebundle if its volume is full, or free space on the Mac if its disk is full. "
+                "See README.md: Salt / Muninn backups. No snapshots are deleted automatically.")
+    print(f"Restore space check passed (estimated headroom {required / 1024**3:.1f} GiB).", flush=True)
+
+
 def require_trusted(repo):
     # Salt restore verifies signatures but only warns if the signer set is unpinned.
     # Doctor is read-only; require its explicit approval match, not just exit status.
@@ -158,14 +176,20 @@ def refresh(home):
     else:
         # Establish the existing snapshot's provenance before pulling a new commit.
         previous_commit = run("git", "-C", repo, "rev-parse", "HEAD", capture=True)
+        require_restore_space(home, volume, vault)
         with tempfile.TemporaryDirectory(prefix="muninn-baseline-", dir=volume) as temp:
             baseline = Path(temp) / "readable"
             run("salt", "restore", repo, "--to", baseline)
             check_local(current, manifest(baseline))
-        write_json(receipt_path, {"commit": previous_commit, "files": current})
+        receipt = {"commit": previous_commit, "files": current}
+        write_json(receipt_path, receipt)
     run("git", "-C", repo, "pull", "--ff-only")
     require_trusted(repo)
     commit = run("git", "-C", repo, "rev-parse", "HEAD", capture=True)
+    if receipt.get("commit") == commit:
+        print(f"Muninn already current at {commit[:12]} ({len(current)} files); no restore or duplicate rollback needed.")
+        return
+    require_restore_space(home, volume, vault)
     with tempfile.TemporaryDirectory(prefix="muninn-refresh-", dir=volume) as temp:
         destination = Path(temp) / "vault"
         # Salt verifies the signed index and every restored file; never bypass signatures.

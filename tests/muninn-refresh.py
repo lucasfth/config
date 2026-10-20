@@ -68,8 +68,18 @@ shutil.copytree(repo/"snapshot",dest)
         self.git("-C", str(self.writer), "push", "origin", "HEAD")
 
     def run_refresh(self, **environment):
-        # Only platform identity is adapted; the actual CLI and subprocesses run.
-        loader = "import runpy,sys;sys.platform='darwin';script=sys.argv[1];sys.argv=[script];runpy.run_path(script,run_name='__main__')"
+        # Adapt platform identity and, for capacity tests, only the filesystem probe.
+        loader = """import os,runpy,shutil,sys
+sys.platform='darwin'
+disk_usage=shutil.disk_usage
+def usage(path):
+    low = os.environ.get('LOW_SPACE')
+    result = disk_usage(path)
+    return result._replace(free=0) if low and ((low == 'volume') == str(path).endswith('muninn-volume')) else result
+shutil.disk_usage=usage
+script=sys.argv[1];sys.argv=[script]
+runpy.run_path(script,run_name='__main__')
+"""
         return subprocess.run([sys.executable, "-c", loader, str(SCRIPT)], env=dict(self.env, **environment), capture_output=True, text=True)
 
     def test_refresh_preserves_settings_and_rollback(self):
@@ -82,6 +92,34 @@ shutil.copytree(repo/"snapshot",dest)
         self.assertEqual((backups[0] / "note.md").read_text(), "original\n")
         receipt = json.loads((self.home / ".local/state/muninn/refresh.json").read_text())
         self.assertEqual(receipt["commit"], self.git("-C", str(self.repo), "rev-parse", "HEAD").stdout.strip())
+
+    def test_unchanged_commit_skips_restore_and_duplicate_rollback(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        receipt = self.home / ".local/state/muninn/refresh.json"
+        before = receipt.read_bytes()
+        backups = sorted(self.volume.glob("vault-before-refresh-*"))
+        result = self.run_refresh(FAIL_RESTORE="1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("already current", result.stdout)
+        self.assertEqual(receipt.read_bytes(), before)
+        self.assertEqual(sorted(self.volume.glob("vault-before-refresh-*")), backups)
+
+    def test_low_space_stops_before_restore_and_preserves_snapshots(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        receipt = self.home / ".local/state/muninn/refresh.json"
+        before = receipt.read_bytes()
+        backups = sorted(self.volume.glob("vault-before-refresh-*"))
+        self.publish("new remote", "remote\n")
+        for filesystem in ("volume", "host"):
+            with self.subTest(filesystem=filesystem):
+                result = self.run_refresh(LOW_SPACE=filesystem, FAIL_RESTORE="1")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Not enough free space", result.stderr)
+                self.assertIn("preserved", result.stderr)
+                self.assertEqual(receipt.read_bytes(), before)
+                self.assertEqual(sorted(self.volume.glob("vault-before-refresh-*")), backups)
+                self.assertEqual((self.vault / "note.md").read_text(), "original\n")
+                self.assertFalse(list(self.volume.glob("muninn-refresh-*")))
 
     def test_local_edit_after_refresh_is_not_overwritten(self):
         self.assertEqual(self.run_refresh().returncode, 0)
@@ -161,6 +199,7 @@ shutil.copytree(repo/"snapshot",dest)
         receipt["files"] = {"note.md": hashlib.sha256(b"new snapshot\n").hexdigest()}
         destination = self.volume / "muninn-refresh-interrupted/vault"
         (state / "pending.json").write_text(json.dumps({"backup": str(backup), "destination": str(destination), "receipt": receipt}))
+        self.publish("new remote after interrupted receipt", "remote\n")
         result = self.run_refresh(FAIL_RESTORE="1")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.vault / "note.md").read_text(), "new snapshot\n")

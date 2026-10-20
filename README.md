@@ -372,6 +372,41 @@ keeps the previous vault in a dated `vault-before-refresh-*` directory, and
 switches the stable `~/muninn-readable` target without opening Obsidian.
 An interruption journal recovers a missing vault or finishes an interrupted
 receipt on the next run. Rollback snapshots are not automatically deleted.
+If the published commit already matches the verified local receipt, the command
+returns without another restore or duplicate rollback. Local edits and Salt trust
+are still checked before this shortcut.
+
+Before each restore, the helper checks free space on both the image and the Mac.
+It requires estimated headroom of twice the current vault's logical size plus
+1 GiB. Salt's index is encrypted, so this is not an exact incoming-size check:
+a much larger new backup can still exceed the estimate. On failure the current
+vault stays intact. Nothing is resized, deleted, or pruned automatically.
+
+If the image is full but the Mac has space, quit Obsidian, ensure no refresh is
+running, and grow the existing image. Preserve all `vault-before-refresh-*` folders:
+
+```sh
+image="$HOME/.local/share/muninn/readable.sparsebundle"
+volume="$HOME/.local/share/muninn-volume"
+safety="$HOME/.local/share/muninn/readable-before-resize-$(date +%Y%m%d-%H%M%S).sparsebundle"
+
+diskutil verifyVolume "$volume"
+hdiutil detach "$volume"
+ditto "$image" "$safety"
+diff -qr "$image" "$safety"  # Must match while both images are detached.
+diskutil image resize --size 32g "$image"  # Choose a larger limit if needed.
+hdiutil attach "$image" -mountpoint "$volume" -nobrowse
+diskutil apfs list  # Confirm the readable container grew too.
+df -h "$volume" "$HOME"
+muninn-refresh
+```
+
+Run each step only if the previous one succeeds. On failure, stop and reattach
+the original image if needed; do not delete the safety copy. A writable
+sparsebundle may have no image checksum (`hdiutil verify` cannot verify it);
+use the APFS check and detached-copy comparison instead. Keep the copy until
+refresh and rollback checks pass. Sparsebundle capacity is a ceiling, not an
+immediate allocation, but retained snapshots still consume real Mac disk space.
 
 Local changes are protected: on its first run, the command compares the current
 readable files with a restore of the encrypted checkout's pre-pull commit;
@@ -386,13 +421,15 @@ image is plaintext and relies on Mac storage protection. `muninn-refresh`
 downloads the latest **published backup**, not newer unpublished MCP edits.
 It never seals, stages, commits, pushes, or prunes the backup history.
 
-Verification: eleven isolated Git/restore scenarios exercise replacement, rollback,
-local-edit refusal (including post-crash edits), interrupted-run recovery, and trust refusal. The CLI help
-and Darwin Nix declaration were checked. A separate real Salt restore succeeded
-without replacing the active vault, but reported unpinned repository keys;
-the helper now refuses that state. No `nrs` activation or real active-vault
-refresh was performed. Newer MCP changes reach the Mac only after publication
-and a successful refresh.
+Verification: `python3 tests/muninn-refresh.py` exercises isolated Git/restore
+scenarios for replacement, rollback, local-edit refusal (including post-crash
+edits), interrupted-run recovery, trust refusal, unchanged-commit no-ops, and
+image/host low-space refusal before decryption. On October 20, the live image
+was expanded with a hash-verified detached safety copy and a successful APFS
+check; a real Salt refresh restored 4,926 files while retaining prior snapshots.
+No Nix activation is needed for Python changes: the installed launcher uses
+`~/config/scripts/muninn-refresh.py` directly. Newer MCP changes reach the Mac
+only after publication and a successful refresh.
 
 Working Copy on iPhone can pull the Salt ciphertext, but cannot decrypt it by
 itself. For readable mobile notes, use a separately planned Obsidian Sync
