@@ -55,6 +55,7 @@
     # ── Utilities ───────────────────────────────────────────
     "macpacker"
     "the-unarchiver"
+    "tigervnc"
     "typewhisper"
     "wave"
     "wkhtmltopdf"
