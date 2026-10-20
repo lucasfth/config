@@ -6,7 +6,6 @@ import { join } from "node:path";
 
 type AdvisorMode = { provider: string; modelId: string; thinkingLevel?: string };
 type ModeSettings = { modes?: Record<string, Partial<AdvisorMode>> };
-type EventName = Parameters<ExtensionAPI["on"]>[0];
 type EventHandler = (...args: unknown[]) => unknown;
 export function readAdvisorMode(agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".local", "share", "huginn-pi", "agent")): AdvisorMode | undefined {
   try {
@@ -27,8 +26,33 @@ function hasConfiguredAdvisor(ctx: ExtensionContext): boolean {
 }
 
 export default function configuredAdvisorExtension(pi: ExtensionAPI): void {
+  let interruptionUsed = false;
+  let signal: AbortSignal | undefined;
+  pi.on("before_agent_start", (event, ctx) => {
+    signal = ctx.signal;
+    if (event.messageType === "user") interruptionUsed = false;
+  });
+  pi.on("tool_result", (_event, ctx) => {
+    signal = ctx.signal;
+    interruptionUsed = false;
+  });
+  pi.on("session_start", () => { interruptionUsed = false; signal = undefined; });
   const guardedPi = new Proxy(pi, {
     get(target, property) {
+      if (property === "sendMessage") {
+        return (message: Parameters<ExtensionAPI["sendMessage"]>[0], options?: Parameters<ExtensionAPI["sendMessage"]>[1]) => {
+          if (message.customType !== "advisory") return target.sendMessage(message, options);
+          const notes = (message.details as { notes?: Array<{ severity?: string }> } | undefined)?.notes;
+          const blocker = notes?.some(note => note.severity === "blocker") ?? false;
+          const triggerTurn = options?.triggerTurn === true && blocker && !interruptionUsed && !signal?.aborted;
+          if (triggerTurn) interruptionUsed = true;
+          // Routine/duplicate advice stays in context, but cannot demand another final answer.
+          const content = !triggerTurn && typeof message.content === "string"
+            ? message.content.replace(/\n\nYou had already returned a final answer[\s\S]*$/, "")
+            : message.content;
+          return target.sendMessage({ ...message, content }, { ...options, triggerTurn });
+        };
+      }
       if (property === "on") {
         return (event: string, handler: EventHandler) => target.on(event as never, ((...args: unknown[]) => {
           const context = args[1];

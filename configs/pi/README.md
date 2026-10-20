@@ -124,6 +124,20 @@ Existing sessions need a new profile launch (`pi --continue` to resume); launch 
 
 Charts, SVGs, diagram fitting and title naming run automatically as TypeScript event/render hooks. The model only emits normal content; it does not invoke `/visuals` to render it. Finalized visual transformations use a bounded 16-entry content/width/theme/image-protocol cache. Streaming, user and thinking text bypass visual processing. Muninn context is injected once per session; the configured advisor runs from lifecycle hooks. These callbacks are in-process, not separate worker threads. `/visuals` remains an optional diagnostic/demo command.
 
+### Advisor supervision
+
+The advisor remains a continuous supervisor, with severity-aware delivery:
+
+- Nits and concerns stay visible and enter model context, including the next user prompt when received while idle. They do not restart a finished agent.
+- Verified blockers may request a corrective continuation, including after a final answer. At most one such interruption is allowed until a new user prompt or primary tool result; an advisory-only reply cannot rearm it. Escape-aborted runs are not restarted.
+- Stable issue identifiers deduplicate rewordings. Escalation remains possible; repeated blockers require new primary activity and changed concrete evidence (for example, an inadequate fix or continued risky action).
+- Reviews run in the background without the upstream 15–120-second catch-up waits. A final answer can therefore precede a late finding; a blocker may still trigger its bounded follow-up. This is not a synchronous safety gate or a guarantee that every defect is caught before an action.
+- The supervisor prompt forbids status/all-clear spam, invented approval gates and relitigating Lucas's accepted trade-offs without materially new evidence.
+
+Implementation: `extensions/advisor.ts` plus `patches/pi-omplike-advisor-supervision.patch`, applied idempotently by `npm run setup`. Start a fresh profile process or reload extensions to use the changed code; existing sessions are not automatically restarted. An explicit runtime `system-prompts/advisor.md`, if present, overrides the bundled prompt.
+
+`node integration-advisor.mjs` exercises the real extension and Pi session against a deterministic loopback provider: deferred idle advice reaches the next provider request, primary settlement does not wait for routine review, blockers can request follow-ups, and advisory-only replies cannot form an unbounded restart chain. It does not establish live-model severity judgment or physical UI acceptance.
+
 ## On-demand code capabilities and context economy
 
 - `eval` lazily starts session-scoped Python and JavaScript workers. Python globals and JavaScript lexical bindings persist across cells. JS supports top-level await. Host calls use `tools.read(path="README.md")` in Python and `await tools.read({path:"README.md"})` in JavaScript; they go through Pi's normal validation/hooks. `/eval-reset [py|js|all]` clears state. Timeout/abort terminates the interpreter and reports state loss. This is local-user code execution, not a sandbox; use `var` or fresh JS names to avoid lexical redeclarations.

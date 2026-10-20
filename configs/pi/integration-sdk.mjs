@@ -47,6 +47,11 @@ try {
   await session.bindExtensions({ mode: 'print', onError: error => errors.push(error) });
   await session.prompt('Return a short local transport response.');
   assert.ok(calls.includes('gpt-6.1-sol'), 'Main agent must reach its configured endpoint');
+  // Continuous review is background work now; primary settlement does not await it.
+  const advisorDeadline = Date.now() + 5000;
+  while (!calls.includes('claude-haiku-5-5') && Date.now() < advisorDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
   assert.ok(calls.includes('claude-haiku-5-5'), 'Continuous advisor must reach its distinct configured model');
   const delegate = session.extensionRunner.getToolDefinition('subagent');
   assert.ok(delegate, 'Delegation tool must load');
