@@ -109,3 +109,17 @@ test("startup omits legacy correction tables without deleting curated text or ra
   assert.doesNotMatch(context, /projects\/_archive/);
   assert.match(await createMemoryRecall(client)(["tech/030-Coding-Style.md"]), /LEGACY_NOISE/);
 });
+
+test("per-entry UTF-16 bounds agree with Python for astral characters", async () => {
+  for (const count of [750, 751]) {
+    const text = "😀".repeat(count);
+    const entry = { text, approved_by: "Lucas", approved_at: "2026-10-20", approval_reference: "fixture",
+      source: { path: "projects/example/repo/main/2026-09-01.md", sha256: "a".repeat(64) } };
+    const client: VaultClient = {
+      async read(filename) { return { content: filename === approvedPath ? document("general", [entry]) : "" }; },
+      async list() { return { files: [] }; },
+    };
+    const context = await buildSessionContext({ org: "example", repo: "repo", branch: "main" }, client);
+    assert.equal(context.includes(text), count === 750);
+  }
+});

@@ -72,20 +72,139 @@ class LearningTests(unittest.TestCase):
             self.assertEqual(learning.archive_plan(vault, state)['eligible'], [])
             self.assertEqual(destination.read_bytes(), before)
 
+    def test_archive_refuses_when_durable_obligations_note_is_missing_or_edited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, state, source, value = self.fixture(Path(tmp))
+            identifier = learning.distil(vault, state, lambda _: value)['processed'][0]
+            learning.review(vault, state, identifier, 0, 'covered', 'fixture existing rule')
+            learning.review_obligations(vault, state, identifier, ['Acceptance is still outstanding.'], 'fixture review')
+            obligations = vault / 'tech/learning/open-items.md'
+            original = obligations.read_bytes()
+            for replacement in [None, b'# Accidentally overwritten obligations\\n']:
+                if replacement is None:
+                    obligations.unlink(missing_ok=True)
+                else:
+                    obligations.write_bytes(replacement)
+                with self.subTest(replacement=replacement):
+                    self.assertFalse(learning.archive_plan(vault, state)['eligible'])
+                    learning.archive(vault, state)
+                    self.assertTrue(source.exists())
+            obligations.write_bytes(original)
+            self.assertEqual(len(learning.archive_plan(vault, state)['eligible']), 1)
+
+    def test_archive_preserves_source_edited_after_copy_before_unlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, state, source, value = self.fixture(Path(tmp))
+            identifier = learning.distil(vault, state, lambda _: value)['processed'][0]
+            learning.review(vault, state, identifier, 0, 'covered', 'fixture existing')
+            learning.review_obligations(vault, state, identifier, [], 'fixture none')
+            real_store = learning.store_state
+            def edit_after_journal(state_dir, ledger):
+                real_store(state_dir, ledger)
+                if ledger['archives'][source.relative_to(vault).as_posix()]['state'] == 'copied':
+                    source.write_text(source.read_text() + '\nNew user evidence\n')
+            with patch.object(learning, 'store_state', edit_after_journal):
+                with self.assertRaisesRegex(ValueError, 'changed'):
+                    learning.archive(vault, state)
+            self.assertTrue(source.exists())
+            self.assertIn('New user evidence', source.read_text())
+            destination = next((vault / 'projects/_archive').rglob('*.md'))
+            self.assertEqual(learning.sha(destination.read_bytes()), learning.load_state(state)['records'][identifier]['source']['sha256'])
+            self.assertFalse(source.samefile(destination), 'archive bytes must be independent of live edits')
+
+    def test_partial_copy_and_racing_destination_never_remove_source(self):
+        for mode in ['partial', 'collision']:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                vault, state, source, value = self.fixture(Path(tmp))
+                original = source.read_bytes()
+                identifier = learning.distil(vault, state, lambda _: value)['processed'][0]
+                learning.review(vault, state, identifier, 0, 'covered', 'fixture existing')
+                learning.review_obligations(vault, state, identifier, [], 'fixture none')
+                destination = vault / learning.archive_plan(vault, state)['eligible'][0]['destination']
+                real_open = Path.open
+                def intercepted_open(path, *args, **kwargs):
+                    open_mode = args[0] if args else kwargs.get('mode', 'r')
+                    if path == destination and open_mode == 'xb':
+                        if mode == 'collision':
+                            with real_open(path, 'wb') as handle:
+                                handle.write(b'concurrent destination')
+                            return real_open(path, *args, **kwargs)
+                        handle = real_open(path, *args, **kwargs)
+                        class PartialWriter:
+                            def __enter__(self): return self
+                            def __exit__(self, *unused): handle.close()
+                            def write(self, raw):
+                                handle.write(raw[:5]); handle.flush()
+                                raise OSError('fixture partial archive write')
+                        return PartialWriter()
+                    return real_open(path, *args, **kwargs)
+                with patch.object(Path, 'open', intercepted_open), self.assertRaises(OSError):
+                    learning.archive(vault, state)
+                self.assertEqual(source.read_bytes(), original)
+                self.assertNotEqual(learning.sha(destination.read_bytes()), learning.sha(original))
+                self.assertFalse(learning.archive_plan(vault, state)['eligible'])
+
+    def test_unicode_approval_never_exceeds_loader_per_entry_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, state, source, value = self.fixture(Path(tmp))
+            value['lessons'][0]['text'] = '😀' * 751
+            result = learning.distil(vault, state, lambda _: value)
+            self.assertEqual(result['processed'], [], 'new oversized UTF-16 candidates must be rejected')
+            # Also exercise a pre-fix ledger so old candidates cannot bypass approval validation.
+            source_info, _ = learning.read_source(vault, source.relative_to(vault).as_posix())
+            identifier = 'legacy-fixture'
+            record = {'id': identifier, 'source': source_info, **value, 'dispositions': {}, 'obligations_review': None}
+            learning.store_state(state, {'schema': 1, 'records': {identifier: record}, 'archives': {}})
+            before = (state / 'aar-learning.json').read_bytes()
+            with self.assertRaisesRegex(ValueError, 'UTF-16'):
+                learning.review(vault, state, identifier, 0, 'approved', 'fixture review', 'general')
+            self.assertFalse((vault / 'tech/learning/general.md').exists())
+            self.assertEqual((state / 'aar-learning.json').read_bytes(), before)
+
+    def test_non_session_and_sensitive_paths_are_never_opened_or_sent_to_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, state, source, value = self.fixture(Path(tmp))
+            protected = [
+                'projects/EcoRay/klaus-perspective/main/2026-09-01.md',
+                'projects/example/repo/salary/2026-09-01.md',
+                'projects/example/repo/main/2026-09-01-contract.md',
+                'projects/example/repo/main/Salary-AAR.md',
+            ]
+            for relative in protected:
+                path = vault / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('# AAR\nPrivate salary/contract material\n')
+            real_read = learning.Path.read_bytes
+            opened = []
+            def tracked(path):
+                relative = path.relative_to(vault).as_posix() if path.is_relative_to(vault) else str(path)
+                self.assertNotIn(relative, protected)
+                opened.append(relative)
+                return real_read(path)
+            prompts = []
+            with patch.object(learning.Path, 'read_bytes', tracked):
+                result = learning.distil(vault, state, lambda prompt: prompts.append(prompt) or value)
+            self.assertEqual(len(result['processed']), 1)
+            self.assertEqual(len(prompts), 1)
+            self.assertNotIn('Private salary', prompts[0])
+
     def test_archive_interruption_keeps_source_and_allows_recovery(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault, state, source, value = self.fixture(Path(tmp))
             identifier = learning.distil(vault, state, lambda _: value)['processed'][0]
             learning.review(vault, state, identifier, 0, 'covered', 'fixture existing rule')
             learning.review_obligations(vault, state, identifier, [], 'fixture explicitly none')
-            def fail_after_link(*args):
-                raise OSError('fixture persistence failure after link')
-            with patch.object(learning, 'store_state', fail_after_link), self.assertRaises(OSError):
+            real_store = learning.store_state
+            def fail_after_copy(state_dir, ledger):
+                if ledger['archives'][source.relative_to(vault).as_posix()]['state'] == 'copied':
+                    raise OSError('fixture persistence failure after independent copy')
+                real_store(state_dir, ledger)
+            with patch.object(learning, 'store_state', fail_after_copy), self.assertRaises(OSError):
                 learning.archive(vault, state)
             self.assertTrue(source.exists())
             self.assertEqual(len(list((vault / 'projects/_archive').rglob('*.md'))), 1)
             result = learning.archive(vault, state)
-            self.assertFalse(source.exists(), 'identical orphan link must be recoverable')
+            self.assertFalse(source.exists(), 'journalled independent copy must be recoverable')
 
     def test_scope_path_and_symlink_escape(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -110,6 +229,25 @@ class LearningTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 learning.review(vault, state, identifier, 0, 'approved', 'fixture approval', 'general')
 
+    def test_negative_duplicate_and_out_of_range_indexes_do_not_satisfy_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, state, source, value = self.fixture(Path(tmp))
+            value['lessons'].append({**value['lessons'][0], 'text': 'Second lesson.'})
+            identifier = learning.distil(vault, state, lambda _: value)['processed'][0]
+            learning.review(vault, state, identifier, 1, 'covered', 'fixture second lesson')
+            learning.review_obligations(vault, state, identifier, [], 'fixture none')
+            before = (state / 'aar-learning.json').read_bytes()
+            for index in [-1, 2, True, None]:
+                with self.subTest(index=index), self.assertRaisesRegex(ValueError, 'index'):
+                    learning.review(vault, state, identifier, index, 'covered', 'fixture invalid index')
+                self.assertEqual((state / 'aar-learning.json').read_bytes(), before)
+            self.assertEqual(learning.archive_plan(vault, state)['blocked'][0]['reason'], 'lessons await explicit disposition')
+            # A ledger from the earlier buggy version must also stay ineligible.
+            ledger = learning.load_state(state)
+            ledger['records'][identifier]['dispositions']['-1'] = {'decision': 'covered', 'reference': 'legacy bug'}
+            learning.store_state(state, ledger)
+            self.assertEqual(learning.archive_plan(vault, state)['blocked'][0]['reason'], 'lessons await explicit disposition')
+
     def test_model_helper_never_executes_module_setup_or_dream_main(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / 'dream.py'
@@ -119,6 +257,35 @@ class LearningTests(unittest.TestCase):
                               '    return "{\\\"lessons\\\": [], \\\"open_items\\\": []}"\n')
             self.assertEqual(json.loads(learning.dream_model(script)('fixture')), {'lessons': [], 'open_items': []})
 
+    def test_nightly_loads_only_provider_environment_without_shell_execution(self):
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = root / '.env'
+            env_file.write_text('export MIMER_QWEN_API_KEY="fixture-key"\n'
+                                'UNRELATED_PRIVATE_VALUE=do-not-load\n'
+                                'DEEPSEEK_MODEL=$(touch should-not-exist)\n')
+            config = root / 'config.json'
+            config.write_text(json.dumps({'enabled': True, 'vault': str(root/'vault'),
+                'state': str(root/'state'), 'dream_script': str(root/'unused.py'), 'provider_env': str(env_file)}))
+            def model_factory(script):
+                self.assertEqual(os.environ.get('MIMER_QWEN_API_KEY'), 'fixture-key')
+                self.assertNotIn('UNRELATED_PRIVATE_VALUE', os.environ)
+                self.assertEqual(os.environ.get('DEEPSEEK_MODEL'), '$(touch should-not-exist)')
+                return lambda prompt: {}
+            with patch.dict(os.environ, {}, clear=True), patch.object(learning, 'dream_model', model_factory):
+                learning.nightly(config)
+            self.assertFalse((root/'should-not-exist').exists())
+
+    def test_isolated_provider_preserves_required_urllib_global(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / 'dream.py'
+            script.write_text('raise AssertionError("module setup ran")\n'
+                              'def _deepseek_api_call(*args, **kwargs):\n'
+                              '    assert urllib.request.Request("https://fixture.invalid").get_method() == "GET"\n'
+                              '    return "provider global available"\n')
+            self.assertEqual(learning.dream_model(script)('fixture'), 'provider global available')
+
     def test_disabled_nightly_does_not_touch_vault_or_call_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / 'config.json'
@@ -126,6 +293,20 @@ class LearningTests(unittest.TestCase):
             with patch.object(learning, 'distil', side_effect=AssertionError('unexpected distillation')):
                 self.assertEqual(learning.nightly(config), {'state': 'disabled'})
             self.assertEqual(list(Path(tmp).iterdir()), [config])
+
+    def test_failed_model_attempts_are_bounded_per_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, state, source, value = self.fixture(Path(tmp))
+            for day in range(2, 13):
+                source.with_name(f'2026-09-{day:02}.md').write_bytes(source.read_bytes())
+            calls = []
+            def invalid_model(prompt):
+                calls.append(prompt)
+                return {'unexpected': 'invalid output'}
+            result = learning.distil(vault, state, invalid_model)
+            self.assertEqual(len(calls), learning.MAX_NOTES)
+            self.assertEqual(result['processed'], [])
+            self.assertFalse((vault / 'tech').exists())
 
     def test_nightly_generates_candidates_and_archives_only_after_opt_in(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -158,7 +339,7 @@ class LearningTests(unittest.TestCase):
             calls = []
             def fail_final(state_dir, ledger):
                 calls.append(1)
-                if len(calls) == 2:
+                if ledger['archives'][source.relative_to(vault).as_posix()]['state'] == 'archived':
                     raise OSError('fixture final state save failed')
                 real_store(state_dir, ledger)
             with patch.object(learning, 'store_state', fail_final), self.assertRaises(OSError):
@@ -251,6 +432,27 @@ class LearningTests(unittest.TestCase):
             self.assertFalse((root / 'tech/learning/general.md').exists())
 
 
+def lifecycle_fixture():
+    with tempfile.TemporaryDirectory() as tmp:
+        vault, state, source, value = LearningTests().fixture(Path(tmp))
+        approved = 'APPROVED_STARTUP_FIXTURE_LESSON'
+        candidate = 'UNAPPROVED_STARTUP_FIXTURE_CANDIDATE'
+        source.write_text(source.read_text() + '\nORIGINAL_LIFECYCLE_EVIDENCE\n')
+        value['lessons'] = [{**value['lessons'][0], 'text': approved},
+                            {**value['lessons'][0], 'text': candidate}]
+        identifier = learning.distil(vault, state, lambda _: value)['processed'][0]
+        pending = (vault / f'dreams/aar-learning/{identifier}.md').read_text()
+        learning.review(vault, state, identifier, 0, 'approved', 'Synthetic fixture approval only', 'general')
+        learning.review(vault, state, identifier, 1, 'rejected', 'Synthetic fixture rejection only')
+        learning.review_obligations(vault, state, identifier, ['Retained fixture obligation.'], 'Synthetic fixture reconciliation')
+        result = learning.archive(vault, state)
+        return {'note': (vault / 'tech/learning/general.md').read_text(),
+                'candidate': pending, 'source': source.relative_to(vault).as_posix(),
+                'archived': result['eligible'][0]['destination'],
+                'evidence': (vault / result['eligible'][0]['destination']).read_text(),
+                'obligations': (vault / 'tech/learning/open-items.md').read_text()}
+
+
 def budget_fixture():
     with tempfile.TemporaryDirectory() as tmp:
         vault, state, source, value = LearningTests().fixture(Path(tmp))
@@ -296,5 +498,7 @@ if __name__ == '__main__':
     import sys
     if sys.argv[1:] == ['--budget-fixture']:
         print(json.dumps(budget_fixture()))
+    elif sys.argv[1:] == ['--lifecycle-fixture']:
+        print(json.dumps(lifecycle_fixture()))
     else:
         unittest.main()

@@ -45,6 +45,28 @@ class DreamGuardTests(unittest.TestCase):
                 self.assertEqual(module.run_dream(settings, root / 'never-executed.py'), 0)
                 self.assertEqual(calls, ['consolidate', ('learning', config)])
 
+    def test_learning_summary_does_not_deliver_raw_sources_or_candidates(self):
+        import contextlib
+        import io
+        import sys
+        import types
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings = root / 'settings.json'
+            settings.write_text(json.dumps({'state': str(root/'state'), 'aar_learning_config': str(root/'learning.json')}))
+            result = {'processed': ['candidate-id'], 'errors': [{'source': 'PRIVATE_SOURCE_PATH', 'error': 'PRIVATE_ERROR_TEXT'}],
+                      'archive_plan': {'eligible': [{'source': 'PRIVATE_ARCHIVE_PATH'}]}}
+            learning = types.SimpleNamespace(nightly=lambda _: result)
+            consolidation = types.SimpleNamespace(consolidation=lambda _: None)
+            output = io.StringIO()
+            with patch.dict(sys.modules, {'nightly': consolidation, 'aar_learning': learning}), \
+                    patch.object(module.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0)), \
+                    contextlib.redirect_stdout(output):
+                self.assertEqual(module.run_dream(settings, root/'unused.py'), 0)
+            self.assertNotIn('PRIVATE_', output.getvalue())
+            self.assertIn('candidates', output.getvalue())
+            self.assertIn('errors', output.getvalue())
+
     def test_all_return_paths_without_a_report_local(self):
         text = module.guarded_source(FIXTURE)
         namespace = {}

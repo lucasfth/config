@@ -4,6 +4,8 @@ import http from 'node:http';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { createAgentSession, SessionManager, DefaultResourceLoader, SettingsManager } from '@earendil-works/pi-coding-agent';
 import { prepareRuntime, repoDir } from './runtime.mjs';
 
@@ -12,11 +14,10 @@ const requests = [], reads = [];
 const approved = 'APPROVED_STARTUP_FIXTURE_LESSON';
 const candidate = 'UNAPPROVED_STARTUP_FIXTURE_CANDIDATE';
 const payload = entries => '---\ntype: agent-config\n---\n# Fixture\n\n```json\n' + JSON.stringify({ schema: 1, scope: 'general', entries }) + '\n```';
-const approvedNote = payload([{
-  id: 'fixture', text: approved, approved_by: 'Lucas', approved_at: '2026-10-20',
-  approval_reference: 'Synthetic fixture approval, not real guidance',
-  source: { path: 'projects/fixture/repo/main/2026-10-01.md', sha256: 'a'.repeat(64) },
-}, { id: 'unapproved', text: candidate, status: 'candidate' }]);
+const lifecycle = JSON.parse(execFileSync('python3', [fileURLToPath(new URL('../volundr/aar_learning.test.py', import.meta.url)), '--lifecycle-fixture'], { encoding: 'utf8' }));
+const approvedNote = lifecycle.note;
+assert.ok(lifecycle.obligations.includes('Retained fixture obligation.'));
+assert.ok(lifecycle.candidate.includes(candidate));
 let activeNote = approvedNote;
 const server = http.createServer(async (req, res) => {
   try {
@@ -32,6 +33,13 @@ const server = http.createServer(async (req, res) => {
         if (name === 'vault_read') {
           reads.push(args.filename);
           if (args.filename === 'tech/learning/general.md') value = { content: activeNote };
+          else if (args.filename === lifecycle.source) {
+            result = { isError: true, content: [{ type: 'text', text: 'not found' }] };
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+            return;
+          }
+          else if (args.filename === lifecycle.archived) value = { content: lifecycle.evidence };
           else if (args.filename.startsWith('tech/learning/')) value = { content: '' };
           else value = { content: 'Required fixture guidance' };
         } else if (name === 'vault_list') value = { files: [] };
@@ -56,6 +64,8 @@ try {
   process.env.PI_CODING_AGENT_DIR = dir;
   process.env.NEO_PROXY_API_KEY = 'synthetic';
   const endpoint = `http://127.0.0.1:${server.address().port}`;
+  assert.ok(dir.startsWith(os.tmpdir()));
+  assert.ok(endpoint.startsWith('http://127.0.0.1:'));
   await prepareRuntime({ agentDir: dir, env: { ...process.env, NEO_PROXY_URL: endpoint + '/v1' }, ompDir: path.join(dir, 'absent') });
   const settings = JSON.parse(await readFile(path.join(dir, 'settings.json'), 'utf8'));
   settings.extensions = settings.extensions.filter(filename => filename.endsWith('/muninn.ts'));
@@ -81,10 +91,17 @@ try {
     const count = reads.length;
     await session.prompt('Again, briefly.');
     assert.equal(reads.length, count);
+    if (note === approvedNote) {
+      const tool = session.getToolDefinition('memory_recall');
+      assert.ok(tool);
+      const recalled = await tool.execute('fixture-recall', { paths: [lifecycle.source] }, new AbortController().signal);
+      assert.ok(JSON.stringify(recalled).includes('ORIGINAL_LIFECYCLE_EVIDENCE'));
+    }
     session.dispose(); session = undefined;
   }
   assert.ok(!reads.some(filename => filename.startsWith('dreams/')));
-  console.log(JSON.stringify({ freshSessions: 2, providerRequests: requests.length, approvedLessonInFirstSession: true, candidateAbsentBothSessions: true, oncePerSession: true, scope: 'Actual before_agent_start hook and MCP transport; fixture model/vault only. No live guidance or cron.' }, null, 2));
+  assert.equal(requests.length, 4);
+  console.log(JSON.stringify({ freshSessions: 2, providerRequests: requests.length, approvedLessonInFirstSession: true, candidateAbsentBothSessions: true, oncePerSession: true, scratchLifecycle: 'distil → review → obligations → archive → startup → archived recall', scope: 'Actual before_agent_start hook and MCP transport; fixture model/vault only. No live guidance or cron.' }, null, 2));
 } finally {
   session?.dispose();
   server.closeAllConnections();

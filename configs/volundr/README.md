@@ -116,19 +116,27 @@ Publication of these sources does not provision another host, rotate credentials
 ## AAR learning — source implementation and activation
 
 `aar_learning.py` is the separate bounded distillation/review/archive entry point.
-This source implementation has fixture tests; it has **not been installed on Loki**.
-The optional `dream_guard.run_dream` call is used only when private settings include
-`aar_learning_config`. No existing cron definitions are changed by these sources.
-Do not run the full installer over the active deployment to pick up this change.
+On 2026-10-20 Lucas requested completion after host and lifecycle verification.
+Candidate generation is installed on Loki and connected to the existing dream
+wrapper through private `aar_learning_config`; archival is explicitly disabled.
+A bounded live run produced eight candidate/diff pairs. No candidate guidance was
+approved, no source AAR was archived, and the full dream was not run manually.
+The installed hashes/backups are recorded in private `aar-activation.json`.
+The existing cron definition, time, script target and delivery were preserved.
+The first unattended run of this connection remains unobserved.
+Do not run the full installer over the active deployment to pick up code changes.
 
 ### Data flow and approval
 
 - Nightly reads at most eight previously unprocessed AAR/correction notes per run.
   Each source is limited to 24,000 characters, with no silent truncation. It reuses
   only the local dream script's model-call function, not module setup or agent tools.
+  Only date-shaped session files are opened; sensitive salary/contract/payroll/people
+  paths and the non-session Klaus-perspective collection are excluded before reads.
 - Candidate Markdown and illustrative diffs go to `dreams/aar-learning/`. They are
   evidence, never startup instructions. The external JSON ledger binds source and
   proposal hashes and preserves explicit review decisions.
+  Nightly stdout reports counts only, never source paths or candidate text.
 - `review --decision approved` requires a Lucas approval reference and an explicit
   `general` or exact `org/repo` scope. A model cannot supply approval fields.
   Existing-coverage findings cannot be promoted as duplicate rules. `covered` and
@@ -149,10 +157,17 @@ historical open-item candidates. Durable obligations are written to
 model nor archival marks obligations resolved.
 
 `plan-archive` is read-only. A source is eligible only after 30 days, unchanged
-source bytes, dispositions for every lesson, and explicit obligation review.
-`archive --apply` moves it to `projects/_archive/<org>/<repo>/<branch>/<file>.md`
-using verified hard-link/journal/unlink steps, with interruption recovery and no
-overwrite of unrelated collisions. Keep vault and archive on the same filesystem.
+source bytes, dispositions for every valid lesson index, explicit obligation review,
+and an unchanged durable obligations note. `archive --apply` moves it to
+`projects/_archive/<org>/<repo>/<branch>/<file>.md` using an independent verified
+copy and journal states `copying → copied → archived`, rechecking source bytes
+immediately before unlink. Source edits cannot mutate the archived copy.
+An interrupted `copying` entry may publish/reuse only its hash-matching copy;
+missing-source recovery requires a `copied` (or legacy `linked`) journal entry
+and matching archive SHA-256. Unrelated destination collisions are never overwritten.
+Copy creation uses exclusive-create (`xb`) and fsync, supported by Termux Python;
+no hard links or shared source/destination filesystem are required. A crash during
+a partial copy leaves the source intact and blocks recovery until manually reviewed.
 Original paths remain in provenance; Pi recall tries the deterministic archive path
 if the original cannot be read, and startup excludes archived session-index entries.
 
@@ -165,7 +180,9 @@ Do not enable it until a live dry-run and its candidate dispositions are reviewe
 Create private config only during an approved activation; the following is a
 template, not a deployed file. Use absolute host paths, external private state,
 and the existing installed dream script; no credentials or delivery targets belong
-in this config. Model credentials must already be present in the job environment.
+in this config. An optional `provider_env` absolute path loads only allowlisted
+Mimer/DeepSeek variables from KEY=VALUE lines; it never evaluates shell commands.
+Existing process environment values take precedence. No credential values are logged.
 
 ```json
 {
@@ -173,7 +190,8 @@ in this config. Model credentials must already be present in the job environment
   "archive_enabled": false,
   "vault": "/absolute/private/vault",
   "state": "/absolute/private/aar-state",
-  "dream_script": "/absolute/private/dream_obsidian.py"
+  "dream_script": "/absolute/private/dream_obsidian.py",
+  "provider_env": "/absolute/private/provider.env"
 }
 ```
 

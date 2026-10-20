@@ -111,7 +111,13 @@ def run_dream(settings_path, script):
         if settings.get('aar_learning_config'):
             import aar_learning
             result = aar_learning.nightly(Path(settings['aar_learning_config']))
-            print('AAR learning: ' + json.dumps(result))
+            # Job stdout may be delivered to chat: only counts, never private paths.
+            print('AAR learning: ' + json.dumps({
+                'candidates': len(result.get('processed', [])),
+                'errors': len(result.get('errors', [])),
+                'archive_eligible': len(result.get('archive_plan', {}).get('eligible', [])),
+                'archive_applied': bool(result.get('archive_result', {}).get('applied', False)),
+            }))
         return subprocess.run([sys.executable, str(script)], check=False, env=os.environ).returncode
 
 
