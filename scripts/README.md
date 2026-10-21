@@ -13,6 +13,9 @@ not all share the same deployment or activation behavior.
 - `apply-syntax-highlight-config.py` applies the tracked settings and themes to
   the app's local preferences; the root README documents the required app state
   and exact invocation.
+- `apply-spotifast-config.py` restores the tracked native light/dark theme pair
+  and copies palettes while Spotifast is closed, preserving private app state.
+  Installed as `apply-spotifast-config` by Home Manager; see the root README.
 - `sigyn-screen` and `sigyn-vnc` open the corresponding iPad remote sessions.
 - `build-herdr-client.sh` rebuilds/tests the pinned macOS Herdr sidebar patch from
   `configs/herdr/client.patch` and `client-build.env`. Build-only by default;

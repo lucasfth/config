@@ -7,6 +7,9 @@ macOS-specific tools, or temporary local services/mocks.
 
 - `muninn-refresh.py` exercises refresh, rollback, trust, local-edit refusal,
   and interrupted-run behavior using isolated temporary repositories.
+- `spotifast-config.py` checks isolated appearance restoration, fresh profiles,
+  repeat application, preservation of unrelated state, and refusal while running
+  or when local settings are invalid. Run with `python3 tests/spotifast-config.py`.
 - `sigyn-screen.sh` and `sigyn-vnc.sh` exercise the Sigyn helpers with mock
   commands and temporary credentials.
 - `nix-health.sh` checks the Nix health helper.

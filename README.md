@@ -546,6 +546,34 @@ local-playback approval. Spotify Premium is required. Offline downloads,
 lossless audio, and local-file playback are not supported; see the
 [upstream limitations](https://spotifast.rocks/what-spotify-allows/).
 
+Appearance is managed in `configs/spotifast/`: native **Follow system**,
+**Catppuccin Latte** for light mode, **Catppuccin/Mocha** for dark mode, and
+artwork-derived accents disabled. The serialized `theme_pair` includes the
+GUI-selected palettes so the first frame uses the correct colours. Requires
+Spotifast 0.14.1 or newer. No external appearance watcher is needed.
+
+Home Manager installs `apply-spotifast-config` and applies the settings during
+an approved `nrs` **only while Spotifast is closed**. If it is running, activation
+leaves it untouched and prints a reminder. Quit Spotifast, apply, then reopen:
+
+```sh
+apply-spotifast-config
+```
+
+Before the helper has been installed by a rebuild, the equivalent explicit command is:
+
+```sh
+python3 ~/config/scripts/apply-spotifast-config.py ~/config/configs/spotifast
+```
+
+The helper copies regular theme files (Spotifast rejects symlinked themes) and
+atomically merges only the tracked appearance keys into the local `settings.json`.
+It preserves unrelated preferences and never reads or copies credentials, sessions,
+history or logs. GUI edits stay local; update the repository appearance file and
+palettes deliberately when changing the managed setup. Corrupt local settings or
+symlinked settings are refused rather than overwritten; such errors fail the
+activation step and require correction before retrying.
+
 Homebrew activation uses `cleanup = "none"`, so removing the Spotify declaration
 does not uninstall an existing copy. After confirming Spotifast opens, use
 `brew uninstall --cask spotify` without `--zap` to retain Spotify's user data.

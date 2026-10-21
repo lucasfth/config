@@ -128,6 +128,9 @@ in {
       ".local/bin/apply-syntax-highlight-config".source = pkgs.writeShellScript "apply-syntax-highlight-config" ''
         exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/configs/syntax-highlight"
       '';
+      ".local/bin/apply-spotifast-config".source = pkgs.writeShellScript "apply-spotifast-config" ''
+        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-spotifast-config.py" "${flakeDir.outPath}/configs/spotifast"
+      '';
 
       # ── Raycast AI custom providers ────────────────────────────────
       ".config/raycast/ai/providers.yaml" = {
@@ -156,6 +159,14 @@ in {
       echo "Syntax Highlight: quit the app and run apply-syntax-highlight-config to apply preferences."
     else
       $DRY_RUN_CMD ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-syntax-highlight-config.py" "${flakeDir.outPath}/configs/syntax-highlight"
+    fi
+  '');
+
+  home.activation.configureSpotifast = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+    if /usr/bin/pgrep -x "Spotifast" >/dev/null; then
+      echo "Spotifast: quit the app and run apply-spotifast-config to apply preferences."
+    else
+      $DRY_RUN_CMD ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/apply-spotifast-config.py" "${flakeDir.outPath}/configs/spotifast"
     fi
   '');
 

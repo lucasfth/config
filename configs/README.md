@@ -13,6 +13,7 @@ One directory per application, including single-file configurations. Source file
 | `lazygit/` | Store-backed `~/Library/Application Support/lazygit/config.yml` on macOS, `~/.config/lazygit/config.yml` on Linux; application state is not source |
 | `sioyek/` | Store-backed preferences under macOS Application Support |
 | `syntax-highlight/` | Activation copies themes and merges selected renderer preferences while the app is closed |
+| `spotifast/` | Activation copies regular palettes and merges native system-following appearance settings while the app is closed; GUI changes are not automatically synced back |
 | `zed/` | Store-backed `~/.config/zed/settings.json` |
 | `swiftbar/` | Plugin source scripts; this repository does not declare their installation directory |
 | `pi/` | Canonical native Pi sources and lockfile; `scripts/pi-native` generates a private runtime profile. Shell aliases are live-linked; no Nix activation is required. |
