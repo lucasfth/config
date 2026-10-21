@@ -46,6 +46,8 @@ and activation steps before applying it to another machine.
 | [Native Pi profile](configs/pi/README.md) | `pi` launcher, UI, local JS/TS source outlines, `/cache-report`, updates, verification and OMP parity gaps |
 | [Shared skills](configs/pi/README.md#shared-skills-volundr) | Pinned Volundr submodule, Pi selection rules and explicit cross-machine updates |
 | [Nightly shared-skill delivery](configs/volundr/README.md) | Controller delivery, Loki's published-pin sync, guarded dreaming, verification and rollback |
+| [Sales document and Klaus tools](configs/workspace-read/README.md) | Scoped Drive/report reads, asynchronous Klaus tasks, tests and rollback |
+| [Sales voice transcription](configs/sales-audio/README.md) | Shared private transcription route, limits, qualification and rollback |
 | [Tests](tests/README.md) | Focused checks and their prerequisites |
 | [Command reference](COMMANDS.md) | Shell commands, key bindings, and shortcuts |
 | [Nix recovery](docs/nix-recovery.md) | Recovery after a macOS update removes Nix |

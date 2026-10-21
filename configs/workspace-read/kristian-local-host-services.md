@@ -1,0 +1,23 @@
+---
+name: local-host-services
+description: Use the migrated Mini agent's scoped company library, private memory, CRM and document tools without VPS execution or credential access.
+---
+
+# Migrated Mini services
+
+This agent (kristian) executes on the Mac mini with its own sandbox container. The native gateway is supervised on port18791; one Linux VM supplies all sales sandboxes. Never fall back to local VPS execution or use VPS SSH.
+
+- Company knowledge: `mini-services__kristian_search` then `mini-services__kristian_read` on the returned path. Require the fixed principal and policy revision, citation and source hash. CompanyWiki only; private/operations scopes remain denied. Use these tools instead of the historical Archivist-delegation-only instructions.
+- Private memory: `memory_search`/`memory_get`; text index local to this agent. Original source transcripts are also retained on this host in the agent-owned immutable archive. Do not publish private memory/history to company knowledge.
+- CRM: `mini-services__kristian_crm` allows bounded GET operations only. The admin credential remains on the service host; never retrieve it or call raw endpoints. Writes require the established human/coordinator approval path.
+- Offers: `mini-services__kristian_offer_pdf` generates private local PDFs from verified inputs. It does not send, upload or publish. Use returned paths; never invent customer/financial data. External delivery still requires approval.
+- Assigned-human Google calendar/mail/Drive, when present: `mini-services__kristian_google` is read-only and server-bound to the verified human. No caller-selected subject, send, upload, or event creation. If absent or denied, do not guess a mailbox or broaden access.
+- Credentials: host-owned private files; do not place keys in skills, prompts, command arguments, shared procedures or container mounts. LLM access uses this host's existing cli-proxy.txt through gateway env references.
+- Scheduled jobs remain paused until explicitly reviewed and accepted. Do not enable auto reviews/dreaming or create polling loops as a workaround.
+- Coordination with Klaus: use `mini-services__kristian_klaus` with a bounded question and verified identifiers. Discover that exact tool if needed. Submit `prompt` once; if pending, preserve `task_token` and retrieve that same task using only `task_token`. Do not repeat the prompt. Pending is not a completed reply; report unknown completion after transport errors. Never substitute `sessions_send`, local `sessions_spawn`, VPS SSH or Telegram to another person's username. No automatic human delivery is implied.
+- Public links: use `web_fetch` first, then `web_search` for discovery. The command sandbox intentionally has no network: do not use shell curl, wget or Python HTTP as fallback, or interpret their DNS failure as a website outage. Browser failure is a separate tool-path problem, not permission to relax isolation.
+- EcoRay calculator report links: for an `https://ecoray.dk/.../report?snapshotId=ID` link supplied by the user, validate ID as letters/digits/underscore/hyphen and use `mini-services__kristian_google` with `operation: "report_read"` and `id: "ID"`. It saves the full snapshot JSON privately and returns its workspace-relative path. Use local `read` with offsets or Python JSON parsing via `exec` to inspect only requested fields. Do not dump the full customer report into chat. This avoids web_fetch and tool-wrapper truncation. The HTML shell alone is not the report. Read only the requested snapshot, preserve missing-field/truncation uncertainty, and do not fetch other customer IDs. This is public read-only access; do not use Marie's credentials or inherited report-editing scripts. Do not PATCH, calculate a replacement, change prices, email/SMS, or generate a new report unless separately authorized through the appropriate workflow.
+- Voice notes: the shared gateway transcribes inbound audio before your turn. Use the supplied transcript; no Whisper installation or network access inside the sandbox is needed. If there is no transcript, explicitly report a transcription failure rather than guessing what was said.
+- Legacy skills: `/root/...` paths and broken inherited symlinks refer to the retired VPS workspace. Prefer this current Mini tool contract. Do not attempt package installs, credential copying or VPS execution to make old examples work.
+
+Historical `/root/...` paths in legacy skills are not valid on this host. Use the concrete tools above. Preserve the documented approval/identity rules; never suppress a missing integration, access denial, or uncertain outcome.
