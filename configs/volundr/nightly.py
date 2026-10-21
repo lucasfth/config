@@ -179,6 +179,12 @@ def sync(settings):
         branch = git(repo, 'symbolic-ref', '--quiet', '--short', 'HEAD', check=False)
         if not branch:
             raise ValueError('Automatic sync requires a named consumer branch')
+        # Local edits do not block a delivery whose revision is already checked out.
+        if before == target:
+            result = {'status': 'up-to-date', 'target': target, 'config_revision': item['config_revision']}
+            save(state / 'last-sync.json', result)
+            (state / 'pending.json').unlink(missing_ok=True)
+            return result
         dirty = bool(git(repo, 'status', '--porcelain'))
         fast_forward = run('git', '-C', repo, 'merge-base', '--is-ancestor', before, target, check=False).returncode == 0
         if not fast_forward:
@@ -189,10 +195,6 @@ def sync(settings):
                 raise ValueError('Refusing published pin rewind')
         if dirty or not fast_forward:
             return stage_local(repo, target, state)
-        if before == target:
-            result = {'status': 'up-to-date', 'target': target, 'config_revision': item['config_revision']}
-            save(state / 'last-sync.json', result)
-            return result
         candidate = Path(tempfile.mkdtemp(prefix='validate-', dir=state)) / 'repo'
         run('git', 'clone', '--no-hardlinks', repo, candidate)
         git(candidate, 'checkout', '--detach', target)

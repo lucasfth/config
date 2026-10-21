@@ -223,6 +223,30 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(module.sync(self.settings)['status'], 'up-to-date')
         self.assertEqual(self.git(self.repo, 'rev-parse', 'HEAD'), self.before)
 
+    def test_adopted_dirty_delivery_preserves_edits_and_clears_pending(self):
+        self.delivery()
+        (self.repo / 'guide.md').write_text('private edits\n')
+        (self.repo / 'private.md').write_text('untracked\n')
+        module.save(self.state / 'pending.json', {'status': 'local-review-required'})
+        before = self.git(self.repo, 'status', '--porcelain')
+        with patch.object(module.secret_gate, 'scan'), patch.object(module, 'stage_local') as stage:
+            result = module.sync(self.settings)
+        self.assertEqual(result['status'], 'up-to-date')
+        stage.assert_not_called()
+        self.assertEqual(self.git(self.repo, 'status', '--porcelain'), before)
+        self.assertEqual((self.repo / 'guide.md').read_text(), 'private edits\n')
+        self.assertEqual((self.repo / 'private.md').read_text(), 'untracked\n')
+        self.assertFalse((self.state / 'pending.json').exists())
+        self.assertEqual(json.loads((self.state / 'last-sync.json').read_text())['target'], self.before)
+        self.assertEqual((self.home / 'config.yaml').read_text(), 'unrelated: keep\n')
+
+    def test_clean_noop_clears_stale_pending(self):
+        self.delivery()
+        module.save(self.state / 'pending.json', {'status': 'local-review-required'})
+        with patch.object(module.secret_gate, 'scan'):
+            self.assertEqual(module.sync(self.settings)['status'], 'up-to-date')
+        self.assertFalse((self.state / 'pending.json').exists())
+
     def test_rewind_of_previously_accepted_pin_is_rejected(self):
         self.delivery()
         (self.repo / 'new.md').write_text('local newer revision')
