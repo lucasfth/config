@@ -85,9 +85,26 @@ The original plan used a Nix systemd user service (`nix/common/services/gpu-serv
 
 ## Network
 
-All services listen on `0.0.0.0` and are reachable through Freyr's private Tailscale address:
-- Ports 22 (SSH), 8081, 8082, 9090, 5000, 8083, 11434 open via firewall
-- Tailscale provides secure connectivity for remote clients (Klaus VPS)
+Service listener addresses and firewall exposure are separate. WhisperX was
+observed listening on `0.0.0.0:9090` on 2026-10-21. The repository now restricts
+9090 to `networking.firewall.interfaces.tailscale0.allowedTCPPorts`; globally
+allowed source ports are 22, 5000, 8081, 8082 and 8083.
+
+Activated on 2026-10-21 in Freyr generation 37 after operator approval and direct
+sudo authentication. The pre-change remote checkout evaluated to the active
+generation's exact derivation despite its unrelated uncommitted files. The new
+firewall script changes only the 9090 acceptance rule; Home Manager file contents
+were identical, although its generation path changed. Switch exited 0, reloaded
+firewall.service and restarted home-manager-lucas.service.
+
+Post-switch: SSH succeeded, Mini's synthetic Danish OGG transcription succeeded
+over Tailscale, Tailscale TCP/9090 connected, and the operator-Mac LAN TCP/9090
+probe timed out. This is not a comprehensive test from every LAN/Docker client.
+Selected system:
+`/nix/store/jyykrm2wl24bvjf4n2y15qgr2v0k21sg-nixos-system-freyr-26.11.20260529.e9a7635`.
+Rollback system generation is 36; any rollback/activation needs approval.
+Preserve unrelated source edits. For a deliberate source reversal, move 9090
+back to the global allowedTCPPorts list and remove the interface-specific entry.
 
 ## Dependencies
 

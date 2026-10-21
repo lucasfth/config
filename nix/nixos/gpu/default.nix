@@ -13,10 +13,12 @@
 # NOTE: In nvidia-smi, GPU 0 = 3070, GPU 1 = 5070 Ti.
 # The CUDA_VISIBLE_DEVICES mapping in user services handles the
 # service→GPU routing.
-
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   # ── NVIDIA Driver ──────────────────────────────────────────────
   # legacy_580 (580.142) required for Blackwell (RTX 5070 Ti) support
   hardware.nvidia = {
@@ -29,7 +31,7 @@
   };
 
   # Blacklist nouveau — mandatory for NVIDIA proprietary driver
-  boot.blacklistedKernelModules = [ "nouveau" ];
+  boot.blacklistedKernelModules = ["nouveau"];
 
   # ── OpenGL/Vulkan ─────────────────────────────────────────────
   hardware.graphics = {
@@ -61,13 +63,14 @@
 
   # ── Firewall — SSH + GPU service ports ────────────────────────
   networking.firewall.allowedTCPPorts = [
-    22    # SSH
-    8081  # Embedding API
-    8082  # Reranker API
-    8083  # Vision Qwen
-    9090  # WhisperX API
-    5000  # Piper TTS (future)
+    22 # SSH
+    8081 # Embedding API
+    8082 # Reranker API
+    8083 # Vision Qwen
+    5000 # Piper TTS (future)
   ];
+  # Speech recordings must reach WhisperX through the private mesh, not LAN.
+  networking.firewall.interfaces.tailscale0.allowedTCPPorts = [9090];
 
   # ── Tailscale — internal mesh networking ─────────────────────
   services.tailscale.enable = true;
