@@ -417,6 +417,15 @@ Only `.obsidian` is excluded. If notes differ, it stops without replacing them.
 Reconcile those changes through Muninn MCP first; there is no overwrite/force
 option, automatic upload, or bidirectional synchronization.
 
+After verifying a local file matches its canonical Muninn MCP note, acknowledge
+that specific path with `muninn-refresh --reconciled README.md` (repeat the flag
+for multiple files). This is not a force option: each named file must exactly
+match Salt's verified incoming snapshot; mismatches, missing files, and other
+local edits still stop replacement. It requires an existing receipt and always
+restores to verify changed bytes, even at the same commit. Successful refreshes
+preserve the old vault and record the acknowledged file hashes in the new receipt.
+Never manually edit the receipt or restore old bytes just to silence the guard.
+
 Salt uses the saved macOS Keychain key; otherwise enter the passphrase only
 in its terminal prompt. No recovery material is stored in config. The readable
 image is plaintext and relies on Mac storage protection. `muninn-refresh`
@@ -425,8 +434,9 @@ It never seals, stages, commits, pushes, or prunes the backup history.
 
 Verification: `python3 tests/muninn-refresh.py` exercises isolated Git/restore
 scenarios for replacement, rollback, local-edit refusal (including post-crash
-edits), interrupted-run recovery, trust refusal, unchanged-commit no-ops, and
-image/host low-space refusal before decryption. On October 20, the live image
+edits), explicit reconciliation with incoming hash verification, interrupted-run
+recovery, trust refusal, unchanged-commit no-ops, and image/host low-space refusal
+before decryption. On October 20, the live image
 was expanded with a hash-verified detached safety copy and a successful APFS
 check; a real Salt refresh restored 4,926 files while retaining prior snapshots.
 No Nix activation is needed for Python changes: the installed launcher uses

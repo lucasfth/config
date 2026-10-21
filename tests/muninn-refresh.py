@@ -67,7 +67,7 @@ shutil.copytree(repo/"snapshot",dest)
         self.git("-C", str(self.writer), "commit", "-m", message)
         self.git("-C", str(self.writer), "push", "origin", "HEAD")
 
-    def run_refresh(self, **environment):
+    def run_refresh(self, *arguments, **environment):
         # Adapt platform identity and, for capacity tests, only the filesystem probe.
         loader = """import os,runpy,shutil,sys
 sys.platform='darwin'
@@ -77,10 +77,10 @@ def usage(path):
     result = disk_usage(path)
     return result._replace(free=0) if low and ((low == 'volume') == str(path).endswith('muninn-volume')) else result
 shutil.disk_usage=usage
-script=sys.argv[1];sys.argv=[script]
+script=sys.argv[1];sys.argv=[script,*sys.argv[2:]]
 runpy.run_path(script,run_name='__main__')
 """
-        return subprocess.run([sys.executable, "-c", loader, str(SCRIPT)], env=dict(self.env, **environment), capture_output=True, text=True)
+        return subprocess.run([sys.executable, "-c", loader, str(SCRIPT), *arguments], env=dict(self.env, **environment), capture_output=True, text=True)
 
     def test_refresh_preserves_settings_and_rollback(self):
         self.publish("new snapshot", "newest\n")
@@ -129,6 +129,82 @@ runpy.run_path(script,run_name='__main__')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("local", result.stderr.lower())
         self.assertEqual((self.vault / "note.md").read_text(), "local unpublished edit\n")
+
+    def test_reconciled_edit_matches_incoming_and_preserves_rollback(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        (self.vault / "note.md").write_text("already canonical\n")
+        self.publish("reconciled remote", "already canonical\n")
+        result = self.run_refresh("--reconciled", "note.md")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        receipt = json.loads((self.home / ".local/state/muninn/refresh.json").read_text())
+        self.assertEqual((Path(receipt["previous_snapshot"]) / "note.md").read_text(), "already canonical\n")
+        self.assertEqual((self.vault / "note.md").read_text(), "already canonical\n")
+        self.assertEqual(self.run_refresh(FAIL_RESTORE="1").returncode, 0)
+
+    def test_reconciled_mismatch_or_missing_file_preserves_vault_and_receipt(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        receipt = self.home / ".local/state/muninn/refresh.json"
+        before = receipt.read_bytes()
+        (self.vault / "note.md").write_text("canonical but unpublished\n")
+        self.publish("different remote", "different\n")
+        (self.writer / "snapshot/note.md").unlink()
+        for missing in (False, True):
+            with self.subTest(missing=missing):
+                if missing:
+                    (self.writer / "snapshot/other.md").write_text("nonempty\n")
+                    self.publish("deleted remote note")
+                result = self.run_refresh("--reconciled", "note.md")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("does not match", result.stderr)
+                self.assertEqual((self.vault / "note.md").read_text(), "canonical but unpublished\n")
+                self.assertEqual(receipt.read_bytes(), before)
+                self.assertFalse(list(self.volume.glob("vault-before-refresh-*")))
+                self.assertFalse((receipt.parent / "pending.json").exists())
+
+    def test_reconciliation_does_not_allow_other_local_edits(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        (self.vault / "note.md").write_text("canonical\n")
+        (self.vault / "unpublished.md").write_text("must preserve\n")
+        self.publish("remote", "canonical\n")
+        result = self.run_refresh("--reconciled", "note.md", FAIL_RESTORE="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unpublished.md", result.stderr)
+        self.assertEqual((self.vault / "unpublished.md").read_text(), "must preserve\n")
+
+    def test_reconciled_edit_forces_verification_even_at_receipt_commit(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        (self.vault / "note.md").write_text("unpublished\n")
+        result = self.run_refresh("--reconciled", "note.md")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not match", result.stderr)
+        self.assertEqual((self.vault / "note.md").read_text(), "unpublished\n")
+
+    def test_reconciled_edit_never_bypasses_failed_restore(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        receipt = self.home / ".local/state/muninn/refresh.json"
+        before = receipt.read_bytes()
+        (self.vault / "note.md").write_text("canonical\n")
+        self.publish("remote", "canonical\n")
+        result = self.run_refresh("--reconciled", "note.md", FAIL_RESTORE="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(receipt.read_bytes(), before)
+        self.assertEqual((self.vault / "note.md").read_text(), "canonical\n")
+
+    def test_reconciliation_requires_existing_receipt_and_snapshot_file(self):
+        result = self.run_refresh("--reconciled", "note.md")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("existing refresh receipt", result.stderr)
+        self.assertEqual(self.run_refresh().returncode, 0)
+        result = self.run_refresh("--reconciled", "missing.md")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not a snapshot file", result.stderr)
+
+    def test_reconciliation_refuses_nonrelative_or_unnormalized_paths(self):
+        for name in ("", "/note.md", "../note.md", "./note.md", "folder/../note.md"):
+            with self.subTest(name=name):
+                result = self.run_refresh("--reconciled", name)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("vault-relative", result.stderr)
 
     def test_first_refresh_refuses_unknown_baseline(self):
         (self.vault / "new-local.md").write_text("unpublished\n")

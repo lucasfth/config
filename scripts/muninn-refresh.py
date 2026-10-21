@@ -149,7 +149,7 @@ def require_trusted(repo):
         raise RefreshError("Salt keys/settings are not explicitly approved on this Mac. Inspect the expected recipients, then run `salt trust ~/muninn` yourself. This command never approves keys automatically.")
 
 
-def refresh(home):
+def refresh(home, reconciled=()):
     require_closed_obsidian()
     recover_pending(home)
     repo = home / "muninn"
@@ -172,8 +172,14 @@ def refresh(home):
                 raise ValueError("invalid manifest")
         except (ValueError, KeyError) as error:
             raise RefreshError("Refresh receipt is invalid; preserve it and reconcile the baseline before replacing notes.") from error
-        check_local(current, expected)
+        for name in reconciled:
+            if name not in current:
+                raise RefreshError(f"Reconciled path is not a snapshot file: {name}")
+        # Defer only explicitly named edits; incoming bytes must verify them below.
+        check_local(current, expected | {name: current[name] for name in reconciled})
     else:
+        if reconciled:
+            raise RefreshError("Reconciliation requires an existing refresh receipt.")
         # Establish the existing snapshot's provenance before pulling a new commit.
         previous_commit = run("git", "-C", repo, "rev-parse", "HEAD", capture=True)
         require_restore_space(home, volume, vault)
@@ -186,7 +192,7 @@ def refresh(home):
     run("git", "-C", repo, "pull", "--ff-only")
     require_trusted(repo)
     commit = run("git", "-C", repo, "rev-parse", "HEAD", capture=True)
-    if receipt.get("commit") == commit:
+    if receipt.get("commit") == commit and current == receipt["files"]:
         print(f"Muninn already current at {commit[:12]} ({len(current)} files); no restore or duplicate rollback needed.")
         return
     require_restore_space(home, volume, vault)
@@ -197,6 +203,9 @@ def refresh(home):
         restored = manifest(destination)
         if not restored:
             raise RefreshError("Restored snapshot is empty; refusing replacement.")
+        for name in reconciled:
+            if current[name] != restored.get(name):
+                raise RefreshError(f"Reconciled file does not match the verified incoming snapshot: {name}. Current vault and receipt were not changed.")
         require_closed_obsidian()
         check_local(manifest(vault), current)
         settings = vault / ".obsidian"
@@ -210,6 +219,8 @@ def refresh(home):
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         backup = volume / ("vault-before-refresh-" + stamp)
         receipt = {"commit": commit, "files": restored, "previous_snapshot": str(backup)}
+        if reconciled:
+            receipt["reconciled_files"] = {name: current[name] for name in reconciled}
         pending = receipt_path.parent / "pending.json"
         write_json(pending, {"backup": str(backup), "destination": str(destination), "receipt": receipt})
         vault.rename(backup)
@@ -229,7 +240,13 @@ def refresh(home):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog="Quit Obsidian first. Uses Salt's saved Keychain key or its interactive prompt; never seals, pushes, or discards local notes.")
-    parser.parse_args()
+    parser.add_argument("--reconciled", action="append", default=[], metavar="PATH",
+                        help="MCP-reconciled vault-relative file; must exactly match the verified incoming backup (repeatable)")
+    arguments = parser.parse_args()
+    for name in arguments.reconciled:
+        path = Path(name)
+        if not name or path.is_absolute() or ".." in path.parts or path.as_posix() != name:
+            parser.error("--reconciled requires a normalized vault-relative file path")
     if sys.platform != "darwin":
         raise RefreshError("muninn-refresh is a macOS command.")
     os.umask(0o077)
@@ -240,7 +257,7 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise RefreshError("Another muninn-refresh is running.") from error
-        refresh(Path.home())
+        refresh(Path.home(), arguments.reconciled)
 
 
 if __name__ == "__main__":
