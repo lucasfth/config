@@ -13,12 +13,14 @@ Only run when explicitly requested. `/aar [focus]` requests a review and its Mun
 
 ## Review the evidence
 
-Use the requested task or session scope. When Lucas asks to "just write the AAR", deliver the substantive review in chat, not another completion report or a promise to write it. Review the existing conversation and incident record first; retrieve only evidence needed to resolve a material gap. Do not reopen completed implementation, rerun infrastructure checks, publish changes or launch another backup merely to write the review. Label prior test results as historical rather than implying fresh execution. State what is unavailable rather than reconstructing it as fact. Answer briefly:
+Use the requested task or session scope. Deliver the substantive review in chat for every AAR request, including requests bundled with Muninn or company-brain updates; storage receipts supplement the review, never replace it. Explicit requests to update those knowledge stores authorize the named documentation work, not unrelated runtime or instruction changes. Review the existing conversation and incident record first; retrieve only evidence needed to resolve a material gap. Do not reopen completed implementation, rerun infrastructure checks, publish changes or launch another backup merely to write the review. Label prior test results as historical rather than implying fresh execution. State what is unavailable rather than reconstructing it as fact. Reconcile earlier success claims against the underlying receipts before recording them: a CLI reply from an embedded runner does not establish serving-gateway recovery, and an old background failure is not invalidated by a later test of a different execution path. Correct any overstatement explicitly in chat and in each requested knowledge store. Answer briefly:
 
 1. **What was supposed to happen?** Name the instruction, plan, and expected result.
 2. **What actually happened?** Include the final state, corrections, partial work, and failures. Distinguish source edits, commits, publication, loaded configuration, and observed behavior.
 3. **Why was there a difference?** Give the supported mechanism. Label an unconfirmed cause as a hypothesis and name a check that could confirm it. "Be more careful" is not a cause.
 4. **What should we repeat or change?** Identify a specific condition and response that another agent could apply. Include useful successes without inventing praise.
+
+When a decisive receipt is condensed or missing after compaction, retrieve the saved output or targeted session-history entry before assigning its evidence grade. Recover the original result rather than rerunning production solely for documentation. If recovery is unavailable, distinguish an earlier assistant-reported result from retained raw evidence; missing output alone neither proves failure nor independently verifies success. In particular, a successful wrapper exit does not prove its nested SSH command, HTTP request or stream assertions passed.
 
 Extract up to three checkable lessons. Zero lessons is valid. Search existing lessons and guidance first; if a rule already covers the failure, investigate retrieval, execution, or enforcement instead of adding a duplicate. Session summaries may contain facts that do not warrant a durable lesson.
 
@@ -36,6 +38,8 @@ Applying fixes requires separate approval for the named edit. Bare `/aar`, gener
 ## Record and report
 
 Use [the Muninn storage procedure](references/muninn.md). Do not create a LESSONS.md or another parallel memory log. Preserve the daily session-note convention, existing metadata, prior entries, and index links. Never include credentials or unnecessary private details in a lesson.
+
+For a bundled Muninn/AAR/company-brain update, first read the existing audit and canonical platform overview in each requested store. Reuse exact paths from returned links or listings rather than guessing filename case. Apply one consistent status and evidence boundary to the audit, overview and index: updating an audit alone leaves the canonical overview misleading. Preserve older specifications under an explicit historical heading or notice, and link the current audit from the overview. Use revision-locked remote writes where available and read back each changed external target. Report each store separately, distinguishing canonical local-file persistence, API availability, remote publication and backup state; none implies the others.
 
 Lead the final response with the four answers and concrete lessons, using short headings and bullets. Include proposed fixes only where a durable change is needed; end with actual fix status and the verified note path. A saved-file announcement or checklist of completed work is not the requested review. If storage fails, still deliver the review in chat and clearly say it was not persisted. A stored lesson is not an applied fix; an applied fix is not proof a future session loaded it.
 
