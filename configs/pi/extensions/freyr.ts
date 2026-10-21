@@ -15,6 +15,34 @@ export function validateAppUrl(value: string): URL {
   return url;
 }
 
+export function buildInteractionExpression(action: 'click' | 'type', selector: string, text = ''): string {
+  // Only JSON-encoded data is interpolated, never caller-supplied JavaScript.
+  const operation = action === 'click' ? 'e.click();' : `
+    if(e.isContentEditable){
+      const selection=window.getSelection();
+      if(!selection)throw Error('Rich-text selection unavailable');
+      e.focus();
+      const range=document.createRange();range.selectNodeContents(e);
+      selection.removeAllRanges();selection.addRange(range);
+      if(!document.execCommand('insertText',false,${JSON.stringify(text)}))throw Error('Rich-text insertion failed');
+    }else{
+      const proto=e instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;
+      const set=Object.getOwnPropertyDescriptor(proto,'value')?.set;
+      if(!set)throw Error('Not a text input');
+      set.call(e,${JSON.stringify(text)});
+      e.dispatchEvent(new Event('input',{bubbles:true}));
+      e.dispatchEvent(new Event('change',{bubbles:true}));
+    }`;
+  return `(()=>{
+    const e=document.querySelector(${JSON.stringify(selector)});
+    if(!e)throw Error('Element not found');
+    const c=[e.type,e.name,e.id,e.autocomplete,e.getAttribute('aria-label'),e.placeholder,e.getAttribute('data-placeholder')].join(' ');
+    if(/password|passwd|token|secret|credential|one-time|otp|username|email/i.test(c))throw Error('Credential field interaction forbidden');
+    ${operation}
+    return 'ok';
+  })()`;
+}
+
 export default function freyrBrowser(pi: ExtensionAPI): void {
   let session: Session | undefined;
   const owned = new Map<string, { targetId: string; origin: string }>();
@@ -84,7 +112,7 @@ export default function freyrBrowser(pi: ExtensionAPI): void {
           if (params.action === 'click' || params.action === 'type') {
             if (!params.selector) throw new Error('An element selector is required.');
             // Only data is interpolated; selectors/text cannot become JavaScript source.
-            expression = `(()=>{const e=document.querySelector(${JSON.stringify(params.selector)});if(!e)throw Error('Element not found');const c=[e.type,e.name,e.id,e.autocomplete,e.getAttribute('aria-label'),e.placeholder].join(' ');if(/password|passwd|token|secret|credential|one-time|otp|username|email/i.test(c))throw Error('Credential field interaction forbidden');${params.action === 'click' ? 'e.click()' : `const set=Object.getOwnPropertyDescriptor(e instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value')?.set;if(!set)throw Error('Not a text input');set.call(e,${JSON.stringify(params.text ?? '')});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))`};return 'ok'})()`;
+            expression = buildInteractionExpression(params.action, params.selector, params.text ?? '');
           }
           const result = await session._call('Runtime.evaluate',{expression,returnByValue:true}) as {result:{value?:unknown};exceptionDetails?:unknown};
           if (result.exceptionDetails) throw new Error('Page interaction refused or failed.');
