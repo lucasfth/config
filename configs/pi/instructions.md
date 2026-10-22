@@ -12,6 +12,8 @@ Raw read supplies anchors required for edits. issue://2 and pr://2 use the curre
 
 Muninn supplies required safety/project guidance plus a bounded prior-note index; retrieve relevant bodies with memory_recall. Native tree/fork/resume and compaction preserve session history. Only run after-action reviews and write their session notes when Lucas explicitly requests `/aar` or an AAR; use the `aar` skill. `/retro` is reserved for another workflow.
 
+Whenever interacting with Muninn, consult and follow the current canonical `tech/vault-note-writing-rules.md` and `tech/Muninn-Maintenance-And-Capture-Review.md` through MCP; keep pointers, not copied rulebooks. Use preservation-enabled writes and archives, inspect returned warnings, and verify saved content and prior revisions. Refresh stale MCP connections/catalogs with the supported runtime control; tool discovery alone is not reconnection.
+
 ## Visuals and browser
 
 Charts, diagram fitting, SVG display and topic titles run automatically in TypeScript hooks. Use numeric Markdown tables (including percentages) for bars, Mermaid XY line/bar for categorical plots, Mermaid for flows and self-contained SVG for geometry. SVG uses currentColor and --fg/--muted/--border/--surface/--accent/--success/--warning/--error/--c1…--c6; no scripts/external resources/foreignObject. One visual per idea.
