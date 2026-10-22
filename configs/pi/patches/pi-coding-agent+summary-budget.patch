@@ -1,0 +1,13 @@
+diff --git a/node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js b/node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js
+--- a/node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js
++++ b/node_modules/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js
+@@ -480,6 +480,9 @@
+     // callers without a session ID, including branch summaries, receive a fresh routing ID.
+     const requestOptions = {
+         ...options,
++        // Huginn's summary budget is independent of the automatic compaction threshold.
++        // Pi 1.4 defaults to model.maxTokens; retain the previous 0.8 * 16384 ceiling.
++        maxTokens: Math.min(options.maxTokens ?? Infinity, model.maxTokens > 0 ? model.maxTokens : Infinity, 13107),
+         cacheRetention: "none",
+         sessionId: options.sessionId ?? uuidv7(),
+     };

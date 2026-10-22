@@ -49,7 +49,10 @@ try {
   assert.ok(!advertised.includes('eval'));
   const prompt = request.messages.filter(message=>message.role==='system'||message.role==='developer').map(message=>typeof message.content==='string'?message.content:JSON.stringify(message.content)).join('\n');
   const metadata = prompt.match(/<skills>[\s\S]*?<\/skills>/)?.[0] ?? '';
-  assert.ok(metadata.length > 0 && metadata.length < 14399, `Skill metadata remains discoverable and shrank: ${metadata.length}; prompt ${prompt.length}; roles ${request.messages.map(message=>message.role)}; keys ${Object.keys(request)}`);
+  // Lucas approved a 48,000-character absolute cap after measuring 45,730 for 222 skills.
+  // This covers discovery metadata only; full skill bodies remain loaded on demand.
+  const skillMetadataBudget = 48000;
+  assert.ok(metadata.length > 0 && metadata.length < skillMetadataBudget, `Skill metadata exceeds its ${skillMetadataBudget}-character budget: ${metadata.length}; prompt ${prompt.length}; roles ${request.messages.map(message=>message.role)}; keys ${Object.keys(request)}`);
   const schemaChars = JSON.stringify(request.tools ?? []).length;
   assert.ok(schemaChars < 50659, 'Direct schemas smaller than baseline');
   console.log(JSON.stringify({ activeTools: active, deferredTools: tools.filter(tool => tool.exposure === 'deferred').map(tool => tool.name), systemPromptCharacters: prompt.length, skillMetadataCharacters: metadata.length, requestToolSchemaCharacters: schemaChars, baseline: { systemPromptCharacters: 31560, skillMetadataCharacters: 14399, toolSchemaCharacters: 50659 }, scope: 'Provider-request capture with native discovery extensions; no Muninn/advisor network; characters not tokenizer counts' }, null, 2));
