@@ -80,7 +80,10 @@ try {
   const probe = path.join(dir, 'session-probe.ts');
   await writeFile(probe, `import { writeFileSync } from 'node:fs';
 export default pi => {
-  pi.on('session_start', (_, ctx) => writeFileSync(${JSON.stringify(path.join(dir, 'session-id'))}, ctx.sessionManager.getSessionId()));
+  pi.on('session_start', (_, ctx) => {
+    writeFileSync(${JSON.stringify(path.join(dir, 'session-id'))}, ctx.sessionManager.getSessionId());
+    process.stdout.write('\\x1b]777;pi-session-ready\\x07');
+  });
   pi.on('input', event => {
     writeFileSync(${JSON.stringify(path.join(dir, 'submitted-input'))}, JSON.stringify({ source: event.source, text: event.text }));
     process.stdout.write(${JSON.stringify(inputMarker)});
@@ -140,6 +143,7 @@ export default pi => {
     if (text.includes('\x1b[16t')) pty.write('\x1b[6;20;16t');
   });
   await pty.waitFor('Huginn · Pi', { timeout: 15_000 });
+  await pty.waitFor('pi-session-ready', { timeout: 15_000 });
   const sessionId = await readFile(path.join(dir, 'session-id'), 'utf8');
   await delay(150);
   const startup = readScreen();

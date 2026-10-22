@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import path from 'node:path';
+import { promisify } from 'node:util';
 import { CustomEditor } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI, ExtensionContext, KeybindingsManager } from '@earendil-works/pi-coding-agent';
 import { mixColors, parseColor, stripTerminalSequences, truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
@@ -11,13 +14,29 @@ export function formatWorkingDirectory(cwd: string, home = process.env.HOME) {
   return home && (cwd === home || cwd.startsWith(`${home}/`)) ? `~${cwd.slice(home.length)}` : cwd;
 }
 
+const execFileAsync = promisify(execFile);
+
+export async function getWorkingDirectoryLabel(cwd: string): Promise<string> {
+  const git = async (...args: string[]) => (await execFileAsync('git', args, { cwd, timeout: 2000 })).stdout.trim();
+  try {
+    const [root, common, gitDir] = (await git('rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir', '--absolute-git-dir')).split('\n');
+    if (common === gitDir) return path.basename(root);
+    const worktrees = await git(`--git-dir=${common}`, 'worktree', 'list', '--porcelain', '-z');
+    const mainRoot = worktrees.match(/^worktree ([^\0]+)\0/)?.[1];
+    return `${path.basename(mainRoot ?? path.dirname(common))} (wt:${path.basename(root)})`;
+  } catch {
+    return formatWorkingDirectory(cwd);
+  }
+}
+
 export function fitBoxBorder(left: string, right: string, width: number) {
   if (width <= 0) return '';
   if (width === 1) return '╭';
   if (width < 5) return `╭${'─'.repeat(width - 2)}╮`;
   const available = width - 4;
-  const rightText = truncateToWidth(right, Math.floor(available / 2), '');
-  const leftText = truncateToWidth(left, Math.max(0, available - visibleWidth(rightText)), '');
+  const leftBudget = Math.min(visibleWidth(left), Math.floor(available / 2));
+  const rightText = truncateToWidth(right, available - leftBudget, '…');
+  const leftText = truncateToWidth(left, Math.max(0, available - visibleWidth(rightText)), '…');
   return `╭ ${leftText}${'─'.repeat(Math.max(0, available - visibleWidth(leftText) - visibleWidth(rightText)))}${rightText} ╮`;
 }
 
@@ -129,7 +148,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
   pi.on('session_info_changed', () => render?.());
   pi.on('message_end', () => render?.());
   pi.on('session_shutdown', () => { stopDemo(); active = undefined; render = undefined; tools.clear(); promptDepth = 0; activity = 'idle'; });
-  pi.on('session_start', (_event, ctx) => {
+  pi.on('session_start', async (_event, ctx) => {
     stopDemo();
     if (ctx.mode !== 'tui') return;
     active = ctx;
@@ -137,6 +156,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
     promptDepth = 0;
     activity = ctx.isIdle() ? 'idle' : 'model';
     const sessionId = ctx.sessionManager.getSessionId();
+    let location = formatWorkingDirectory(ctx.cwd);
     let profileStatus: ProfileStatus;
     ctx.ui.setHeader(tui => ({
       render(width) {
@@ -214,7 +234,6 @@ export default function presentationExtension(pi: ExtensionAPI) {
       protected override renderTopBorder(width: number, hiddenLines: number) {
         const usage = active?.getContextUsage();
         const model = active?.model?.name || active?.model?.id || 'no model';
-        const location = formatWorkingDirectory(ctx.cwd);
         const percent = usage?.percent == null ? '0%' : `${Math.round(usage.percent)}%`;
         const title = pi.getSessionName();
         const details = `${percent} · ${pi.getThinkingLevel()}${title ? ` · ${title}` : ''}${hiddenLines ? ` · ↑${hiddenLines}` : ''}`;
@@ -224,7 +243,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
             ? stripTerminalSequences(profileStatus.renderSpinnerInBorder(1))
             : profileStatus.renderInBorder(Math.max(1, Math.floor(width / 2)))
           : '◉';
-        const label = ` ${status} ${model}  ›  ▰ ${location}${branch ? `  ⎇ ${branch}` : ''} `;
+        const label = ` ${status} ${model}  ›  ${location}${branch ? `  ⎇ ${branch}` : ''} `;
         this.identityColumns = Math.max(0, Math.min(width - 2, visibleWidth(`   ${status} ${model}`)));
         return fitBoxBorder(label, ` ${details} `, width);
       }
@@ -271,5 +290,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
       demoTimer = setInterval(() => { demoMs += 100; render?.(); }, 100);
       demoTimer.unref();
     }
+    location = await getWorkingDirectoryLabel(ctx.cwd);
+    if (active === ctx) render?.();
   });
 }

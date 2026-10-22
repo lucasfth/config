@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import os from 'node:os';
 import { TuiMainScreen, stripTerminalSequences, visibleWidth, setCapabilities } from '@earendil-works/pi-tui';
@@ -10,6 +12,7 @@ import { UserMessageComponent } from './node_modules/@earendil-works/pi-coding-a
 import { prepareRuntime } from './runtime.mjs';
 import { installToolFrames } from './extensions/tool-frames.ts';
 import presentation from './extensions/presentation.ts';
+import { topicTitle } from './extensions/session-title.ts';
 const dir=await mkdtemp(path.join(os.tmpdir(),'pi-render-proof-'));
 try {
  await prepareRuntime({agentDir:dir,env:{...process.env,NEO_PROXY_URL:'http://127.0.0.1:9/v1'},ompDir:path.join(dir,'absent')});
@@ -18,17 +21,29 @@ try {
  setCapabilities({trueColor:true,images:'kitty',hyperlinks:true});
  const {loadThemeFromPath,setThemeInstance}=await import('./node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js');
  setThemeInstance(loadThemeFromPath(path.join(dir,'themes/omp-dark.json'),'truecolor'));
+ const git = promisify(execFile);
+ const repo = path.join(dir, 'ecoray-web');
+ const worktree = path.join(dir, '3002');
+ await mkdir(repo);
+ await git('git', ['init'], { cwd: repo });
+ await git('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'fixture'], { cwd: repo });
+ await git('git', ['worktree', 'add', '-b', 'fixture', worktree], { cwd: repo });
+ const title = topicTitle('Fix battery dispatch savings, recipient phone and Firebase-backed report images')!;
  const callbacks=new Map();let factory;let footer;
  // Focused renderer smoke supplies only the APIs consumed by presentation.
- presentation({registerToolRenderer(){},on:(name: string,callback: unknown)=>callbacks.set(name,callback),getThinkingLevel:()=> 'high',getSessionName:()=> 'Configuration review'} as unknown as ExtensionAPI);
+ presentation({registerToolRenderer(){},on:(name: string,callback: unknown)=>callbacks.set(name,callback),getThinkingLevel:()=> 'high',getSessionName:()=> title} as unknown as ExtensionAPI);
  const {theme}=await import('./node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js');
  const terminal={columns:110,rows:42,start(){},stop(){},write(){},hideCursor(){},showCursor(){},clearLine(){},clearFromCursor(){},moveBy(){},setTitle(){}};
  const tui=new TuiMainScreen(terminal as unknown as Terminal);
- const context={mode:'tui',cwd:'/Users/lucas/Desktop/code/config',model:{id:'gpt-6.1-sol',name:'GPT-6.1 Sol'},getContextUsage:()=>({percent:18}),isIdle:()=>true,sessionManager:{getSessionId:()=> 'presentation-fixture'},ui:{theme,setHeader(){},setFooter(fn){footer=fn(tui,theme,{getGitBranch:()=> 'main',onBranchChange:()=>()=>{}})},setEditorComponent(fn){factory=fn}}};
- callbacks.get('session_start')({},context);
+ const context={mode:'tui',cwd:worktree,model:{id:'gpt-6.1-sol',name:'GPT-6.1 Sol'},getContextUsage:()=>({percent:18}),isIdle:()=>true,sessionManager:{getSessionId:()=> 'presentation-fixture',getBranch:()=>[{type:'message',message:{role:'user'}}]},ui:{theme,setHeader(){},setFooter(fn){footer=fn(tui,theme,{getGitBranch:()=> 'fixture',onBranchChange:()=>()=>{}})},setEditorComponent(fn){factory=fn}}};
+ await callbacks.get('session_start')({},context);
  const keys={matches:()=>false};const editor=factory(tui,{},keys);editor.setText('Please inspect the configuration');
- const editorRows=editor.render(110).map(stripTerminalSequences);assert.ok(editorRows.some(line=>line.includes('GPT-6.1 Sol')&&line.includes('config')));assert.deepEqual(footer.render(110),[]);
- assert.ok(editorRows.some(line=>line.includes('Configuration review')), 'Saved session name is visible in composer border');
+ const editorRows=editor.render(110).map(stripTerminalSequences);assert.ok(editorRows.some(line=>line.includes('GPT-6.1 Sol')&&line.includes('ecoray-web (wt:3002)')));assert.deepEqual(footer.render(110),[]);
+ const wideRows = editor.render(200).map(stripTerminalSequences);
+ assert.ok(wideRows[0].includes(title), 'Long session title survives the real composer renderer');
+ assert.ok(!wideRows[0].includes(dir), 'Worktree path is replaced by repo identity');
+ assert.ok(wideRows.every(line => visibleWidth(line) <= 200));
+ console.log(wideRows.join('\n'));
  let resolver;installToolFrames({registerToolRenderer(fn: unknown){resolver=fn}} as unknown as ExtensionAPI);
  const renderers=resolver('bash',()=>undefined);
  const tool=new ToolExecutionComponent('bash','proof',{command:'printf configuration-ok'},{}, {...renderers}, {requestRender(){}},process.cwd());

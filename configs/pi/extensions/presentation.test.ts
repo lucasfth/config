@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { CustomEditor, initTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext, KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import { colorToHex, colorToRgb, mixColors, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { WorkingStatusIndicator, RetryStatusIndicator, CompactionStatusIndicator } from '../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/status-indicator.js';
 import { theme } from '../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js';
-import presentation, { composerActivity, composerColors, fitBoxBorder, formatWorkingDirectory, headerLayout } from './presentation.ts';
+import presentation, { composerActivity, composerColors, fitBoxBorder, formatWorkingDirectory, getWorkingDirectoryLabel, headerLayout } from './presentation.ts';
 
 test("box borders stay within narrow terminal widths", () => {
   for (let width = 0; width <= 12; width++) {
@@ -25,13 +29,51 @@ test("working directory abbreviates home and preserves other absolute paths", ()
   assert.equal(formatWorkingDirectory("/Users/lucas-other/project", "/Users/lucas"), "/Users/lucas-other/project");
 });
 
+test('composer location uses the main repo name from subdirectories and linked worktrees', async () => {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'pi-location-')));
+  const repo = path.join(dir, 'ecoray-web');
+  const worktree = path.join(dir, '3002');
+  const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' });
+  try {
+    mkdirSync(repo);
+    git(repo, 'init');
+    git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-m', 'fixture');
+    git(repo, 'worktree', 'add', '-b', 'fixture', worktree);
+    mkdirSync(path.join(repo, 'src'));
+    mkdirSync(path.join(worktree, 'src'));
+    const location = getWorkingDirectoryLabel;
+    assert.equal(await location(repo), 'ecoray-web');
+    assert.equal(await location(path.join(repo, 'src')), 'ecoray-web');
+    assert.equal(await location(worktree), 'ecoray-web (wt:3002)');
+    assert.equal(await location(path.join(worktree, 'src')), 'ecoray-web (wt:3002)');
+    const title = 'Fix battery dispatch savings, recipient phone and Firebase-backed report images';
+    const { border, ready } = createProfileEditor('dark', 'location-fixture', false, { cwd: worktree, title });
+    await ready;
+    assert.match(border(180), /ecoray-web \(wt:3002\).*⎇ main/);
+    assert.ok(!border(180).includes('▰'));
+    assert.ok(!border(180).includes(dir));
+    assert.ok(border(180).includes(title));
+    assert.equal(await location(dir), formatWorkingDirectory(dir));
+    assert.equal(await location(path.join(dir, 'missing')), formatWorkingDirectory(path.join(dir, 'missing')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('short left labels free more than half the border for the session description', () => {
+  const left = ' ◉ Sol › config ⎇ main ';
+  const right = ' 9% · high · Fix battery dispatch savings, recipient phone and Firebase-backed report images ';
+  const line = fitBoxBorder(left, right, 120);
+  assert.ok(line.includes(left));
+  assert.ok(line.includes(right));
+  assert.equal(visibleWidth(line), 120);
+});
+
 test("grapheme-aware truncation handles emoji and combining sequences", () => {
   const line = fitBoxBorder("👩🏽‍💻 cafe\u0301", "model", 12);
   assert.equal(visibleWidth(line), 12);
   assert.ok(!line.includes("�"));
 });
 
-function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh = false) {
+function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh = false, options: { cwd?: string; title?: string } = {}) {
   initTheme(appearance, false);
   const callbacks = new Map<string, Array<(event: unknown, ctx: ExtensionContext) => void>>();
   let factory: ((tui: TUI, theme: EditorTheme, keys: KeybindingsManager) => CustomEditor) | undefined;
@@ -42,13 +84,13 @@ function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh
       callbacks.set(name, [...(callbacks.get(name) ?? []), callback]);
     },
     getThinkingLevel: () => 'high',
-    getSessionName: () => 'Spinner check',
+    getSessionName: () => options.title ?? 'Spinner check',
   } as unknown as ExtensionAPI);
   let renderRequests = 0;
   const terminal = { rows: 40, columns: 120 };
   const tui = { terminal, requestRender() { renderRequests++; } } as unknown as TUI;
   const ctx = {
-    mode: 'tui', cwd: '/work/config', model: { id: 'sol', name: 'Sol' },
+    mode: 'tui', cwd: options.cwd ?? '/work/config', model: { id: 'sol', name: 'Sol' },
     getContextUsage: () => ({ percent: 9 }),
     sessionManager: { getSessionId: () => sessionId, getBranch: () => fresh ? [] : [{ type: 'message', message: { role: 'user' } }] },
     isIdle: () => true,
@@ -60,14 +102,14 @@ function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh
       setEditorComponent(fn: typeof factory) { factory = fn; },
     },
   } as unknown as ExtensionContext;
-  const emit = (name: string, event: unknown = {}) => {
-    for (const callback of callbacks.get(name) ?? []) callback(event, ctx);
-  };
-  emit('session_start');
+  const emit = (name: string, event: unknown = {}) => Promise.all(
+    (callbacks.get(name) ?? []).map(callback => callback(event, ctx)),
+  );
+  const ready = emit('session_start');
   assert.ok(factory);
   const editor = factory(tui, {} as EditorTheme, { matches: () => false } as unknown as KeybindingsManager);
   const border = (width = 110) => editor.render(width).map(stripTerminalSequences).find(line => line.startsWith('╭')) ?? '';
-  return { editor, border, tui, terminal, emit, header: header!, renderRequests: () => renderRequests };
+  return { editor, border, tui, terminal, emit, ready, header: header!, renderRequests: () => renderRequests };
 }
 
 test('native working spinner replaces the idle icon without a working suffix', () => {

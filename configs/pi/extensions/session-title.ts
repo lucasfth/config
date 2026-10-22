@@ -4,7 +4,7 @@ import { truncateToWidth, stripTerminalSequences } from '@earendil-works/pi-tui'
 export function topicTitle(text: string): string | undefined {
   const clean = stripTerminalSequences(text.replace(/<skill\b[\s\S]*?<\/skill>/gi, '')).replace(/\s+/g, ' ').trim();
   if (!clean || clean.startsWith('/') || /^(?:hi|hey|hello|thanks|thank you)[!.?]*$/i.test(clean)) return undefined;
-  return stripTerminalSequences(truncateToWidth(clean, 48, '…'));
+  return stripTerminalSequences(truncateToWidth(clean, 120, '…'));
 }
 
 export function installSessionTitles(pi: ExtensionAPI): void {

@@ -3,12 +3,18 @@ import test from 'node:test';
 import { topicTitle } from './session-title.ts';
 import { fitMermaid } from './mermaid-fit.ts';
 
-test('topic names skip greetings and bound substantive requests',()=>{assert.equal(topicTitle('Hey'),undefined);assert.equal(topicTitle('create some dummy graphs charts just inside this sessions'),'create some dummy graphs charts just inside thi…');assert.ok(!topicTitle('👩🏽‍💻 '.repeat(40))?.includes('�'));});
+test('topic names skip greetings and retain longer substantive requests', () => {
+  assert.equal(topicTitle('Hey'), undefined);
+  const request = 'create some dummy graphs charts just inside this sessions';
+  assert.equal(topicTitle(request), request);
+  assert.equal(topicTitle('x'.repeat(180)), 'x'.repeat(119) + '…');
+  assert.ok(!topicTitle('👩🏽‍💻 '.repeat(80))?.includes('�'));
+});
 test('title strips terminal sequences before truncation and from inserted resets',()=>{
-  const title = topicTitle('\u001b[31m' + 'request '.repeat(10));
+  const title = topicTitle('\u001b[31m' + 'request '.repeat(30));
   assert.ok(title);
   assert.doesNotMatch(title, /\u001b/);
-  assert.ok(title.length <= 48);
+  assert.ok(title.length <= 120);
 });
 
 test('native non-horizontal Mermaid diagrams remain fenced',()=>{
