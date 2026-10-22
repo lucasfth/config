@@ -187,7 +187,7 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
   const local = ompModels.providers?.mimer;
   if (local?.baseUrl || env.ECORAY_MIMER_IP) {
     providers.mimer = {
-      baseUrl: env.ECORAY_MIMER_IP ? `http://${env.ECORAY_MIMER_IP}:8080` : local.baseUrl,
+      baseUrl: env.ECORAY_MIMER_IP ? `http://${env.ECORAY_MIMER_IP}:8080/v1` : local.baseUrl,
       api: 'openai-completions', apiKey: 'local',
       models: local?.models?.length ? local.models : [{ id: sourceRoles.slow.modelId, name: 'Mimer local', reasoning: true, input: ['text'], contextWindow: 262144, maxTokens: 16384 }],
     };
