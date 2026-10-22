@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { chmod, copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
@@ -122,6 +124,17 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
   if (normalizedEndpoint.pathname === '/') normalizedEndpoint.pathname = '/v1';
   await mkdir(agentDir, { recursive: true, mode: 0o700 });
   await chmod(agentDir, 0o700);
+  // Let Herdr own its version-matched hook; Pi discovers agentDir/extensions on reload.
+  if (env.HERDR_ENV === '1' && env.HERDR_SOCKET_PATH && env.HERDR_PANE_ID) {
+    await mkdir(path.join(agentDir, 'extensions'), { recursive: true, mode: 0o700 });
+    try {
+      await promisify(execFile)(env.HERDR_BIN_PATH || 'herdr', ['integration', 'install', 'pi'], {
+        env: { ...env, PI_CODING_AGENT_DIR: agentDir }, timeout: 5000,
+      });
+    } catch (error) {
+      console.warn(`pi-native: Herdr state hook installation failed: ${error.message}`);
+    }
+  }
 
   const moduleDir = path.join(sourceDir, 'node_modules');
   const themesDir = path.join(agentDir, 'themes');
