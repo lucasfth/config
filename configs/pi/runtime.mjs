@@ -210,6 +210,10 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
   const generatedMcp = await jsonFile(path.join(ompDir, 'mcp.json'));
   const existingMcp = await jsonFile(path.join(agentDir, 'mcp.json'));
   const mcpServers = { ...sourceMcp.mcpServers, ...generatedMcp.mcpServers, ...existingMcp.mcpServers };
+  const muninn = mcpServers.muninn;
+  if (muninn?.url && !Object.keys(muninn.headers ?? {}).some(name => name.toLowerCase() === 'authorization')) {
+    mcpServers.muninn = { ...muninn, headers: { ...muninn.headers, Authorization: 'Bearer ${MUNINN_MCP_TOKEN}' } };
+  }
   const vercel = mcpServers.vercel;
   // Vercel advertises only openid on the resource; offline_access is needed for refresh tokens.
   if (vercel && /^https:\/\/mcp\.vercel\.com\/?$/.test(vercel.url ?? '') && !vercel.oauth?.scope) {

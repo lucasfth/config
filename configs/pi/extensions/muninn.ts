@@ -80,10 +80,12 @@ export class McpVaultClient implements VaultClient {
   }
 
   async #request(method: string, params: unknown): Promise<{ result?: { content?: Array<{ type?: string; text?: string }> } }> {
+    const token = process.env.MUNINN_MCP_TOKEN;
+    if (!token?.trim()) throw new Error("MUNINN_MCP_TOKEN is missing; source ~/config/nix_secrets before launching Huginn.");
     this.#endpoint ??= readMuninnEndpoint();
     const response = await fetch(this.#endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ jsonrpc: "2.0", id: ++this.#requestId, method, params }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

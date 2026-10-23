@@ -1,6 +1,9 @@
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSessionContext, createMemoryRecall, type Project, type VaultClient } from "./muninn.ts";
+import { buildSessionContext, createMemoryRecall, McpVaultClient, type Project, type VaultClient } from "./muninn.ts";
 
 const project: Project = { org: "lucasfth", repo: "config", branch: "work" };
 
@@ -63,4 +66,48 @@ test("selected-note recall reports empty results and isolates per-note read fail
   const result = await createMemoryRecall(client)(["projects/x/y/main/empty.md", "projects/x/y/main/broken.md"]);
   assert.match(result, /empty\.md[\s\S]*No content/);
   assert.match(result, /broken\.md[\s\S]*unavailable: offline/);
+});
+
+test("Muninn authenticates initialize and tools/call with the exported bearer token", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-muninn-client-"));
+  const previousDir = process.env.PI_CODING_AGENT_DIR;
+  const previous = process.env.MUNINN_MCP_TOKEN;
+  process.env.PI_CODING_AGENT_DIR = dir;
+  process.env.MUNINN_MCP_TOKEN = "synthetic-muninn-token";
+  await writeFile(join(dir, "mcp.json"), JSON.stringify({ mcpServers: { muninn: { url: "https://vault.invalid/mcp" } } }));
+  t.after(async () => {
+    if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousDir;
+    await rm(dir, { recursive: true, force: true });
+  });
+  const methods: string[] = [];
+  t.mock.method(globalThis, "fetch", async (_url: unknown, options: RequestInit) => {
+    assert.equal(new Headers(options.headers).get("Authorization"), "Bearer synthetic-muninn-token");
+    const request = JSON.parse(options.body as string);
+    methods.push(request.method);
+    return Response.json({ jsonrpc: "2.0", id: request.id, result: request.method === "initialize" ? {} : { content: [{ type: "text", text: JSON.stringify({ content: "authenticated note" }) }] } });
+  });
+  try {
+    assert.deepEqual(await new McpVaultClient().read("tech/030-Coding-Style.md"), { content: "authenticated note" });
+    assert.deepEqual(methods, ["initialize", "tools/call"]);
+  } finally {
+    if (previous === undefined) delete process.env.MUNINN_MCP_TOKEN;
+    else process.env.MUNINN_MCP_TOKEN = previous;
+  }
+});
+
+test("Muninn rejects missing bearer tokens before making an HTTP request", async (t) => {
+  const previous = process.env.MUNINN_MCP_TOKEN;
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ result: {} }));
+  try {
+    for (const token of [undefined, "", "   "]) {
+      if (token === undefined) delete process.env.MUNINN_MCP_TOKEN;
+      else process.env.MUNINN_MCP_TOKEN = token;
+      await assert.rejects(new McpVaultClient().read("tech/030-Coding-Style.md"), /MUNINN_MCP_TOKEN is missing/);
+    }
+    assert.equal(fetch.mock.callCount(), 0);
+  } finally {
+    if (previous === undefined) delete process.env.MUNINN_MCP_TOKEN;
+    else process.env.MUNINN_MCP_TOKEN = previous;
+  }
 });

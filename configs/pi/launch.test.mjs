@@ -97,3 +97,26 @@ test('Vercel requests refreshable OAuth without replacing credentials or explici
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('Muninn bearer configuration upgrades existing entries without persisting the token', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-muninn-auth-'));
+  const options = { agentDir: dir, env: { NEO_PROXY_URL: 'https://proxy.invalid/v1', MUNINN_MCP_TOKEN: 'synthetic-secret' }, ompDir: path.join(dir, 'absent') };
+  try {
+    await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: {
+      muninn: { url: 'https://vault.invalid/mcp', headers: { 'X-Custom': 'keep' } },
+    } }));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await prepareRuntime(options);
+      const text = await readFile(path.join(dir, 'mcp.json'), 'utf8');
+      const { muninn } = JSON.parse(text).mcpServers;
+      assert.equal(muninn.url, 'https://vault.invalid/mcp');
+      assert.equal(muninn.headers['X-Custom'], 'keep');
+      assert.equal(muninn.headers.Authorization, 'Bearer ${MUNINN_MCP_TOKEN}');
+      assert.ok(!text.includes('synthetic-secret'));
+    }
+    const custom = { url: 'https://vault.invalid/mcp', headers: { Authorization: 'Bearer ${CUSTOM_VAULT_TOKEN}' } };
+    await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { muninn: custom } }));
+    await prepareRuntime(options);
+    assert.deepEqual(JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers.muninn, custom);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
