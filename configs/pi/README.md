@@ -150,9 +150,13 @@ The advisor remains a continuous supervisor, with severity-aware delivery:
 - Reviews run in the background without the upstream 15–120-second catch-up waits. A final answer can therefore precede a late finding; a blocker may still trigger its bounded follow-up. This is not a synchronous safety gate or a guarantee that every defect is caught before an action.
 - The supervisor prompt forbids status/all-clear spam, invented approval gates and relitigating Lucas's accepted trade-offs without materially new evidence.
 
-Implementation: `extensions/advisor.ts` plus `patches/pi-omplike-advisor-supervision.patch`, applied idempotently by `npm run setup`. Start a fresh profile process or reload extensions to use the changed code; existing sessions are not automatically restarted. An explicit runtime `system-prompts/advisor.md`, if present, overrides the bundled prompt.
+Implementation: `extensions/advisor.ts` plus `patches/pi-omplike-advisor-supervision.patch`, applied idempotently by `npm run setup`. Durable judgement guidance lives in Muninn's `tech/Huginn-Native-Pi-Profile.md`, section **Advisor decision guidance**, fetched once when the advisor runtime is built. Only that section (maximum 6,000 characters) enters the advisor prompt; missing guidance permits technical review but warns against approval/process findings without complete evidence. It is not added to every primary turn.
 
-`node integration-advisor.mjs` exercises the real extension and Pi session against a deterministic loopback provider: deferred idle advice reaches the next provider request, primary settlement does not wait for routine review, blockers can request follow-ups, and advisory-only replies cannot form an unbounded restart chain. It does not establish live-model severity judgment or physical UI acceptance.
+Advisor self-compaction now replays at most eight public decision-text fragments totalling 16,000 characters, excluding tool payloads and reasoning. The rolling buffer can omit older decisions; absence is not proof of absent approval. Session/branch replacement clears it. This repairs a reproduced context-loss path, not proof of the cause of every repeated live advisory or a semantic approval classifier. Existing severity/deduplication and serious-defect reporting remain intact.
+
+Start a fresh profile process or reload extensions to use changed code; this pass does not reload the current session. A runtime `system-prompts/advisor.md`, if present, overrides the bundled baseline; canonical scoped Muninn guidance is appended to either baseline.
+
+`node --import tsx integration-advisor.mjs` exercises the real extension and Pi session against a deterministic loopback provider: deferred advice reaches the next request, primary settlement stays asynchronous, blockers can request bounded follow-ups, and scoped MCP guidance reaches the advisor request without unrelated sections. `extensions/advisor-context.test.ts` covers proactive/reactive self-compaction replay, bounds and session reset. These checks do not establish live-model judgement or physical UI acceptance.
 
 ## On-demand code capabilities and context economy
 

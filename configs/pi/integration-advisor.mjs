@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { createAgentSession, SessionManager, initTheme } from '@earendil-works/pi-coding-agent';
 import { prepareRuntime } from './runtime.mjs';
 
-// Exercise the actual file extension + pinned advisor + Pi 1.3.0 against a
+// Exercise the actual file extension + pinned advisor + current Pi against a
 // deterministic local provider. No real credentials, services or model calls.
 const root = await mkdtemp(path.join(os.tmpdir(), 'huginn-advisor-'));
 const calls = [];
@@ -25,6 +25,12 @@ const server = http.createServer(async (request, response) => {
     let body = '';
     for await (const chunk of request) body += chunk;
     const payload = JSON.parse(body);
+    if (payload.method) {
+      const result = payload.method === 'initialize' ? {} : { content: [{ type: 'text', text: JSON.stringify({ content: '## Advisor decision guidance\n\nCANONICAL_GUIDANCE_FIXTURE: compare the proposed scope and actual user reply.\n\n## Other section\n\nDO_NOT_INJECT_OTHER_SECTIONS' }) }] };
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ jsonrpc: '2.0', id: payload.id, result }));
+      return;
+    }
     calls.push(payload);
     const advisor = payload.model === 'claude-haiku-5-5';
     const toolReply = payload.messages.at(-1)?.role === 'tool';
@@ -76,7 +82,7 @@ try {
   settings.extensions = settings.extensions.filter(filename => filename.endsWith('/advisor.ts'));
   assert.equal(settings.extensions.length, 1);
   await writeFile(path.join(root, 'settings.json'), JSON.stringify(settings));
-  await writeFile(path.join(root, 'mcp.json'), JSON.stringify({ mcpServers: {} }));
+  await writeFile(path.join(root, 'mcp.json'), JSON.stringify({ mcpServers: { muninn: { url: `http://127.0.0.1:${server.address().port}/mcp` } } }));
   const result = await createAgentSession({ cwd: root, agentDir: root, tools: [], sessionManager: SessionManager.inMemory(root) });
   session = result.session;
   assert.deepEqual(result.extensionsResult.errors, []);
@@ -109,6 +115,9 @@ try {
   await session.prompt('Proceed despite the unresolved issue.');
   await until(() => primaryCalls().length >= 5 && reviews >= 5 && !activeReviews && !pendingAdvice && !session.isStreaming, 'new user activity permits renewed serious warning');
   assert.equal(primaryCalls().length, 5, 'New user activity must allow another blocker correction');
+  const advisorRequests = calls.filter(call => call.model === 'claude-haiku-5-5');
+  assert.ok(JSON.stringify(advisorRequests[0]).includes('CANONICAL_GUIDANCE_FIXTURE'), 'Canonical guidance must reach the actual advisor request, not just the primary');
+  assert.ok(!JSON.stringify(advisorRequests[0]).includes('DO_NOT_INJECT_OTHER_SECTIONS'), 'Only scoped guidance is loaded');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ scenario: 'advisor-supervision', noCatchUpWait: true, idleAdviceInNextProviderRequest: true, boundedBlockerFollowUps: true, repeatedBlockerAfterUserActivity: true, primaryCalls: primaryCalls().length, reviews, scope: 'real Pi session + deterministic loopback; not live advisor judgment/UI proof' }));
 } finally {

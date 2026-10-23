@@ -41,7 +41,7 @@ export function readMuninnEndpoint(configPath = join(process.env.PI_CODING_AGENT
 
 
 
-class McpVaultClient implements VaultClient {
+export class McpVaultClient implements VaultClient {
   #requestId = 0;
   #initialized = false;
   #endpoint: string | undefined;

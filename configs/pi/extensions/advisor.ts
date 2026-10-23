@@ -3,6 +3,15 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { McpVaultClient, type VaultClient } from "./muninn.ts";
+
+export const ADVISOR_GUIDANCE_PATH = "tech/Huginn-Native-Pi-Profile.md";
+export async function loadAdvisorGuidance(client: Pick<VaultClient, "read"> = new McpVaultClient()): Promise<string> {
+  const { content } = await client.read(ADVISOR_GUIDANCE_PATH);
+  const guidance = content.match(/^## Advisor decision guidance\n([\s\S]*?)(?=^## |$(?![\s\S]))/mu)?.[1]?.trim();
+  if (!guidance || guidance.length > 6000) throw new Error("Canonical advisor guidance is missing or oversized");
+  return `Canonical Muninn guidance (${ADVISOR_GUIDANCE_PATH}):\n${guidance}`;
+}
 
 type AdvisorMode = { provider: string; modelId: string; thinkingLevel?: string };
 type ModeSettings = { modes?: Record<string, Partial<AdvisorMode>> };
@@ -87,5 +96,8 @@ export default function configuredAdvisorExtension(pi: ExtensionAPI): void {
     else if (!model) ctx.ui.notify(`Advisor is unavailable: configured model ${mode.provider}/${mode.modelId} is not in the current model catalogue.`, "warning");
     else if (!ctx.modelRegistry.hasConfiguredAuth(model)) ctx.ui.notify(`Advisor is unavailable: credentials are not configured for ${mode.provider}.`, "warning");
   });
-  advisorExtension(guardedPi);
+  advisorExtension(guardedPi, { loadGuidance: async () => {
+    try { return await loadAdvisorGuidance(); }
+    catch { return "Canonical Muninn advisor guidance unavailable. Do not raise approval/process findings without complete primary user evidence; continue reviewing concrete technical defects."; }
+  } });
 }

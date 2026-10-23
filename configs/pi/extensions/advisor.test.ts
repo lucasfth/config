@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import configuredAdvisorExtension, { readAdvisorMode } from "./advisor.ts";
+import configuredAdvisorExtension, { readAdvisorMode, loadAdvisorGuidance } from "./advisor.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { AdviseTool } from "pi-omplike-advisor/extensions/advisor.ts";
 
@@ -96,4 +96,12 @@ test("issue identity deduplicates rewording but permits evidenced blocker repeat
   tool.resetDelivered();
   await send("New session", "concern", "missing WHERE");
   assert.equal(deliveries.length, 4);
+});
+
+test("canonical advisor guidance is scoped, bounded and missing sections fail visibly", async () => {
+  const guidance = await loadAdvisorGuidance({ async read() { return { content: "## Other\nignored\n## Advisor decision guidance\nRead the proposal and actual reply.\n## History\nignored" }; } });
+  assert.match(guidance, /Read the proposal/);
+  assert.doesNotMatch(guidance, /ignored/);
+  await assert.rejects(loadAdvisorGuidance({ async read() { return { content: "## Other\nnone" }; } }), /missing or oversized/);
+  await assert.rejects(loadAdvisorGuidance({ async read() { return { content: "## Advisor decision guidance\n" + "x".repeat(6001) }; } }), /missing or oversized/);
 });

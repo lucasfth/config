@@ -21,30 +21,29 @@
  	note: Type.String({
  		description: "One concrete piece of advice for the agent you are watching. Terse, specific, actionable.",
  	}),
-@@ -228,7 +233,10 @@
+@@ -228,8 +233,11 @@
  	readonly description =
  		"Send one concrete, ACTIONABLE piece of advice to the agent you are watching. Use sparingly; stay silent when nothing matters. Call it to head off likely-wrong or materially wasteful work. NEVER call it to report status, acknowledge, confirm, summarize, or signal that all is well / resolved / nothing-further-needed — in those cases emit nothing.";
  	readonly parameters = adviseSchema as any;
 -	#delivered = new Map<string, number>();
 +	#delivered = new Map<string, { rank: number; evidence: string; activity: number }>();
 +	#activity = 0;
-+
-+	noteActivity(): void { this.#activity++; }
  
++	noteActivity(): void { this.#activity++; }
++
  	// onAdvice returns true if the note was delivered, false if it was held
  	// (high severity) and should be re-offered/reconfirmed later.
+ 	constructor(private readonly onAdvice: (note: string, severity?: AdvisorSeverity) => boolean) {}
 @@ -245,14 +253,16 @@
  	 * the actual delivery point must).
  	 */
  	markDelivered(note: string, severity?: AdvisorSeverity): void {
 -		this.#delivered.set(dedupeKey(note), rankOf(severity));
--	}
--
++		this.#delivered.set(dedupeKey(note), { rank: rankOf(severity), evidence: "", activity: this.#activity });
+ 	}
+ 
 -	async execute(_id: string, args: { note: string; severity?: AdvisorSeverity }): Promise<AgentToolResult<unknown>> {
 -		const key = dedupeKey(args.note);
-+		this.#delivered.set(dedupeKey(note), { rank: rankOf(severity), evidence: "", activity: this.#activity });
-+	}
-+
 +	async execute(_id: string, args: { note: string; severity?: AdvisorSeverity; issueId?: string; evidence?: string }): Promise<AgentToolResult<unknown>> {
 +		const key = dedupeKey(args.issueId || args.note);
 +		const evidence = dedupeKey(args.evidence || "");
@@ -66,7 +65,77 @@
  		return { content: [{ type: "text", text: "Recorded." }], details: { ...args } };
  	}
  }
-@@ -919,89 +929,22 @@
+@@ -481,6 +491,7 @@
+  */
+ export class AdvisorRuntime {
+ 	#pending: string[] = [];
++	#decisionContext: string[] = [];
+ 	#held: AdvisorNote[] = [];
+ 	// Keys re-raised during the in-flight review; drives the post-review prune.
+ 	#reraised: Set<string> | undefined;
+@@ -681,8 +692,15 @@
+ 	}
+ 
+ 	/** Queue a rendered primary-turn delta (markdown string) for review. */
+-	push(deltaText: string): void {
++	push(deltaText: string, decisionText?: string): void {
+ 		if (this.disposed || !deltaText.trim()) return;
++		// Keep bounded public decision text, never tool payloads or reasoning.
++		if (decisionText?.trim()) {
++			this.#decisionContext.push(decisionText.slice(-16000));
++			while (this.#decisionContext.length > 8 || this.#decisionContext.join("\n\n").length > 16000) {
++				this.#decisionContext.shift();
++			}
++		}
+ 		this.#pending.push(deltaText);
+ 		this.#backlog++;
+ 		void this.#drain();
+@@ -692,6 +710,7 @@
+ 	reset(): void {
+ 		this.#epoch++;
+ 		this.#pending = [];
++		this.#decisionContext = [];
+ 		this.#held = [];
+ 		this.#reraised = undefined;
+ 		this.#lastOutcome = undefined;
+@@ -713,6 +732,7 @@
+ 		this.disposed = true;
+ 		this.#epoch++;
+ 		this.#pending = [];
++		this.#decisionContext = [];
+ 		this.#held = [];
+ 		this.#reraised = undefined;
+ 		this.#lastOutcome = undefined;
+@@ -744,7 +764,11 @@
+ 				const preamble = formatReconfirmPreamble(offered);
+ 				this.#reraised = new Set();
+ 				this.#reviewEpoch = epoch;
+-				const messages = buildReviewMessages(preamble, batch);
++				const reviewMessages = () => buildReviewMessages(
++					(this.agent.state.messages.length ? "" : "Bounded primary decision context (older turns may be omitted; missing evidence is not proof of absent approval):\n\n" + this.#decisionContext.join("\n\n") + "\n\n") + preamble,
++					batch,
++				);
++				let messages = reviewMessages();
+ 				const promptChars = messages.reduce(
+ 					(n, m) =>
+ 						n +
+@@ -769,6 +793,7 @@
+ 				if (pct !== null && pct >= this.compactAtPercent && this.agent.state.messages.length > 0) {
+ 					this.onDebug?.("advisor self-compacting (proactive), ctx=", pct, "% >=", this.compactAtPercent, "%");
+ 					this.#softReset();
++					messages = reviewMessages();
+ 				}
+ 				let stale = false;
+ 				try {
+@@ -790,6 +815,7 @@
+ 						if (last?.stopReason === "length" && attempt === 0) {
+ 							this.onDebug?.("advisor context overflow, self-compacting (reactive) and replaying batch fresh");
+ 							this.#softReset();
++							messages = reviewMessages();
+ 							// Roll back any concern/blocker the DISCARDED overflowed attempt held:
+ 							// it was raised against a truncated view, and offeredKeys was snapshotted
+ 							// pre-attempt so the success-prune below can't reach it — left in place
+@@ -919,89 +945,22 @@
  
  // Default advisor system prompt, bundled so the package is self-contained. A
  // user-provided ~/.pi/agent/system-prompts/advisor.md overrides it when present.
@@ -76,7 +145,9 @@
 -- They might be sinking deeper into a hole that will not accomplish the user's request.
 -
 -Your job is to offer that view before they sink work into the wrong direction.
--
++const DEFAULT_ADVISOR_SYSTEM_PROMPT = `You supervise a coding agent for Lucas. Protect correctness and security while allowing development to proceed.
++You receive incremental transcript updates and have read-only tools to verify concrete risks. You never execute changes or address Lucas directly.
+ 
 -<scope>
 -You critique the agent's work; you never do it yourself. You are not a participant
 -in the conversation and never address the user. When the agent answers a question
@@ -84,7 +155,9 @@
 -or compose your own answer. If the agent is sound, stay SILENT. Never try to fulfill
 -the user's request yourself; that is the agent's job, not yours.
 -</scope>
--
++Use advise only for actionable findings. Most updates need silence. Never send acknowledgments, status, all-clear, nothing-further, or a paraphrase of an earlier finding.
++Use a stable issueId for the underlying defect across rewordings. Include concrete evidence (file, observed behavior, failed fix or risky action).
+ 
 -<workflow>
 -You receive the agent's transcript incrementally, including their thoughts and tool calls/results.
 -You have read-only access through \`read\`, \`grep\`, \`find\` to verify your suspicions.
@@ -92,7 +165,11 @@
 -- 2–3 tool calls per advise, at most.
 -- Exception: a critical bug may need deeper verification before raising a blocker.
 -</workflow>
--
++Severity:
++- nit: optional cleanup or minor improvement; never stalls or restarts the primary.
++- concern: material but uncertain risk; provide evidence and let the primary decide. Never stalls or restarts it.
++- blocker: verified serious correctness/security defect, likely data loss, or a demonstrably unsound change. Explain the failure and required correction. May request a corrective continuation.
+ 
 -<communication>
 -- You call \`advise\` to surface commentary to the driving agent; at most one \`advise\` per update
 -  (exception: when reconfirming held advisories, re-raise EACH one that still applies).
@@ -109,7 +186,9 @@
 -  held advisory you are explicitly asked to reconfirm is NOT a repeat.)
 -- NEVER nitpick about things the user already stated they are okay with. You advocate for the user.
 -</communication>
--
++Repeated warnings ARE appropriate for serious unresolved issues when the primary ignores the finding, attempts an inadequate fix, or proceeds toward a risky action. Reuse issueId and cite the NEW concrete evidence. Mere acknowledgment does not resolve a defect. Another assistant reply alone is NOT new evidence. Do not escalate just to get attention.
++After a fix, verify it and stop if addressed. Respect Lucas's explicit acceptance of a trade-off unless materially new evidence changes the risk.
+ 
 -<critical>
 -A low-confidence bar applies ONLY to concrete technical risk.
 -Generic uncertainty, vague unease, or user-intent ambiguity → stay SILENT.
@@ -153,29 +232,26 @@
 -
 -You MAY suggest an approach or fix if you've explored enough to be confident.
 -Offer the better design, not just the warning.
-+const DEFAULT_ADVISOR_SYSTEM_PROMPT = `You supervise a coding agent for Lucas. Protect correctness and security while allowing development to proceed.
-+You receive incremental transcript updates and have read-only tools to verify concrete risks. You never execute changes or address Lucas directly.
-+
-+Use advise only for actionable findings. Most updates need silence. Never send acknowledgments, status, all-clear, nothing-further, or a paraphrase of an earlier finding.
-+Use a stable issueId for the underlying defect across rewordings. Include concrete evidence (file, observed behavior, failed fix or risky action).
-+
-+Severity:
-+- nit: optional cleanup or minor improvement; never stalls or restarts the primary.
-+- concern: material but uncertain risk; provide evidence and let the primary decide. Never stalls or restarts it.
-+- blocker: verified serious correctness/security defect, likely data loss, or a demonstrably unsound change. Explain the failure and required correction. May request a corrective continuation.
-+
-+Repeated warnings ARE appropriate for serious unresolved issues when the primary ignores the finding, attempts an inadequate fix, or proceeds toward a risky action. Reuse issueId and cite the NEW concrete evidence. Mere acknowledgment does not resolve a defect. Another assistant reply alone is NOT new evidence. Do not escalate just to get attention.
-+After a fix, verify it and stop if addressed. Respect Lucas's explicit acceptance of a trade-off unless materially new evidence changes the risk.
-+
 +Do not invent approval gates, second-guess clear user intent, demand extra planning/clarification, or expand the scope. You are a supervisor for technical quality, not a replacement operator. Notes are evidence for the primary to evaluate, not authority to override Lucas.
 +Keep exploration lean (normally 2-3 read-only calls). Prefer a specific repair over a lecture.
  `;
  
  function loadSystemPrompt(cwd: string): string {
-@@ -1097,41 +1040,8 @@
- 			return true;
- 		}
+@@ -1019,7 +978,7 @@
+ 	return prompt;
+ }
  
+-export default function (pi: ExtensionAPI) {
++export default function (pi: ExtensionAPI, options?: { loadGuidance: () => Promise<string> }) {
+ 	let enabled = loadEnabled();
+ 
+ 	// Lazily-built advisor state, rebuilt when cwd/model changes or session resets.
+@@ -1095,43 +1054,10 @@
+ 		if (!enabled || (runtime && !runtime.acceptingAdvice)) {
+ 			dbg("dropping stale/disabled advice", severity, JSON.stringify(note).slice(0, 80));
+ 			return true;
+-		}
+-
 -		if (isHighSeverity(severity)) {
 -			// Always held: the advisor is seconds behind, so any high-severity advice
 -			// is about a state the agent has likely moved past. Reconfirm + the catch-up
@@ -198,8 +274,8 @@
 -			dbg("deliverAdvice hold (terminal-turn nit)", JSON.stringify(note).slice(0, 120));
 -			runtime.hold(note, severity);
 -			return false;
--		}
--
+ 		}
+ 
 -		// A nit whose text matches a held high-severity note is a de-escalation the
 -		// prompt forbids; treat it as a reconfirmation (keep the held note at its
 -		// severity) instead of shipping a nit and pruning the blocker. Report it as
@@ -216,13 +292,27 @@
  
  		// nit: deliver now, tagged as raised about an earlier step. triggerTurn wakes
  		// an idle agent — unless the user just aborted (Escape), in which case we must
-@@ -1280,26 +1190,16 @@
+@@ -1225,7 +1151,7 @@
+ 			cwd: ctx.cwd,
+ 			model,
+ 			thinkingLevel,
+-			systemPrompt: loadSystemPrompt(ctx.cwd),
++			systemPrompt: [loadSystemPrompt(ctx.cwd), await options?.loadGuidance()].filter(Boolean).join("\n\n"),
+ 			modelRegistry: ctx.modelRegistry,
+ 			adviseTool,
+ 		});
+@@ -1280,26 +1206,20 @@
  			assistant: event.message as AssistantMessage,
  			toolResults: event.toolResults as ToolResultMessage[],
  		});
 +		if (pendingUserPrompt !== undefined || event.toolResults.length > 0) adviseTool?.noteActivity();
++		const decisionText = formatTurnDelta({
++			userPrompt: pendingUserPrompt,
++			assistant: { ...(event.message as AssistantMessage), content: (event.message as AssistantMessage).content.filter(part => part.type === "text") } as AssistantMessage,
++		});
  		pendingUserPrompt = undefined;
- 		rt.push(delta);
+-		rt.push(delta);
++		rt.push(delta, decisionText);
  
  		// Don't block during a handoff teardown (we'd stall the replacement).
  		if (handoffInProgress()) return;
