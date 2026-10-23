@@ -12,13 +12,13 @@ export const sourceDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoDir = path.resolve(sourceDir, '../..');
 
 
-// Temporary local exceptions for unreconciled operational details and the
-// Pi-only browser boundary. TypeSafe now uses the corrected shared guide.
+// Local operational exceptions and Pi-only workflows/browser boundaries.
 const localSkillOverrides = new Map([
   ['sudo-ssh-freyr', '.omp/skills/sudo-ssh-freyr/SKILL.md'],
   ['sudo-ssh-mimer', '.omp/skills/sudo-ssh-mimer/SKILL.md'],
   ['syncing-vps-dotfiles', '.omp/skills/syncing-vps-dotfiles/SKILL.md'],
   ['using-freyr-browser', 'configs/pi/skills/using-freyr-browser/SKILL.md'],
+  ['huginn-retro', 'configs/pi/skills/huginn-retro/SKILL.md'],
 ]);
 
 export function canonicalSkillPaths({ rootDir = repoDir, cwd = process.cwd() } = {}) {
@@ -168,7 +168,7 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
     packages,
     extensions: personalExtensions.map(name => path.join(sourceDir, 'extensions', name)),
     skills: canonicalSkillPaths(),
-    prompts: [...new Set([...(sourceSettings.prompts ?? []), ...(previous.prompts ?? []), path.join(sourceDir, 'prompts/aar.md')])],
+    prompts: [...new Set([...(sourceSettings.prompts ?? []), ...(previous.prompts ?? []), ...['aar', 'retro'].map(name => path.join(sourceDir, `prompts/${name}.md`))])],
     subagents: {
       ...sourceSettings.subagents, ...previous.subagents,
       agentScanDirs: [path.join(sourceDir, 'agents')],

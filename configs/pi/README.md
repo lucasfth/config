@@ -102,9 +102,19 @@ Each new Pi launch reads the pinned tree; running sessions are not restarted. Te
 
 ### After-action reviews
 
-Use `/aar [focus]` for the combined after-action review and daily Muninn record. `/retro` is reserved and has no alias here. The prompt loads the shared `aar` skill; approval to review is not approval to apply fixes, publish, or deploy.
+Use `/aar [focus]` for the combined after-action review and daily Muninn record. The prompt loads the shared `aar` skill; approval to review is not approval to apply fixes, publish, or deploy.
 
 OMP’s `.omp/skills/aar` is a compatibility mirror of `volundr/skills/aar`. `skill-mirrors.json` documents the mirror and its empty body-exception list. `node --import tsx --test aar.test.mjs` checks body/reference fidelity and the native `/aar` expansion; it does not prove agent compliance or a successful Muninn write. Keep notices and source attribution with both copies.
+
+### Session environment and context retro
+
+Use `/retro [focus]` for a Huginn-only, proposal-only review of session friction and context bloat. This fills the previously reserved command; it is not an AAR alias and does not write to Muninn. The prompt loads [huginn-retro](skills/huginn-retro/SKILL.md) explicitly. The skill stays out of automatic model discovery, so neither its description nor body adds normal eager context. No Loki/shared-library changes or automatic hooks are installed.
+
+It audits tools, navigation, disconnected checks, duplicate/irrelevant eager guidance and oversized on-demand retrieval. Output is zero to three candidates with session evidence, cause/confidence, canonical target, proposed change, verification and trade-offs. Measurements and estimates must be distinguished; one unused safety rule is not evidence that it should be deleted. Applying a candidate requires separate approval.
+
+`node --import tsx --test aar.test.mjs retro.test.mjs` checks independent native routing, default/focused/quoted arguments, singular explicit-only skill loading and repeated runtime preparation without losing custom prompts. These checks establish plumbing, not model compliance. Trial the skill on actual session evidence separately; a same-agent trial is not independent validation.
+
+New profile launches regenerate these explicit resource paths. An already-running profile must launch again (for example `pi --continue`) to register them; `/reload` alone cannot discover a resource omitted from its existing settings. No system activation or service restart is required.
 
 ## Shell commands
 

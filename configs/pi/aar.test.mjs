@@ -22,7 +22,7 @@ test('AAR compatibility mirror matches the shared body with no exceptions', asyn
   assert.equal(localStorage, sharedStorage);
 });
 
-test('/aar expands through the native loader to the shared aar skill; /retro stays free', async () => {
+test('/aar expands through the native loader to the shared aar skill independently of /retro', async () => {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), 'pi-aar-command-'));
   try {
     await prepareRuntime({ agentDir, env: { ...process.env, NEO_PROXY_URL: 'https://proxy.invalid/v1' }, ompDir: path.join(agentDir, 'absent') });
@@ -41,6 +41,9 @@ test('/aar expands through the native loader to the shared aar skill; /retro sta
     assert.match(expanded, /`aar` skill/);
     assert.match(expanded, /release verification/);
     assert.notEqual(expanded, '/aar release verification');
-    assert.equal(expandPromptTemplate('/retro', prompts.prompts), '/retro');
+    const retro = expandPromptTemplate('/retro', prompts.prompts);
+    assert.notEqual(retro, '/retro');
+    assert.match(retro, /`huginn-retro` skill/);
+    assert.doesNotMatch(retro, /`aar` skill/);
   } finally { await rm(agentDir, { recursive: true, force: true }); }
 });
