@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "setup": "node setup.mjs",
     "verify:herdr": "node integration-herdr.mjs",
+    "verify:workers": "node integration-workers.mjs",
     "verify:integration": "node integration-sdk.mjs && node integration-advisor.mjs && node integration-ui.mjs && node --import tsx integration-render.ts && node integration-adversarial.mjs && node integration-roles.mjs && node --import tsx integration-presentation.ts && node integration-spinner.mjs && PI_SPINNER_APPEARANCE=light node integration-spinner.mjs && node integration-terminal.mjs && PI_CHART_KIND=bar node integration-terminal.mjs && node integration-images.mjs && node integration-eval.mjs && node integration-retrieval.mjs && node integration-discovery.mjs && node --import tsx tests/integration-retrieval.mjs && node integration-lsp.mjs && node integration-context.mjs && node integration-condense.mjs && node integration-compaction.mjs"
   },
   "dependencies": {

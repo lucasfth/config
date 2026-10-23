@@ -1,0 +1,66 @@
+--- a/node_modules/pi-subagents/src/extension/rpc.js
++++ b/node_modules/pi-subagents/src/extension/rpc.js
+@@ -120,6 +120,7 @@
+         if (job.mode === "workflow") {
+             addCandidate({
+                 internalKey: `async:${job.asyncId}`,
++                asyncRunId: job.asyncId,
+                 agent: "workflow",
+                 startedAt,
+                 tokens: job.totalTokens,
+@@ -136,6 +137,7 @@
+         if (!steps?.length) {
+             addCandidate({
+                 internalKey: `async:${job.asyncId}`,
++                asyncRunId: job.asyncId,
+                 agent: job.mode ?? "subagent",
+                 startedAt,
+                 tokens: job.totalTokens,
+@@ -150,6 +152,7 @@
+                 continue;
+             addCandidate({
+                 internalKey: `async:${job.asyncId}:${index}`,
++                asyncRunId: job.asyncId,
+                 agent: step.agent,
+                 role: step.label,
+                 model: step.model,
+@@ -184,6 +187,7 @@
+         const goal = displayText(candidate.goal, MAX_GOAL_LENGTH);
+         entries.push({
+             key,
++            ...(candidate.asyncRunId ? { asyncRunId: candidate.asyncRunId } : {}),
+             agent,
+             ...(role ? { role } : {}),
+             ...(model ? { model } : {}),
+--- a/node_modules/pi-subagents/src/extension/rpc.d.ts
++++ b/node_modules/pi-subagents/src/extension/rpc.d.ts
+@@ -44,6 +44,8 @@
+ export interface SubagentRpcFleetEntry {
+     /** Opaque key for client-side reconciliation; never a run or async identifier. */
+     key: string;
++    /** Owning async run, absent for foreground workers. */
++    asyncRunId?: string;
+     /** Resolved child agent/role name. */
+     agent: string;
+     role?: string;
+--- a/node_modules/pi-subagents/src/runs/shared/async-status-projection.js
++++ b/node_modules/pi-subagents/src/runs/shared/async-status-projection.js
+@@ -317,6 +317,7 @@
+     const activity = activityFor(job, ctx);
+     const node = {
+         id: publicText(job.asyncId, "async", ctx.caps.maxStringLength),
++        runId: publicText(job.asyncId, "async", ctx.caps.maxStringLength),
+         kind: kindForMode(job.mode),
+         label: labelForAgents(job.agents, job.mode ?? "subagent", ctx.caps.maxStringLength),
+         state,
+--- a/node_modules/pi-subagents/src/runs/shared/async-status-projection.d.ts
++++ b/node_modules/pi-subagents/src/runs/shared/async-status-projection.d.ts
+@@ -26,6 +26,8 @@
+ }
+ export interface AsyncStatusSnapshotNode {
+     id: string;
++    /** Materialized async run identity, retained when id becomes a workflow step key. */
++    runId?: string;
+     kind: AsyncStatusSnapshotKind | "host-step";
+     label: string;
+     state: AsyncStatusSnapshotState;
