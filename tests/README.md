@@ -21,6 +21,7 @@ macOS-specific tools, or temporary local services/mocks.
   Run with `python3 tests/fleet-shell.py`; it never touches a live remote host.
 - `nix-recovery-config.sh` and `setup-efficiency.sh` inspect evaluated Nix
   configuration and activation settings.
+- `gimle-config.py` evaluates the Mac mini identity, host-isolation boundaries and retained MacBook integrations. Run with `python3 tests/gimle-config.py`; it does not activate either host.
 - `configs/pi/`: run `npm run typecheck`, `npm test` and `npm run verify:integration` there. These retain isolated loopback provider, RPC, normal-shell PTY and renderer checks. `pi update` runs them before reporting success; they do not prove live Freyr/Muninn/Herdr integrations.
 
 Run an individual script from the repository root, for example:

@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  hostname,
   ...
 }: {
   imports = [
@@ -13,5 +14,6 @@
   ];
 
   # macOS-only GUI tools are kept out of shared packages.
-  home-manager.users.${config.system.primaryUser}.home.packages = with pkgs; [aerospace jankyborders];
+  home-manager.users.${config.system.primaryUser}.home.packages =
+    lib.optionals (hostname == "lucas-macbook-pro") (with pkgs; [aerospace jankyborders]);
 }

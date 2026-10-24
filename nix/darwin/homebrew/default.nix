@@ -2,14 +2,16 @@
   config,
   pkgs,
   lib,
+  hostname,
   ...
 }: {
-  imports = [
-    ./brews.nix
-    ./casks.nix
-    ./mas.nix
-    ./activation.nix
-  ];
+  imports =
+    [./brews.nix]
+    ++ lib.optionals (hostname == "lucas-macbook-pro") [
+      ./casks.nix
+      ./mas.nix
+      ./activation.nix
+    ];
 
   homebrew = {
     enable = true;
@@ -18,7 +20,7 @@
       upgrade = false;
     };
 
-    taps = [
+    taps = lib.optionals (hostname == "lucas-macbook-pro") [
       "crmne/tap" # Spotifast native Spotify client
       "homebrew/services" # brew services (postgres, redis)
       "minio/stable" # minio-warp

@@ -29,7 +29,7 @@
       darwin.lib.darwinSystem {
         inherit (host) system;
         specialArgs = {
-          inherit (host) homeDirectory;
+          inherit (host) homeDirectory hostname;
         };
         modules = [
           ./nix/darwin.nix
@@ -94,6 +94,7 @@
       };
   in {
     darwinConfigurations."lucas-macbook-pro" = mkDarwin "lucas-macbook-pro";
+    darwinConfigurations."gimle" = mkDarwin "gimle";
 
     nixosConfigurations."freyr" = mkNixOS "freyr";
 

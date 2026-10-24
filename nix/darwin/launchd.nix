@@ -1,6 +1,8 @@
 {
   pkgs,
   homeDirectory,
+  lib,
+  hostname,
   ...
 }: let
   nixHealthCheck = ''
@@ -13,7 +15,7 @@
   '';
 in {
   # AeroSpace is Nix-installed, so macOS has no application login item for it.
-  launchd.user.agents.aerospace = {
+  launchd.user.agents.aerospace = lib.mkIf (hostname == "lucas-macbook-pro") {
     serviceConfig = {
       ProgramArguments = [
         "${pkgs.aerospace}/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
@@ -24,7 +26,7 @@ in {
   };
 
   # Salt backups contain case-distinct paths, requiring case-sensitive APFS.
-  launchd.user.agents.muninn-readable = {
+  launchd.user.agents.muninn-readable = lib.mkIf (hostname == "lucas-macbook-pro") {
     serviceConfig = {
       ProgramArguments = [
         "/bin/sh"
@@ -59,7 +61,7 @@ in {
   };
 
   # Delivery while awake, gated once daily after 02:31 Europe/Copenhagen.
-  launchd.user.agents.volundr-delivery = {
+  launchd.user.agents.volundr-delivery = lib.mkIf (hostname == "lucas-macbook-pro") {
     serviceConfig = {
       ProgramArguments = ["/bin/sh" "${homeDirectory}/.local/libexec/volundr/controller.sh"];
       EnvironmentVariables.HOME = homeDirectory;
@@ -71,7 +73,7 @@ in {
   };
 
   # Clean up leaked Tailwind CSS v4 oxide-helper processes
-  launchd.user.agents.tailwind-cleanup = {
+  launchd.user.agents.tailwind-cleanup = lib.mkIf (hostname == "lucas-macbook-pro") {
     serviceConfig = {
       ProgramArguments = [
         "${pkgs.bash}/bin/bash"

@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  hostname,
   ...
 }: {
   # ──────────────────────────────────────────────────────────────
@@ -115,7 +116,7 @@
   '';
 
   # `postActivation` is an active nix-darwin hook; `extra` is not.
-  system.activationScripts.postActivation.text = ''
+  system.activationScripts.postActivation.text = lib.optionalString (hostname == "lucas-macbook-pro") ''
     sudo pmset -b powernap 0
   '';
 }

@@ -2,19 +2,20 @@
   config,
   pkgs,
   lib,
+  hostname,
   ...
 }: {
   home.packages = with pkgs;
     [
       docker
     ]
-    ++ lib.optionals stdenv.isDarwin [
+    ++ lib.optionals (stdenv.isDarwin && hostname == "lucas-macbook-pro") [
       swiftbar
       jankyborders
       lmstudio
       sioyek
     ]
-    ++ lib.optionals (stdenv.isDarwin && stdenv.hostPlatform.isAarch64) [
+    ++ lib.optionals (stdenv.isDarwin && stdenv.hostPlatform.isAarch64 && hostname == "lucas-macbook-pro") [
       (stdenvNoCC.mkDerivation {
         pname = "superbacked";
         version = "2.0.0-rc.3";

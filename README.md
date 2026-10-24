@@ -51,6 +51,7 @@ and activation steps before applying it to another machine.
 | [Tests](tests/README.md) | Focused checks and their prerequisites |
 | [Command reference](COMMANDS.md) | Shell commands, key bindings, and shortcuts |
 | [Nix recovery](docs/nix-recovery.md) | Recovery after a macOS update removes Nix |
+| [Gimle setup](docs/gimle-setup.md) | Headless Mac mini profile, bootstrap prerequisites and unattended-recovery gates |
 
 ## Commands
 

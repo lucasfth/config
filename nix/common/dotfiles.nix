@@ -3,6 +3,7 @@
   pkgs,
   lib,
   flakeDir,
+  hostname,
   ...
 }: let
   generateOmpMcpConfig = pkgs.writeShellScript "generate-omp-mcp-config" ''
@@ -79,26 +80,6 @@
 in {
   home.file =
     {
-      # ── Muninn (Obsidian memory — separate git repo) ────────────
-      "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
-
-      # ── OMP agent config: repo is the single source ─────────────
-      # Live-linked so `omp config set` and manual edits land in the repo.
-      # mcp.json stays generated (secrets); hooks/extensions/skills stay
-      # separate because herdr and omp write into those directories.
-      ".omp/agent/AGENTS.md" = {
-        force = true;
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/AGENTS.md";
-      };
-      ".omp/agent/RULES.md" = {
-        force = true;
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/RULES.md";
-      };
-      ".omp/agent/config.yml" = {
-        force = true;
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/config.yml";
-      };
-
       # ── Cross-platform dotfiles ─────────────────────────────────
       ".config/starship.toml".source = "${flakeDir.outPath}/configs/starship/starship.toml";
       ".config/ghostty/config".source = "${flakeDir.outPath}/configs/ghostty/config";
@@ -115,8 +96,23 @@ in {
       ".local/bin/config-add".source = "${flakeDir.outPath}/scripts/config-add";
       ".local/bin/sigyn-vnc".source = "${flakeDir.outPath}/scripts/sigyn-vnc";
     }
-    // lib.optionalAttrs pkgs.stdenv.isDarwin {
-      # ── macOS-only dotfiles ─────────────────────────────────────
+    // lib.optionalAttrs (hostname != "gimle") {
+      "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
+      ".omp/agent/AGENTS.md" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/AGENTS.md";
+      };
+      ".omp/agent/RULES.md" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/RULES.md";
+      };
+      ".omp/agent/config.yml" = {
+        force = true;
+        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/config.yml";
+      };
+    }
+    // lib.optionalAttrs (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") {
+      # Desktop app integration and backup mounts belong to the MacBook.
       "muninn-readable".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/muninn-volume/vault";
       ".aerospace.toml".source = "${flakeDir.outPath}/configs/aerospace/aerospace.toml";
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/configs/sioyek/prefs_user.config";
@@ -146,15 +142,15 @@ in {
       ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/configs/btop/themes/catppuccin_mocha.theme";
     };
 
-  home.activation.generateOmpMcpConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateOmpMcpConfig = lib.mkIf (hostname != "gimle") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateOmpMcpConfig}
-  '';
+  '');
 
-  home.activation.generateRaycastAiProviders = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateRaycastAiProviders = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateRaycastAiProviders}
   '');
 
-  home.activation.configureSyntaxHighlight = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.configureSyntaxHighlight = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     if /usr/bin/pgrep -x "Syntax Highlight" >/dev/null; then
       echo "Syntax Highlight: quit the app and run apply-syntax-highlight-config to apply preferences."
     else
@@ -162,7 +158,7 @@ in {
     fi
   '');
 
-  home.activation.configureSpotifast = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.configureSpotifast = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     if /usr/bin/pgrep -x "Spotifast" >/dev/null; then
       echo "Spotifast: quit the app and run apply-spotifast-config to apply preferences."
     else
@@ -171,7 +167,7 @@ in {
   '');
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────
-  home.activation.generateMokka = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateMokka = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${pkgs.writeShellScript "generate-mokka" ''
       set -euo pipefail
       SCRIPT="$HOME/config/scripts/mokka/generate.py"
@@ -191,7 +187,7 @@ in {
   # ── Sioyek: install into /Applications (macOS only) ──────────
   # Copy (not symlink) so Spotlight indexes it — the nix store is
   # excluded from Spotlight, and Raycast searches Spotlight.
-  home.activation.installSioyek = lib.mkIf pkgs.stdenv.isDarwin (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.installSioyek = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${pkgs.writeShellScript "install-sioyek" ''
       set -euo pipefail
       SRC="${pkgs.sioyek}/Applications/sioyek.app"
