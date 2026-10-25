@@ -59,7 +59,6 @@
     "tigervnc"
     "typewhisper"
     "wave"
-    "wkhtmltopdf"
     "yaak"
   ];
 }
