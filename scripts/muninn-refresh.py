@@ -34,7 +34,7 @@ def require_closed_obsidian():
 
 
 def manifest(root):
-    """Hash all snapshot files except device-local Obsidian settings."""
+    """Hash snapshot content, excluding Obsidian settings and Finder metadata."""
     files = {}
     for directory, dirs, names in os.walk(root, followlinks=False):
         relative = Path(directory).relative_to(root)
@@ -48,6 +48,8 @@ def manifest(root):
             path = Path(directory) / name
             if not path.is_file():
                 raise RefreshError(f"Snapshot contains a non-regular file: {path.relative_to(root)}")
+            if name == ".DS_Store":
+                continue
             digest = hashlib.sha256()
             with path.open("rb") as stream:
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -56,7 +58,12 @@ def manifest(root):
     return files
 
 
+def without_finder_metadata(files):
+    return {name: digest for name, digest in files.items() if Path(name).name != ".DS_Store"}
+
+
 def check_local(current, expected):
+    expected = without_finder_metadata(expected)
     if current == expected:
         return
     changed = sorted(name for name in current.keys() | expected.keys()
@@ -170,6 +177,8 @@ def refresh(home, reconciled=()):
             expected = receipt["files"]
             if not isinstance(expected, dict):
                 raise ValueError("invalid manifest")
+            # Apply the new comparison scope in memory; never rewrite old receipts.
+            receipt["files"] = expected = without_finder_metadata(expected)
         except (ValueError, KeyError) as error:
             raise RefreshError("Refresh receipt is invalid; preserve it and reconcile the baseline before replacing notes.") from error
         for name in reconciled:

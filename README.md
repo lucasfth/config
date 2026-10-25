@@ -426,7 +426,10 @@ immediate allocation, but retained snapshots still consume real Mac disk space.
 Local changes are protected: on its first run, the command compares the current
 readable files with a restore of the encrypted checkout's pre-pull commit;
 later runs compare a SHA-256 manifest in `~/.local/state/muninn/refresh.json`.
-Only `.obsidian` is excluded. If notes differ, it stops without replacing them.
+Device-local `.obsidian` settings and regular files named `.DS_Store` at any
+depth are excluded. Older receipts use the same Finder-metadata exclusion in
+memory, without rewriting the receipt. Other hidden files and all symlinks
+outside `.obsidian` remain checked. If notes differ, it stops without replacing them.
 Reconcile those changes through Muninn MCP first; there is no overwrite/force
 option, automatic upload, or bidirectional synchronization.
 

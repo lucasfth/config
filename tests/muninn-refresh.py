@@ -93,6 +93,53 @@ runpy.run_path(script,run_name='__main__')
         receipt = json.loads((self.home / ".local/state/muninn/refresh.json").read_text())
         self.assertEqual(receipt["commit"], self.git("-C", str(self.repo), "rev-parse", "HEAD").stdout.strip())
 
+    def test_finder_metadata_does_not_block_baseline_or_noop(self):
+        for name in (".DS_Store", "tech/.DS_Store", ".muninn/.DS_Store"):
+            path = self.vault / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(b"Finder metadata")
+        result = self.run_refresh()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        receipt_path = self.home / ".local/state/muninn/refresh.json"
+        before = receipt_path.read_bytes()
+        self.assertEqual(set(json.loads(before)["files"]), {"note.md"})
+        (self.vault / "tech/.DS_Store").write_bytes(b"changed metadata")
+        result = self.run_refresh(FAIL_RESTORE="1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("already current", result.stdout)
+        self.assertEqual(receipt_path.read_bytes(), before)
+        self.assertEqual((self.vault / "tech/.DS_Store").read_bytes(), b"changed metadata")
+
+    def test_old_finder_metadata_receipt_does_not_block_refresh(self):
+        # Model receipts emitted by the old command, not a repair of live state.
+        import hashlib
+        for name in (".DS_Store", "tech/.DS_Store"):
+            path = self.writer / "snapshot" / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(b"published metadata")
+        self.publish("metadata snapshot")
+        self.git("-C", str(self.repo), "pull", "--ff-only")
+        state = self.home / ".local/state/muninn"
+        state.mkdir(parents=True)
+        receipt_path = state / "refresh.json"
+        receipt = {"commit": self.git("-C", str(self.repo), "rev-parse", "HEAD").stdout.strip(),
+                   "files": {"note.md": hashlib.sha256(b"original\n").hexdigest(),
+                             ".DS_Store": "old metadata", "tech/.DS_Store": "old metadata"}}
+        receipt_path.write_text(json.dumps(receipt))
+        before = receipt_path.read_bytes()
+        (self.vault / ".DS_Store").write_bytes(b"changed metadata")
+        result = self.run_refresh(FAIL_RESTORE="1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("already current", result.stdout)
+        self.assertEqual(receipt_path.read_bytes(), before)
+        self.publish("new content", "newest\n")
+        result = self.run_refresh()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(set(json.loads(receipt_path.read_text())["files"]), {"note.md"})
+        self.assertEqual((self.vault / "note.md").read_text(), "newest\n")
+        self.assertEqual((Path(json.loads(receipt_path.read_text())["previous_snapshot"]) / ".DS_Store").read_bytes(), b"changed metadata")
+
+
     def test_unchanged_commit_skips_restore_and_duplicate_rollback(self):
         self.assertEqual(self.run_refresh().returncode, 0)
         receipt = self.home / ".local/state/muninn/refresh.json"
@@ -233,11 +280,28 @@ runpy.run_path(script,run_name='__main__')
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.repo / "snapshot/note.md").read_text(), "checkout edit\n")
 
-    def test_note_symlink_refuses_refresh(self):
-        (self.vault / "linked.md").symlink_to(self.root / "outside")
-        result = self.run_refresh()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertTrue((self.vault / "linked.md").is_symlink())
+    def test_note_and_finder_metadata_symlinks_refuse_refresh(self):
+        for name in ("linked.md", ".DS_Store"):
+            with self.subTest(name=name):
+                path = self.vault / name
+                path.symlink_to(self.root / "outside")
+                result = self.run_refresh()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("symlink", result.stderr)
+                self.assertTrue(path.is_symlink())
+                path.unlink()
+
+    def test_other_hidden_files_still_block_refresh(self):
+        self.assertEqual(self.run_refresh().returncode, 0)
+        for name in (".hidden-note.md", ".DS_Store.md"):
+            with self.subTest(name=name):
+                path = self.vault / name
+                path.write_text("unpublished\n")
+                result = self.run_refresh()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(name, result.stderr)
+                self.assertEqual(path.read_text(), "unpublished\n")
+                path.unlink()
 
     def test_unapproved_trust_refuses_decryption(self):
         original_commit = self.git("-C", str(self.repo), "rev-parse", "HEAD").stdout.strip()
@@ -273,6 +337,8 @@ runpy.run_path(script,run_name='__main__')
         (self.vault / "note.md").write_text("new snapshot\n")
         import hashlib
         receipt["files"] = {"note.md": hashlib.sha256(b"new snapshot\n").hexdigest()}
+        receipt["files"][".DS_Store"] = "old metadata"
+        (self.vault / ".DS_Store").write_bytes(b"new metadata")
         destination = self.volume / "muninn-refresh-interrupted/vault"
         (state / "pending.json").write_text(json.dumps({"backup": str(backup), "destination": str(destination), "receipt": receipt}))
         self.publish("new remote after interrupted receipt", "remote\n")
