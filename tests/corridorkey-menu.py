@@ -68,5 +68,40 @@ class MenuTests(unittest.TestCase):
         bridge.import_outputs.assert_not_called()
 
 
+    def test_resolve_console_without_flush(self):
+        class FusionConsole:
+            def __init__(self):
+                self.text = ''
+            def write(self, text):
+                self.text += text
+        resolve, pool, bridge, spec = self.fixture()
+        console = FusionConsole()
+        with patch('sys.stdout', console), \
+             patch.object(menu.importlib.util, 'spec_from_file_location', return_value=spec), \
+             patch.object(menu.importlib.util, 'module_from_spec', return_value=SimpleNamespace()):
+            menu.run(resolve)
+        self.assertIn('imported 1 straight-alpha cutout', console.text)
+
+
+    def test_entrypoint_reports_selection_error_without_flush(self):
+        import runpy
+        class FusionConsole:
+            def __init__(self):
+                self.text = ''
+            def write(self, text):
+                self.text += text
+        resolve, pool, bridge, spec = self.fixture()
+        bridge.selected_path.side_effect = ValueError('Select exactly one source clip in the Media Pool (not the timeline)')
+        console = FusionConsole()
+        with patch('sys.stdout', console), \
+             patch.object(menu.importlib.util, 'spec_from_file_location', return_value=spec), \
+             patch.object(menu.importlib.util, 'module_from_spec', return_value=SimpleNamespace()), \
+             self.assertRaisesRegex(ValueError, 'Select exactly one source clip'):
+            runpy.run_path(str(ROOT / 'configs/davinci-resolve/CorridorKey 2.0.py'),
+                           run_name='__main__', init_globals={'resolve': resolve})
+        self.assertIn('CorridorKey ERROR: Select exactly one source clip', console.text)
+        pool.AddSubFolder.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

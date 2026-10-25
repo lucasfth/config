@@ -22,7 +22,7 @@ def run(resolve):
     spec.loader.exec_module(bridge)
     pool = project.GetMediaPool()
     source = bridge.selected_path(pool)
-    print("CorridorKey: processing", source, "(720p tagged sRGB only; no audio)", flush=True)
+    print("CorridorKey: processing", source, "(720p tagged sRGB only; no audio)")
     manifest = bridge.process(source, Path.home() / "Movies/CorridorKey",
                               Path.home() / "Library/Application Support/CorridorKey-Resolve", FFPROBE)
     current = resolve.GetProjectManager().GetCurrentProject()
@@ -36,10 +36,10 @@ def run(resolve):
     try:
         imported = bridge.import_outputs(pool, manifest)
         print(f"CorridorKey: imported {len(imported)} straight-alpha cutout in {name}. "
-              f"Output/matte/logs: {manifest['job']}", flush=True)
+              f"Output/matte/logs: {manifest['job']}")
     finally:
         if not pool.SetCurrentFolder(previous):
-            print("CorridorKey: previous Media Pool folder could not be restored", flush=True)
+            print("CorridorKey: previous Media Pool folder could not be restored")
     return manifest
 
 
@@ -51,5 +51,5 @@ if __name__ == "__main__":
             app = DaVinciResolveScript.scriptapp("Resolve")
         run(app)
     except Exception as error:
-        print(f"CorridorKey ERROR: {error}", flush=True)
+        print(f"CorridorKey ERROR: {error}. Open the Media Pool and select one original 720p sRGB video, not a Fusion node or output sequence.")
         raise
