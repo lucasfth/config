@@ -1,0 +1,11 @@
+{
+  "name": "hbit.sh",
+  "owner": "Lucas Hanson",
+  "tagline": "Small projects. Open terminals.",
+  "intro": "A little workspace for things I build. Pick a pane, or type a menu command.",
+  "items": [
+    {"id": "projects", "key": "1", "title": "Projects", "subtitle": "Work in progress", "lines": ["Nothing published yet. Watch this space.", "This workspace is just getting started."]},
+    {"id": "about", "key": "2", "title": "About", "subtitle": "The person behind the prompt", "lines": ["Lucas Hanson — software engineer and builder.", "This is my corner for small projects and experiments.", "Same menu in your browser and over SSH. No shell access."]},
+    {"id": "help", "key": "3", "title": "Help", "subtitle": "A few keys to get around", "lines": ["1 / projects    Open Projects", "2 / about       Open About", "3 / help / ?    Show this help", "q / quit        Close the session", "This is an interactive menu, not a shell. Commands never execute programs."]}
+  ]
+}
