@@ -54,7 +54,7 @@ def main():
     assert not {
         "generateOmpMcpConfig", "generateRaycastAiProviders", "generateMokka",
         "configureSyntaxHighlight", "configureSpotifast", "installSioyek",
-        "sshEcorayHosts",
+        "sshEcorayHosts", "herdrOmpIntegration",
     }.intersection(mini["hooks"])
     assert "pmset -b" not in mini["postActivation"]
     assert "DisplayLink" not in mini["postActivation"]
@@ -68,7 +68,7 @@ def main():
     assert laptop["vim"] == "vim-full", laptop["vim"]
     assert laptop["sshIncludes"] == ["config.d/ecoray"]
     assert "jupyterlab" in laptop["pythonPackages"], laptop["pythonPackages"]
-    assert "sshEcorayHosts" in laptop["hooks"]
+    assert {"sshEcorayHosts", "herdrOmpIntegration"}.issubset(laptop["hooks"])
     assert "pmset -b powernap 0" in laptop["postActivation"]
     print("PASS: Gimle identity and host isolation; MacBook integrations retained")
 
