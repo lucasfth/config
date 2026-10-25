@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Validate a supplied Studio PKG; installation requires --install and root."""
+import argparse
+from pathlib import Path
+import plistlib
+import re
+import subprocess
+import tempfile
+import xml.etree.ElementTree as ET
+
+APP_INFO = Path("/Applications/DaVinci Resolve/DaVinci Resolve.app/Contents/Info.plist")
+STUDIO_RECEIPT = "com.blackmagic-design.Manifest"
+
+
+def run(*args):
+    return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+
+
+def version_tuple(value):
+    if not re.fullmatch(r"\d+(?:\.\d+){1,3}", value):
+        raise ValueError(f"Unsupported Resolve version: {value}")
+    parts = tuple(map(int, value.split(".")))
+    return parts + (0,) * (4 - len(parts))
+
+
+def validate_metadata(distribution, component):
+    title = ET.fromstring(distribution).findtext("title", "")
+    metadata = ET.fromstring(component)
+    if "DaVinci Resolve Studio" not in title or metadata.get("identifier") != STUDIO_RECEIPT:
+        raise ValueError("Not a recognized Blackmagic Studio installer; free edition refused")
+    version = metadata.get("version", "")
+    version_tuple(version)
+    return version
+
+
+def check_upgrade(new_version, installed_version):
+    if installed_version and version_tuple(new_version) < version_tuple(installed_version):
+        raise ValueError(f"Refusing downgrade from {installed_version} to {new_version}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("package", type=Path)
+    parser.add_argument("--install", action="store_true")
+    args = parser.parse_args()
+    package = args.package.resolve(strict=True)
+    signature = run("/usr/sbin/pkgutil", "--check-signature", str(package))
+    if "Developer ID Installer: Blackmagic Design Inc (9ZGFBWLSYP)" not in signature:
+        raise ValueError("Installer is not signed by Blackmagic Design")
+    run("/usr/sbin/spctl", "--assess", "--type", "install", str(package))
+    # Extract only signed metadata, never payloads or installer scripts.
+    with tempfile.TemporaryDirectory() as temporary:
+        subprocess.run(
+            ["/usr/bin/xar", "-xf", str(package), "Distribution", "Manifest.pkg/PackageInfo"],
+            cwd=temporary, check=True,
+        )
+        root = Path(temporary)
+        version = validate_metadata(
+            (root / "Distribution").read_text(),
+            (root / "Manifest.pkg/PackageInfo").read_text(),
+        )
+    installed = None
+    if APP_INFO.exists():
+        installed = plistlib.loads(APP_INFO.read_bytes())["CFBundleShortVersionString"]
+    check_upgrade(version, installed)
+    print(f"Validated Blackmagic Resolve Studio {version}; installed app: {installed or 'none'}")
+    if not args.install:
+        return
+    if subprocess.run(["/usr/bin/pgrep", "-x", "Resolve"], capture_output=True).returncode == 0:
+        raise ValueError("Quit DaVinci Resolve before installing Studio")
+    receipt = subprocess.run(
+        ["/usr/sbin/pkgutil", "--pkg-info-plist", STUDIO_RECEIPT], capture_output=True,
+    )
+    if receipt.returncode == 0 and installed == version:
+        if plistlib.loads(receipt.stdout).get("pkg-version") == version:
+            print("Resolve Studio is already installed")
+            return
+    subprocess.run(["/usr/sbin/installer", "-pkg", str(package), "-target", "/"], check=True)
+    receipt_version = plistlib.loads(subprocess.check_output(
+        ["/usr/sbin/pkgutil", "--pkg-info-plist", STUDIO_RECEIPT]
+    )).get("pkg-version")
+    app_version = plistlib.loads(APP_INFO.read_bytes())["CFBundleShortVersionString"]
+    if receipt_version != version or app_version != version:
+        raise ValueError("Installer finished but Studio receipt/app version do not match")
+    print("Resolve Studio installed. Launch Resolve and enter your key privately.")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, OSError, subprocess.CalledProcessError, ET.ParseError) as error:
+        raise SystemExit(str(error))

@@ -1,0 +1,89 @@
+#!/bin/sh
+# Called by nix-darwin activation; optional destination supports isolated checks.
+set -eu
+source_bundle=$1
+plugin_dir=${2:-/Library/OFX/Plugins}
+target="$plugin_dir/Gyroflow.ofx.bundle"
+marker="$plugin_dir/.gyroflow-nix-sha256"
+
+verify() {
+  codesign --verify --deep --strict -R '=anchor apple generic and certificate leaf[subject.OU] = "RR3ZC2L4DF"' "$1"
+}
+content_hash() {
+  (cd "$1" && find . -type f -exec shasum -a 256 {} \; | LC_ALL=C sort | shasum -a 256 | awk '{print $1}')
+}
+verify "$source_bundle"
+expected=$(content_hash "$source_bundle")
+if [ -d "$target" ] && [ ! -L "$target" ] && diff -qr "$source_bundle" "$target" >/dev/null; then
+  verify "$target"
+  echo "Gyroflow OFX is already installed."
+  exit 0
+fi
+if pgrep -x Resolve >/dev/null; then
+  echo "Quit DaVinci Resolve before changing Gyroflow OFX." >&2
+  exit 1
+fi
+if [ -e "$marker" ] && { [ ! -f "$marker" ] || [ -L "$marker" ]; }; then
+  echo "Invalid Gyroflow ownership marker: $marker" >&2
+  exit 1
+fi
+if [ -e "$target" ] || [ -L "$target" ]; then
+  if [ ! -f "$marker" ] || [ -L "$target" ]; then
+    echo "Refusing to replace unmanaged Gyroflow OFX: $target" >&2
+    exit 1
+  fi
+  verify "$target"
+  if [ "$(content_hash "$target")" != "$(cat "$marker")" ]; then
+    echo "Existing Gyroflow differs from its managed hash; preserve it manually first." >&2
+    exit 1
+  fi
+fi
+mkdir -p "$plugin_dir"
+lock="$plugin_dir/.gyroflow-install.lock"
+if ! mkdir "$lock"; then
+  echo "Gyroflow installation lock exists: $lock" >&2
+  exit 1
+fi
+staging=''
+backup=''
+changed=0
+complete=0
+cleanup() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ "$changed" = 1 ] && [ "$complete" = 0 ]; then
+    rm -rf "$target"
+    rm -f "$marker"
+    if [ -e "$backup/Gyroflow.ofx.bundle" ]; then
+      mv "$backup/Gyroflow.ofx.bundle" "$target"
+    fi
+    if [ -f "$backup/marker" ]; then
+      mv "$backup/marker" "$marker"
+    fi
+  fi
+  [ -z "$staging" ] || rm -rf "$staging"
+  rmdir "$lock"
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+staging=$(mktemp -d "$plugin_dir/.gyroflow-stage.XXXXXX")
+ditto "$source_bundle" "$staging/Gyroflow.ofx.bundle"
+verify "$staging/Gyroflow.ofx.bundle"
+printf '%s\n' "$expected" > "$staging/marker"
+# Backups survive successful upgrades and do not depend on a GC-able store path.
+backup=$(mktemp -d "$plugin_dir/.gyroflow-backup.XXXXXX")
+if [ -e "$target" ]; then
+  mv "$target" "$backup/Gyroflow.ofx.bundle"
+fi
+if [ -f "$marker" ]; then
+  if ! mv "$marker" "$backup/marker"; then
+    [ ! -e "$backup/Gyroflow.ofx.bundle" ] || mv "$backup/Gyroflow.ofx.bundle" "$target"
+    exit 1
+  fi
+fi
+changed=1
+mv "$staging/Gyroflow.ofx.bundle" "$target"
+mv "$staging/marker" "$marker"
+complete=1
+echo "Installed Gyroflow OFX: $target (previous files retained in $backup)"

@@ -7,6 +7,18 @@ macOS-specific tools, or temporary local services/mocks.
 
 - `muninn-refresh.py` exercises refresh, rollback, trust, local-edit refusal,
   and interrupted-run behavior using isolated temporary repositories.
+- `gyroflow-install.py` checks isolated first/repeat installs, upgrades without
+  old store sources, backups, signature/running/unmanaged refusal and rollback
+  after marker failure. It mocks macOS tools, never touches the live plugin path.
+- `resolve-studio.py` checks Studio/free metadata and downgrade refusal.
+  `resolve-activation.py` evaluates both real Darwin module branches and tests
+  Resolve-open deferral versus closed installation with isolated command stubs.
+- `corridorkey-bridge.py` checks input size/colour/frame metadata and path/profile
+  refusal, single-clip selection, cutout-only import and failure propagation.
+  `corridorkey-menu.py` checks orchestration, project-change refusal and restoring
+  the previous bin. These isolated mocks do not prove live menu/render acceptance.
+- `sioyek-install.py` tests read-only app upgrades, retained backups, copy/final
+  move rollback and dry-run preservation in temporary fixtures, never /Applications.
 - `spotifast-config.py` checks isolated appearance restoration, fresh profiles,
   repeat application, preservation of unrelated state, and refusal while running
   or when local settings are invalid. Run with `python3 tests/spotifast-config.py`.

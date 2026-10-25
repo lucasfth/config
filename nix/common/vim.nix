@@ -7,8 +7,12 @@
 }: {
   programs.vim = {
     enable = true;
-    # The headless host needs terminal Vim, not the GTK GUI variant.
-    packageConfigurable = lib.mkIf (hostname == "gimle") pkgs.vim;
+    # Preserve Gimle's terminal package; avoid broken GTK only on this MacBook.
+    packageConfigurable = lib.mkMerge [
+      (lib.mkIf (hostname == "gimle") pkgs.vim)
+      (lib.mkIf (hostname == "lucas-macbook-pro")
+        (pkgs.vim-full.override {guiSupport = "no";}))
+    ];
     plugins = with pkgs.vimPlugins; [
       catppuccin-vim
       lightline-vim

@@ -16,6 +16,14 @@ not all share the same deployment or activation behavior.
 - `apply-spotifast-config.py` restores the tracked native light/dark theme pair
   and copies palettes while Spotifast is closed, preserving private app state.
   Installed as `apply-spotifast-config` by Home Manager; see the root README.
+- `install-gyroflow-dmg` verifies/mounts the pinned DMG and calls
+  `install-gyroflow-ofx` for a signature-preserving, guarded copy. Nix-darwin
+  invokes these on activation. `install-resolve-studio` validates a supplied
+  Studio PKG; only `--install` runs Apple's installer. See the
+  [Resolve guide](../configs/davinci-resolve/README.md) before running them.
+- `setup-corridorkey-resolve --accept-model-license` creates the separate pinned
+  Apple Silicon inference runtime. It refuses to overwrite an existing runtime;
+  it does not deploy the menu or implicitly accept the licence on rebuild.
 - `sigyn-screen` and `sigyn-vnc` open the corresponding iPad remote sessions.
 - `build-herdr-client.sh` rebuilds/tests the pinned macOS Herdr sidebar patch from
   `configs/herdr/client.patch` and `client-build.env`. Build-only by default;

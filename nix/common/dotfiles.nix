@@ -193,9 +193,27 @@ in {
       SRC="${pkgs.sioyek}/Applications/sioyek.app"
       DST="/Applications/sioyek.app"
       if [ ! -f "$DST/Contents/MacOS/sioyek" ] || ! cmp -s "$SRC/Contents/MacOS/sioyek" "$DST/Contents/MacOS/sioyek"; then
-        rm -rf "$DST"
-        cp -R "$SRC" "$DST"
-        echo "sioyek: installed $DST"
+        STAGE=$(mktemp -d /Applications/.sioyek-stage.XXXXXX)
+        BACKUP=""
+        cleanup() {
+          status=$?
+          if [ "$status" -ne 0 ] && [ -n "$BACKUP" ] && [ -d "$BACKUP/sioyek.app" ] && [ ! -e "$DST" ]; then
+            mv "$BACKUP/sioyek.app" "$DST"
+          fi
+          rm -rf "$STAGE"
+          return "$status"
+        }
+        trap cleanup EXIT
+        cp -R "$SRC" "$STAGE/sioyek.app"
+        # Store copies are read-only; keep the installed copy replaceable.
+        chmod -R u+w "$STAGE/sioyek.app"
+        if [ -e "$DST" ]; then
+          chmod -R u+w "$DST"
+          BACKUP=$(mktemp -d "$DST.backup.$(date +%Y%m%d-%H%M%S).XXXXXX")
+          mv "$DST" "$BACKUP/sioyek.app"
+        fi
+        mv "$STAGE/sioyek.app" "$DST"
+        echo "sioyek: installed $DST; previous copy retained in $BACKUP"
       fi
     ''}
   '');

@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Create a hash-verified local CK2 runtime. Weights retain Corridor Key Licence 2.0."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import urllib.request
+
+REVISION = "74065491ebd2eddea494ab34c15a6d84d7415353"
+SOURCE_HASH = "6fa9d5698ad95c53b1dec9551bfd0df0f78eb94d256ea532a21a43a13ba1c4c6"
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG = ROOT / "configs/davinci-resolve"
+
+
+def digest(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def verified_file(url, destination, expected, cached=None):
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if cached and cached.is_file():
+        shutil.copyfile(cached, destination)
+    else:
+        request = urllib.request.Request(url, headers={"User-Agent": "CorridorKey-Resolve-local-setup"})
+        with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as output:
+            shutil.copyfileobj(response, output)
+    if digest(destination) != expected:
+        destination.unlink()
+        raise ValueError(f"SHA-256 mismatch: {destination.name}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runtime", type=Path, default=Path.home() / "Library/Application Support/CorridorKey-Resolve")
+    parser.add_argument("--source-archive", type=Path, help="Optional cached archive; same pinned hash is required")
+    parser.add_argument("--model-cache", type=Path, help="Optional cached weights; every file is still hash verified")
+    parser.add_argument("--accept-model-license", action="store_true", required=True,
+                        help="Accept the actual Corridor Key Licence 2.0 terms; no paid service or unrestricted redistribution")
+    args = parser.parse_args()
+    if os.uname().sysname != "Darwin" or os.uname().machine != "arm64":
+        parser.error("Apple Silicon macOS is required")
+    uv = shutil.which("uv")
+    if not uv:
+        parser.error("uv is required")
+    runtime = args.runtime.expanduser().resolve()
+    if runtime.exists():
+        parser.error(f"Runtime already exists; preserve it and choose a new path: {runtime}")
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    os.umask(0o077)
+    runtime.mkdir(mode=0o700)
+    # Do not relocate the venv: console-script shebangs embed its final absolute path.
+    try:
+        subprocess.run([uv, "venv", "--python", "3.12.11", str(runtime / "venv")], check=True)
+        python = runtime / "venv/bin/python"
+        subprocess.run([uv, "pip", "sync", "--python", str(python), "--require-hashes",
+                        str(CONFIG / "requirements.txt")], check=True)
+        with tempfile.TemporaryDirectory(prefix="corridorkey-source-") as temporary:
+            root = Path(temporary)
+            archive = root / "source.tar.gz"
+            verified_file(f"https://codeload.github.com/peterteravskis/corridorkey-v2-mlx/tar.gz/{REVISION}",
+                          archive, SOURCE_HASH, args.source_archive)
+            with tarfile.open(archive) as tar:
+                tar.extractall(root, filter="data")
+            source = root / f"corridorkey-v2-mlx-{REVISION}"
+            subprocess.run([uv, "pip", "install", "--python", str(python), "--no-deps", "--no-build-isolation",
+                            str(source)], check=True)
+            shutil.copyfile(source / "LICENSE", runtime / "CODE-LICENSE")
+            shutil.copyfile(source / "NOTICE", runtime / "NOTICE")
+            shutil.copyfile(source / "SOURCE_PROVENANCE.json", runtime / "SOURCE_PROVENANCE.json")
+        manifest = json.loads((CONFIG / "corridorkey-models.json").read_text())
+        for name, expected in manifest["files"].items():
+            cached = args.model_cache / name if args.model_cache else None
+            url = f'https://huggingface.co/{manifest["repository"]}/resolve/{manifest["revision"]}/{name}'
+            verified_file(url, runtime / "models" / name, expected, cached)
+        shutil.copyfile(CONFIG / "corridorkey-models.json", runtime / "models.json")
+        shutil.copyfile(CONFIG / "requirements.txt", runtime / "requirements.txt")
+        receipt = {"source_revision": REVISION, "source_sha256": SOURCE_HASH,
+                   "requirements_sha256": digest(CONFIG / "requirements.txt"), "model_revision": manifest["revision"]}
+        (runtime / "ready.json").write_text(json.dumps(receipt, indent=2) + "\n")
+        print(f"Created pinned runtime: {runtime}. Resolve integration still requires a real import check.")
+    except Exception:
+        # Only this invocation's new directory is owned; never overwrite a previous runtime.
+        shutil.rmtree(runtime)
+        raise
+
+
+if __name__ == "__main__":
+    main()

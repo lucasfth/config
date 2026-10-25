@@ -5,6 +5,7 @@
   hostname,
   ...
 }: let
+  python312 = import ./python312.nix {inherit pkgs;};
   pinnedZig = pkgs.stdenvNoCC.mkDerivation {
     pname = "zig";
     version = "0.17.0";

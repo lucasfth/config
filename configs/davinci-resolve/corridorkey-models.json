@@ -1,0 +1,17 @@
+{
+  "repository": "cdelta/CorridorKey-v2-MLX-fp16",
+  "revision": "3c75d4756579e2bdd21307c64a1af381bde1cdc1",
+  "files": {
+    "fp16/768x1280-t1/foundations/graph.json": "3915706884c69f01750437c835f0331bc78ddf258e50e3cf65e11d59b017f7de",
+    "fp16/768x1280-t1/foundations/weights.safetensors": "dd711cfc39db4cc96f00c494d34c094e548b0e510a4a0f911b2e14222075dce7",
+    "fp16/768x1280-t1/provenance.json": "914268e2d4d226126e377083b9a29dc07c349c9fd310626201df8a5190d439bf",
+    "fp16/768x1280-t1/rvm/graph.json": "2571f6c24bd47c495e98dca8a4fcd739253cad77451cfd131f79d4efb19a26c5",
+    "fp16/768x1280-t1/rvm/weights.safetensors": "461bef60db6951e21804f1b05d425582eb2d2e13ac4916dbdb06c34a51806f79",
+    "fp16/768x1280-t1/stage1/graph.json": "625942f860b85659f5b2879436c03bb480b5744e7471f561f92d086cd122d16f",
+    "fp16/768x1280-t1/stage1/weights.safetensors": "cd2e1720f9e8c0794ed23c7bec2056cbe81fb5eb91658b63082661f8905f8b92",
+    "fp16/768x1280-t1/stage2/graph.json": "dcd3eda40d6cc0f76d4a03a3e0ae6353a7c91269cb15beaa6909448165fb7b33",
+    "fp16/768x1280-t1/stage2/weights.safetensors": "25388844dee2b6a80d30e6a4cc8062bf467527a3ea0a0c1085b7ab2979042e1d",
+    "fp16/768x1280-t1/stats.json": "5ec9ff6099f469defa2f63183694218d20609dcd104238cb4f2159a4c9f7f9fd",
+    "LICENSE": "c92ce56f64162b231c7ce08ce3ed7d8cae15f01a560ca05a8e8db67878eb0065"
+  }
+}
