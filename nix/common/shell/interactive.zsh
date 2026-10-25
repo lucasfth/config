@@ -24,7 +24,12 @@ fi
 if [[ $OSTYPE == darwin* ]]; then
   unalias herdr 2>/dev/null || true
   function herdr {
-    "$HOME/.local/libexec/herdr-patched" "$@"
+    local patched="$HOME/.local/libexec/herdr-patched"
+    if [[ -x $patched ]]; then
+      "$patched" "$@"
+    else
+      command herdr "$@"
+    fi
   }
 fi
 
