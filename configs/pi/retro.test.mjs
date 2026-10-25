@@ -51,5 +51,10 @@ test('/retro loads a single explicit-only Huginn skill and preserves prompt sett
     }
     const skill = await readFile(matches[0].filePath, 'utf8');
     assert.match(skill, /context bloat/i);
+    assert.match(skill, /reproducible failure/i);
+    assert.match(skill, /baseline.*regression check/i);
+    assert.match(skill, /helped.*failed.*unverified/i);
+    assert.match(skill, /verify:behaviour/);
+    assert.match(skill, /separately approved implementation/i);
   } finally { await rm(agentDir, { recursive: true, force: true }); }
 });

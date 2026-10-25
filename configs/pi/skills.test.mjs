@@ -12,7 +12,7 @@ const localOverrides = new Map([
   ['sudo-ssh-freyr', path.join(repoDir, '.omp/skills/sudo-ssh-freyr/SKILL.md')],
   ['sudo-ssh-mimer', path.join(repoDir, '.omp/skills/sudo-ssh-mimer/SKILL.md')],
   ['syncing-vps-dotfiles', path.join(repoDir, '.omp/skills/syncing-vps-dotfiles/SKILL.md')],
-  ['using-freyr-browser', path.join(sourceDir, 'skills/using-freyr-browser/SKILL.md')],
+  ['using-gimle-browser', path.join(sourceDir, 'skills/using-gimle-browser/SKILL.md')],
 ]);
 
 async function sharedCatalogue() {
@@ -38,7 +38,7 @@ test('native loader uses pinned active Volundr skills once, with documented loca
     assert.equal(new Set(skills.map(skill => skill.name)).size, skills.length);
     const byName = new Map(skills.map(skill => [skill.name, skill]));
     for (const entry of await sharedCatalogue()) {
-      if (entry.metadata.status === 'archived') {
+      if (entry.metadata.status === 'archived' || entry.name === 'using-freyr-browser') {
         assert.equal(byName.has(entry.name), false, `${entry.name} must stay archived`);
       } else {
         const expected = localOverrides.get(entry.name) ?? path.join(repoDir, 'volundr/skills', entry.name, 'SKILL.md');
@@ -77,9 +77,9 @@ test('Pi browser override survives an archived or absent shared browser guide', 
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'pi-browser-override-'));
   try {
     await fixtureSkill(rootDir, 'volundr/skills', 'shared', 'active');
-    const browser = await fixtureSkill(rootDir, 'configs/pi/skills', 'using-freyr-browser');
+    const browser = await fixtureSkill(rootDir, 'configs/pi/skills', 'using-gimle-browser');
     assert.ok(runtime.canonicalSkillPaths({ rootDir, cwd: rootDir }).includes(browser));
-    await fixtureSkill(rootDir, 'volundr/skills', 'using-freyr-browser', 'archived');
+    await fixtureSkill(rootDir, 'volundr/skills', 'using-gimle-browser', 'archived');
     assert.ok(runtime.canonicalSkillPaths({ rootDir, cwd: rootDir }).includes(browser));
   } finally { await rm(rootDir, { recursive: true, force: true }); }
 });

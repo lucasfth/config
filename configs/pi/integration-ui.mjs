@@ -53,7 +53,7 @@ try {
   await writeFile(path.join(root, 'mcp.json'), JSON.stringify({ mcpServers: {} }));
   const settings = JSON.parse(await readFile(path.join(root, 'settings.json'), 'utf8'));
   settings.skills = [];
-  settings.extensions = settings.extensions.filter(filename => !filename.endsWith('freyr.ts') && !filename.endsWith('muninn.ts'));
+  settings.extensions = settings.extensions.filter(filename => !filename.endsWith('gimle.ts') && !filename.endsWith('muninn.ts'));
   await writeFile(path.join(root, 'settings.json'), JSON.stringify(settings));
   const cli = path.join(sourceDir, 'node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js');
   child = spawnProcess(process.execPath, [cli, '--offline', '--mode', 'rpc', '--no-session', '--no-context-files', '--no-skills'], { cwd: root, env, stdio: ['pipe','pipe','pipe'] });
@@ -130,6 +130,12 @@ try {
   await waitScreen(lines => !lines.some(line => line.includes('Type to filter')), 'Escape dismisses picker');
   pty.write('/visuals demo\r');
   await pty.waitFor('Native SVG preview shown', { timeout: 10000 });
+  const imageAtNotification = raw.includes('\x1b_G');
+  const imageWaitStarted = performance.now();
+  for (let attempt = 0; !raw.includes('\x1b_G') && attempt < 500; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  console.log(JSON.stringify({ scenario: 'image-delivery', imageAtNotification, imageAfterWait: raw.includes('\x1b_G'), waitedMs: Math.round(performance.now() - imageWaitStarted) }));
   assert.ok(raw.includes('\x1b_G'), 'Terminal must receive Kitty image protocol');
   assert.ok(!raw.includes('[Extension issues]'), 'No extension warning panel');
   assert.ok(raw.includes('╭') && raw.includes('│') && raw.includes('╰'), 'Composer must be visibly boxed');

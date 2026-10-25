@@ -1,0 +1,20 @@
+---
+name: using-gimle-browser
+description: Use for browser or UI work, screenshots, localhost checks, authenticated dashboards and login troubleshooting.
+---
+
+Use the dedicated loki_browser tool. It only attaches to the existing loopback CDP tunnel on 127.0.0.1:9444, never discovers or launches a local browser. Open a new named tab for the exact requested app URL, then use snapshot/click/type/screenshot/same-origin navigate/close. Arbitrary JavaScript and credential-surface access are not exposed.
+
+Snapshots include visible control labels and structural CSS selectors; they never include hrefs or input values in that control list. Select the exact selector from a fresh snapshot rather than guessing links by URL substrings. Ordinary `click` validates one visible, uncovered, noncredential target and sends real browser mouse movement/press/release. It refuses popup-target and download controls; use the explicit `follow_link` handoff for a target-blank app link. DOM-generated popup handlers can still require a different bounded workflow; a sent click is not proof of navigation.
+
+Typing supports plain inputs and noncredential rich-text editors. It replaces the editor contents with literal text and never submits automatically; sending remains a separate explicitly authorized action. Passing unit tests does not prove a particular web editor accepted the input.
+
+For an explicitly requested cross-origin app handoff (such as Nordicway → cPanel), use `follow_link` with a selector matching exactly one visible same-origin HTTPS anchor, and `url` set to the expected bare HTTPS destination origin. It changes that anchor’s target to the owned tab and sends a browser mouse click; it never enumerates or adopts popups. Only the original origin and that explicitly assigned handoff origin are usable. Unexpected redirects fail closed. Login/challenge detection blocks page reads and interactions; Lucas completes authentication through Screen Sharing. A `/cpsess…` path is an authenticated cPanel app path, not by itself a login challenge. Do not copy session URLs/tokens into tool arguments or notes.
+
+Nordicway DNS workflow: open the authenticated customer dashboard at `https://nordicway.dk/kunde/clientarea.php`; use the “Log på cPanel” anchor with `follow_link`, expecting `https://cp08.nordicway.dk:2083` only when that host is confirmed for the account. Snapshot the result before further actions. Use the authenticated Zone Editor to inspect the requested zone and existing records before editing; preserve mail, DNSSEC and unrelated records. Apply only the record changes the user requested, then verify authoritative DNS and public resolution. Do not purchase, transfer, renew, change nameservers, or expose a private host as an incidental shortcut. Stop for ambiguous targets/values. A requested DNS update authorizes its UI navigation, not unrelated records or authentication bypass.
+
+A loaded extension must expose `follow_link` before using it. After changing this already-registered extension, `/reload` loads its new schema and resets owned-tab bookkeeping; open a new named app tab afterward. No browser/tunnel restart is needed. Unit/fake-boundary results are not live cPanel proof.
+
+If unavailable, report the failure and ask approval before starting/reconnecting infrastructure with ~/config/scripts/gimle-browser start. Without explicit current activation approval, do not run start or stop. Diagnostic status may use the canonical helper. Use only the dedicated agent Chrome profile on Gimle, never its ordinary personal profile, Freyr, a local browser, relay or headless fallback. Never read cookies, storage tokens, profile files, passwords or Screen Sharing secrets. Lucas handles login/2FA through Screen Sharing. Stop on unexpected login or verification pages. Close only your named app tab.
+
+The tool attaches only; it does not provision a browser or tunnel. The dedicated Gimle profile must be explicitly activated separately. Do not change infrastructure during ordinary UI verification.

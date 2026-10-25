@@ -38,7 +38,8 @@ try {
   await session.bindExtensions({ mode: 'print' });
   const active = session.getActiveToolNames();
   const tools = session.getAllTools();
-  for (const name of ['interactive_shell', 'intercom', 'eval', 'semantic_code_search', 'summarize_read', 'freyr_browser']) {
+  assert.ok(!tools.some(tool => ['gimle_browser', 'freyr_browser'].includes(tool.name)), 'Old browser tool names are not registered');
+  for (const name of ['interactive_shell', 'intercom', 'eval', 'semantic_code_search', 'summarize_read', 'loki_browser']) {
     assert.ok(tools.some(tool => tool.name === name), `Capability registered: ${name}`);
     assert.ok(!active.includes(name), `Capability deferred: ${name}`);
   }

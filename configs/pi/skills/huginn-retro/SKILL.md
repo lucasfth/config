@@ -44,6 +44,8 @@ Give a short coverage statement, then **zero to three** candidates, highest expe
 1. Evidence: exact session call, message or bounded log reference.
 2. Cause, confidence and limits; distinguish observation from inference.
 3. Canonical target and concrete proposed change, not a generated copy.
-4. Verification, trade-offs and safety implications.
+4. Reproducible failure, baseline and concrete regression check, plus trade-offs and safety implications. If reproduction is unavailable, say why and mark effectiveness unverified; do not invent evidence.
+
+Prefer an existing check. For controlled model/tool behaviour, see `configs/pi/README.md` → Behavioural acceptance (`npm run verify:behaviour`); live requests may incur cost. Propose the case/check here, do not run it automatically. After separately approved implementation, compare observed results and classify the effect as **helped**, **failed** or **unverified**, with evidence and remaining limits. A single before/after trial does not establish causation.
 
 End with what was not established and ask which candidate, if any, Lucas wants applied. Review approval is not fix approval. A passing routing test proves command plumbing, not model compliance; a same-agent trial is not independent validation. Future effectiveness needs a comparable task with observed recurrence or avoidance, not a count of new rules.

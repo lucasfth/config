@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Explicitly manage only Huginn's dedicated Chrome on Gimle. No activation on Pi load.
+set -euo pipefail
+HOST=gimle@gimle.tail3e4ba0.ts.net
+STATE="$HOME/.cache/huginn-gimle-browser"
+SOCKET="$STATE/tunnel.sock"
+SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ConnectTimeout=8)
+
+remote() {
+  "${SSH[@]}" "$HOST" bash -s -- "$1" <<'REMOTE'
+set -euo pipefail
+DIR="$HOME/.local/share/huginn-browser-gimle"
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+PIDFILE="$DIR/browser.pid"
+owned() {
+  [ -f "$PIDFILE" ] || return 1
+  PID=$(cat "$PIDFILE")
+  case "$PID" in ''|*[!0-9]*) return 1;; esac
+  [ "$PID" -gt 1 ] || return 1
+  COMMAND=$(ps -ww -p "$PID" -o command=) || return 1
+  EXPECTED="$CHROME --user-data-dir=$DIR/profile --remote-debugging-address=127.0.0.1 --remote-debugging-port=9444 --no-first-run --no-default-browser-check about:blank"
+  [ "$COMMAND" = "$EXPECTED" ]
+}
+port_busy() { /usr/sbin/lsof -nP -iTCP:9444 -sTCP:LISTEN >/dev/null 2>&1; }
+case "$1" in
+  start)
+    if owned; then
+      echo "dedicated Gimle Chrome already running"
+      exit 0
+    fi
+    if port_busy; then echo "Remote port 9444 occupied by an unowned listener; refusing" >&2; exit 1; fi
+    [ -x "$CHROME" ] || { echo "Google Chrome is not installed at the approved app path" >&2; exit 1; }
+    umask 077
+    mkdir -p "$DIR/profile"
+    chmod 700 "$DIR" "$DIR/profile"
+    nohup "$CHROME" --user-data-dir="$DIR/profile" \
+      --remote-debugging-address=127.0.0.1 --remote-debugging-port=9444 \
+      --no-first-run --no-default-browser-check about:blank \
+      >"$DIR/chrome.log" 2>&1 </dev/null &
+    echo "$!" > "$PIDFILE"
+    for attempt in {1..20}; do
+      if owned && /usr/bin/curl -fsS --max-time 1 http://127.0.0.1:9444/json/version >/dev/null; then
+        echo "dedicated Gimle Chrome ready on loopback 9444"
+        exit 0
+      fi
+      sleep 1
+    done
+    echo "Chrome readiness failed; no tunnel opened. Check the dedicated browser on Gimle." >&2
+    exit 1
+    ;;
+  stop)
+    if owned; then
+      kill "$PID"
+      rm -f "$PIDFILE"
+      echo "dedicated Gimle Chrome stop requested"
+    elif [ -f "$PIDFILE" ]; then
+      echo "Saved browser PID is stale or unowned; refusing to signal it" >&2
+      exit 1
+    else echo "no helper-owned browser recorded"; fi
+    ;;
+  status)
+    if owned; then echo "helper-owned Gimle Chrome running"; else echo "helper-owned Gimle Chrome not confirmed"; fi
+    if /usr/bin/curl -fsS --max-time 2 http://127.0.0.1:9444/json/version >/dev/null; then
+      echo "remote CDP loopback 9444 responding (not proof of profile ownership)"
+    else echo "remote CDP loopback 9444 unavailable"; fi
+    ;;
+  *) exit 2;;
+esac
+REMOTE
+}
+
+case "${1:-status}" in
+  start)
+    if "${SSH[@]}" -S "$SOCKET" -O check "$HOST" >/dev/null 2>&1; then
+      remote status
+      echo "Gimle tunnel exists; status above does not authorize a different browser"
+      exit 0
+    fi
+    if lsof -nP -iTCP:9444 -sTCP:LISTEN >/dev/null 2>&1; then
+      echo "Local port 9444 occupied; refusing to attach or replace its listener" >&2
+      exit 1
+    fi
+    remote start
+    umask 077
+    mkdir -p "$STATE"
+    chmod 700 "$STATE"
+    if ! "${SSH[@]}" -M -S "$SOCKET" -fNT -o ControlPersist=no \
+      -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+      -L 127.0.0.1:9444:127.0.0.1:9444 "$HOST"; then
+      echo "Tunnel failed; dedicated remote Chrome may remain running. No automatic stop attempted." >&2
+      exit 1
+    fi
+    echo "Gimle CDP tunnel ready on 127.0.0.1:9444; no app tabs opened"
+    ;;
+  stop)
+    if "${SSH[@]}" -S "$SOCKET" -O check "$HOST" >/dev/null 2>&1; then
+      "${SSH[@]}" -S "$SOCKET" -O exit "$HOST"
+    fi
+    remote stop
+    ;;
+  status)
+    if "${SSH[@]}" -S "$SOCKET" -O check "$HOST" >/dev/null 2>&1; then
+      echo "helper-owned Gimle tunnel running"
+    else echo "helper-owned Gimle tunnel down"; fi
+    remote status
+    ;;
+  *) echo "usage: gimle-browser start|stop|status" >&2; exit 2;;
+esac

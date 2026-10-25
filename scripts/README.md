@@ -6,6 +6,12 @@ not all share the same deployment or activation behavior.
 
 - `config-add` edits the appropriate Nix package, Homebrew, or shell alias source.
 - `pi-native` runs the canonical `configs/pi/` profile. The reloadable shell aliases plain `pi` to this launcher; `pi update` uses a private npm cache and verifies the pinned profile, without changing global Homebrew Pi.
+- `gimle-browser status|start|stop` manages only Huginn's dedicated Chrome profile
+  on Gimle and loopback CDP tunnel `127.0.0.1:9444`, with strict SSH host verification.
+  `status` is diagnostic; `start`/`stop` require explicit approval. No software install,
+  ordinary personal-profile access, VNC or Freyr fallback. See the
+  [Pi browser boundaries](../configs/pi/README.md#integration-boundaries) for source
+  checks and separately recorded live acceptance.
 - `nix-health [--check|--notify]` checks the local Nix installation. See
   [`docs/nix-recovery.md`](../docs/nix-recovery.md) for recovery instructions.
 - `muninn-refresh.py` safely refreshes the local readable Muninn snapshot; the

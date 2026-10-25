@@ -1,3 +1,4 @@
+import { waitForSessionReady } from './pty-ready.mjs';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
@@ -142,9 +143,7 @@ export default pi => {
     if (text.includes('\x1b[6n')) pty.write('\x1b[1;1R');
     if (text.includes('\x1b[16t')) pty.write('\x1b[6;20;16t');
   });
-  await pty.waitFor('Huginn · Pi', { timeout: 15_000 });
-  await pty.waitFor('pi-session-ready', { timeout: 15_000 });
-  const sessionId = await readFile(path.join(dir, 'session-id'), 'utf8');
+  const sessionId = await waitForSessionReady(path.join(dir, 'session-id'), 15_000);
   await delay(150);
   const startup = readScreen();
   const wordmarkY = startup.findIndex(line => line.includes('█ █ █ █ █▀▀'));

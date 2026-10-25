@@ -8,7 +8,7 @@ Audit: all 215 available prior parent JSONL sessions, 2026-09-03 through 2026-10
 | Subagents | 71 | pi-subagents; custom task/scout/reviewer/security-reviewer/sonic profiles | Scout foreground routing exercised; background and messaging not exercised |
 | Agent messaging | 47 | pi-intercom plus subagents supervisor bridge | Native protocol differs |
 | Background/interactive shell | 96 | pi-interactive-shell | PTY/dispatch exercise required |
-| Browser API | 84 | dedicated Freyr CDP bridge built on pi-chrome-use transport | No browser/service reconnection without approval |
+| Browser API | 84 | dedicated Gimle CDP bridge on loopback 9444, built on pi-chrome-use transport | Relaunch required; live activation/UI proof pending, no browser/service reconnection without approval |
 | Inline image content | 103 | native Pi terminal image support | Terminal-dependent |
 | SVG output | 49 | bounded SVG display transformer and resvg rasterizer | Actual Markdown renderer and PTY Kitty transport exercised; no human pixel inspection |
 | Mermaid output | 8 | native Pi Mermaid rendering | Actual Markdown renderer produced terminal diagram |

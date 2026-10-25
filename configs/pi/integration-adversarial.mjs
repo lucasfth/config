@@ -90,7 +90,7 @@ try {
   assert.equal(restartedModel,before);
   const availableCommands=(await send('get_commands')).data.commands.map(command=>command.name);
   assert.equal(availableCommands.filter(name=>name==='skill:typesafe-ai').length,1);
-  assert.equal(availableCommands.filter(name=>name==='skill:using-freyr-browser').length,1);
+  assert.equal(availableCommands.filter(name=>name==='skill:using-gimle-browser').length,1);
   assert.ok(availableCommands.includes('skill:herdr-config'));
   assert.ok(availableCommands.includes('skill:sudo-ssh-freyr'));
   assert.ok(availableCommands.includes('skill:sudo-ssh-mimer'));
