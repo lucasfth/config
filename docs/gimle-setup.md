@@ -26,7 +26,9 @@ JupyterLab. The locked notebook dependency tree failed native builds in
 `trio-websocket` and `backrefs` timeout tests; no upstream tests are disabled.
 The MacBook retains JupyterLab and its original Python package order.
 
-Production defaults to off. `services.gimle.production` explicitly enables five
+Gimle's host now sets `lokiProduction = true` after the approved cutover on
+2026-10-25. The shared module still defaults off for other hosts.
+`services.gimle.production` explicitly enables five
 system LaunchDaemons running as `gimle`: gateway, vault, Ask Loki, browser and Hue.
 Their Nix-pinned Python runner checks the encrypted mount and root-owned enable
 gate. Gateway startup additionally requires a final-snapshot and stopped-phone

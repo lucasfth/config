@@ -7,5 +7,5 @@
   stateVersion = "24.11";
   nixbldGid = 350;
   tailscaleAtBoot = true;
-  lokiProduction = false;
+  lokiProduction = true;
 }

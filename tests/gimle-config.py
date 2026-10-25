@@ -69,7 +69,10 @@ def main():
     assert "DisplayLink" not in mini["postActivation"]
     assert mini["powerRestart"] is True
     assert mini["computerSleep"] == "never"
-    assert mini["lokiDaemons"] == ["gimle-tailscaled", "loki-volume"]
+    assert mini["lokiDaemons"] == [
+        "gimle-tailscaled", "loki-ask", "loki-browser", "loki-gateway",
+        "loki-hue", "loki-vault", "loki-volume",
+    ], "The persistent host must retain the completed production cutover"
     assert mini["lokiVolume"]["RunAtLoad"] is True
     assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
     assert mini["lokiVolume"]["ThrottleInterval"] == 30
