@@ -48,7 +48,7 @@ def main():
     assert (mini["username"], mini["hostname"], mini["home"]) == (
         "gimle", "gimle", "/Users/gimle")
     assert not mini["nixManaged"], "Determinate must retain Nix ownership"
-    assert mini["agents"] == ["nix-health"], mini["agents"]
+    assert mini["agents"] == ["aerospace", "nix-health"], mini["agents"]
     assert mini["taps"] == ["crmne/tap"]
     assert {"ghostty", "zed", "slack", "obsidian", "raycast", "google-chrome"}.issubset(mini["casks"])
     assert not {"betterdisplay", "displaylink"}.intersection(mini["casks"])
@@ -60,13 +60,13 @@ def main():
     assert not mini["sshIncludes"], mini["sshIncludes"]
     assert "jupyterlab" not in mini["pythonPackages"], mini["pythonPackages"]
     assert {"pip", "virtualenv", "numpy", "pillow"}.issubset(mini["pythonPackages"])
-    assert not {"aerospace", "jankyborders", "lmstudio", "sioyek", "mactap", "superbacked"}.intersection(mini["packages"])
-    assert not {"muninn", "muninn-readable", ".aerospace.toml", ".omp/agent/AGENTS.md"}.intersection(mini["files"])
-    assert not {
-        "generateOmpMcpConfig", "generateRaycastAiProviders", "generateMokka",
-        "configureSyntaxHighlight", "configureSpotifast", "installSioyek",
-        "sshEcorayHosts", "herdrOmpIntegration",
-    }.intersection(mini["hooks"])
+    assert {"aerospace", "JankyBorders", "lmstudio", "sioyek", "swiftbar"}.issubset(mini["packages"])
+    assert not {"mactap", "superbacked"}.intersection(mini["packages"])
+    assert ".aerospace.toml" in mini["files"]
+    assert not {"muninn", "muninn-readable", ".omp/agent/AGENTS.md"}.intersection(mini["files"])
+    assert {"generateRaycastAiProviders", "generateMokka", "configureSyntaxHighlight",
+            "configureSpotifast", "installSioyek"}.issubset(mini["hooks"])
+    assert not {"generateOmpMcpConfig", "sshEcorayHosts", "herdrOmpIntegration"}.intersection(mini["hooks"])
     assert "pmset -b" not in mini["postActivation"]
     assert "DisplayLink" not in mini["postActivation"]
     assert mini["powerRestart"] is True

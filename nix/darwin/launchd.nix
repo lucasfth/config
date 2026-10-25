@@ -15,7 +15,7 @@
   '';
 in {
   # AeroSpace is Nix-installed, so macOS has no application login item for it.
-  launchd.user.agents.aerospace = lib.mkIf (hostname == "lucas-macbook-pro") {
+  launchd.user.agents.aerospace = lib.mkIf (builtins.elem hostname ["lucas-macbook-pro" "gimle"]) {
     serviceConfig = {
       ProgramArguments = [
         "${pkgs.aerospace}/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"

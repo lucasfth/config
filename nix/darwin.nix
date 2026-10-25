@@ -25,5 +25,5 @@
 
   # macOS-only GUI tools are kept out of shared packages.
   home-manager.users.${config.system.primaryUser}.home.packages =
-    lib.optionals (hostname == "lucas-macbook-pro") (with pkgs; [aerospace jankyborders]);
+    lib.optionals (builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (with pkgs; [aerospace jankyborders]);
 }

@@ -9,7 +9,7 @@
     [
       docker
     ]
-    ++ lib.optionals (stdenv.isDarwin && hostname == "lucas-macbook-pro") [
+    ++ lib.optionals (stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) [
       swiftbar
       jankyborders
       lmstudio

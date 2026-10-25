@@ -112,8 +112,10 @@ in {
       };
     }
     // lib.optionalAttrs (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") {
-      # Desktop app integration and backup mounts belong to the MacBook.
+      # The readable backup mount is specific to the laptop.
       "muninn-readable".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/muninn-volume/vault";
+    }
+    // lib.optionalAttrs (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) {
       ".aerospace.toml".source = "${flakeDir.outPath}/configs/aerospace/aerospace.toml";
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/configs/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast/scripts/invert-scroll.applescript";
@@ -146,11 +148,11 @@ in {
     $DRY_RUN_CMD ${generateOmpMcpConfig}
   '');
 
-  home.activation.generateRaycastAiProviders = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateRaycastAiProviders = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateRaycastAiProviders}
   '');
 
-  home.activation.configureSyntaxHighlight = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.configureSyntaxHighlight = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     if /usr/bin/pgrep -x "Syntax Highlight" >/dev/null; then
       echo "Syntax Highlight: quit the app and run apply-syntax-highlight-config to apply preferences."
     else
@@ -158,7 +160,7 @@ in {
     fi
   '');
 
-  home.activation.configureSpotifast = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.configureSpotifast = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     if /usr/bin/pgrep -x "Spotifast" >/dev/null; then
       echo "Spotifast: quit the app and run apply-spotifast-config to apply preferences."
     else
@@ -167,7 +169,7 @@ in {
   '');
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────
-  home.activation.generateMokka = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateMokka = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${pkgs.writeShellScript "generate-mokka" ''
       set -euo pipefail
       SCRIPT="$HOME/config/scripts/mokka/generate.py"
@@ -176,6 +178,7 @@ in {
         echo "Mokka: generating dynamic wallpaper..."
         ${pkgs.python312.withPackages (ps: [ps.pillow])}/bin/python3 "$SCRIPT"
         # Copy to timestamped file, write flag for .zshrc to reload
+        mkdir -p "$HOME/Pictures/wallpapers"
         TARGET="$HOME/Pictures/wallpapers/mokka-$(date +%Y%m%d-%H%M%S).heic"
         cp "$OUTDIR/mokka.heic" "$TARGET"
         touch "$HOME/.mokka-reload"
@@ -187,7 +190,7 @@ in {
   # ── Sioyek: install into /Applications (macOS only) ──────────
   # Copy (not symlink) so Spotlight indexes it — the nix store is
   # excluded from Spotlight, and Raycast searches Spotlight.
-  home.activation.installSioyek = lib.mkIf (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.installSioyek = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${pkgs.writeShellScript "install-sioyek" ''
       set -euo pipefail
       SRC="${pkgs.sioyek}/Applications/sioyek.app"
