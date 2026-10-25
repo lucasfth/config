@@ -2,9 +2,10 @@
   config,
   pkgs,
   lib,
+  hostname,
   ...
 }: {
-  homebrew.casks = [
+  homebrew.casks = builtins.filter (name: hostname != "gimle" || !(builtins.elem name ["betterdisplay" "displaylink"])) [
     # ── Development ─────────────────────────────────────────
     "temurin"
     "android-platform-tools"

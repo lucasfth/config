@@ -48,7 +48,9 @@ def main():
         "gimle", "gimle", "/Users/gimle")
     assert not mini["nixManaged"], "Determinate must retain Nix ownership"
     assert mini["agents"] == ["nix-health"], mini["agents"]
-    assert not mini["casks"] and not mini["taps"]
+    assert mini["taps"] == ["crmne/tap"]
+    assert {"ghostty", "zed", "slack", "obsidian", "raycast", "google-chrome"}.issubset(mini["casks"])
+    assert not {"betterdisplay", "displaylink"}.intersection(mini["casks"])
     assert mini["brews"] == ["bun", "container", "herdr"]
     assert not mini["signing"], "Do not require the MacBook's private signing key"
     assert not mini["gpgAgent"], "Headless Gimle must not inherit the signing agent"

@@ -11,13 +11,15 @@ client defaults, CLI/development packages and Herdr configuration. It does not
 inherit private Git signing keys, login credentials, `nix_secrets`, or the
 MacBook's generated EcoRay SSH host include.
 
-The headless profile intentionally excludes AeroSpace/borders, MacBook GUI app
-packages and Homebrew casks, the readable-vault mount, Volundr delivery,
-Tailwind cleanup and desktop-app activation hooks. Only Bun, Container and
-Herdr are declared as Homebrew formulae. Vim uses the terminal package instead
-of the default GTK-enabled `vim-full`; the locked GUI package fails to compile
-with missing `gui.scale` members. The MacBook's Vim selection is unchanged.
-Resolve/CorridorKey work in the primary checkout is not part of this profile.
+Lucas requested desktop application parity on 2026-10-25 after the initial
+headless profile omitted GUI apps. Gimle now shares the Homebrew cask catalogue,
+except BetterDisplay and DisplayLink (MacBook dock/display integrations). The
+crmne tap supplies Spotifast. MacBook desktop activation hooks, AeroSpace/borders,
+readable-vault mount, Volundr delivery and Tailwind cleanup remain excluded.
+Only Bun, Container and Herdr are Homebrew formulae. Vim uses terminal Vim;
+the locked GTK-enabled `vim-full` fails to compile with missing `gui.scale`
+members. The MacBook's cask order, formulae, taps and Vim choice are unchanged.
+Resolve/CorridorKey installation remains MacBook-only.
 
 Gimle retains Python with pip, virtualenv, NumPy and Pillow but excludes
 JupyterLab. The locked notebook dependency tree failed native builds in

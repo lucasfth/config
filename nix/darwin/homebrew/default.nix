@@ -6,9 +6,8 @@
   ...
 }: {
   imports =
-    [./brews.nix]
+    [./brews.nix ./casks.nix]
     ++ lib.optionals (hostname == "lucas-macbook-pro") [
-      ./casks.nix
       ./mas.nix
       ./activation.nix
     ];
@@ -20,15 +19,17 @@
       upgrade = false;
     };
 
-    taps = lib.optionals (hostname == "lucas-macbook-pro") [
-      "crmne/tap" # Spotifast native Spotify client
-      "homebrew/services" # brew services (postgres, redis)
-      "minio/stable" # minio-warp
-      "multica-ai/tap" # multica
-      "sdkman/tap" # sdkman-cli
-      "smudge/smudge" # nightlight
-      "spicy-lemonade/tap" # Salt encrypted memory backups
-      "steipete/tap" # remindctl
-    ];
+    taps =
+      lib.optionals (hostname == "gimle") ["crmne/tap"]
+      ++ lib.optionals (hostname == "lucas-macbook-pro") [
+        "crmne/tap" # Spotifast native Spotify client
+        "homebrew/services" # brew services (postgres, redis)
+        "minio/stable" # minio-warp
+        "multica-ai/tap" # multica
+        "sdkman/tap" # sdkman-cli
+        "smudge/smudge" # nightlight
+        "spicy-lemonade/tap" # Salt encrypted memory backups
+        "steipete/tap" # remindctl
+      ];
   };
 }
