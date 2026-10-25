@@ -18,6 +18,9 @@ in {
   taps = map (x: x.name) c.homebrew.taps;
   packages = map (x: x.pname or x.name) hm.home.packages;
   files = builtins.attrNames hm.home.file;
+  pythonPackages = builtins.concatMap (p:
+    map (x: x.pname or x.name) (p.paths or []))
+    (builtins.filter (p: builtins.match "python3-.*-env" p.name != null) hm.home.packages);
   hooks = builtins.attrNames hm.home.activation;
   postActivation = c.system.activationScripts.postActivation.text;
   signing = hm.programs.git.signing.signByDefault;
@@ -44,6 +47,8 @@ def main():
     assert not mini["signing"], "Do not require the MacBook's private signing key"
     assert mini["vim"] == "vim", mini["vim"]
     assert not mini["sshIncludes"], mini["sshIncludes"]
+    assert "jupyterlab" not in mini["pythonPackages"], mini["pythonPackages"]
+    assert {"pip", "virtualenv", "numpy", "pillow"}.issubset(mini["pythonPackages"])
     assert not {"aerospace", "jankyborders", "lmstudio", "sioyek", "mactap", "superbacked"}.intersection(mini["packages"])
     assert not {"muninn", "muninn-readable", ".aerospace.toml", ".omp/agent/AGENTS.md"}.intersection(mini["files"])
     assert not {
@@ -62,6 +67,7 @@ def main():
     assert laptop["signing"]
     assert laptop["vim"] == "vim-full", laptop["vim"]
     assert laptop["sshIncludes"] == ["config.d/ecoray"]
+    assert "jupyterlab" in laptop["pythonPackages"], laptop["pythonPackages"]
     assert "sshEcorayHosts" in laptop["hooks"]
     assert "pmset -b powernap 0" in laptop["postActivation"]
     print("PASS: Gimle identity and host isolation; MacBook integrations retained")

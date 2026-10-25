@@ -19,6 +19,11 @@ of the default GTK-enabled `vim-full`; the locked GUI package fails to compile
 with missing `gui.scale` members. The MacBook's Vim selection is unchanged.
 Resolve/CorridorKey work in the primary checkout is not part of this profile.
 
+Gimle retains Python with pip, virtualenv, NumPy and Pillow but excludes
+JupyterLab. The locked notebook dependency tree failed native builds in
+`trio-websocket` and `backrefs` timeout tests; no upstream tests are disabled.
+The MacBook retains JupyterLab and its original Python package order.
+
 This profile alone does **not** install or start production Loki, migrate its
 state, or establish boot-time Tailscale. The shared Tailscale CLI package is not
 a configured system daemon.

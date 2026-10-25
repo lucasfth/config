@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  hostname,
   ...
 }: let
   pinnedZig = pkgs.stdenvNoCC.mkDerivation {
@@ -38,13 +39,10 @@
 in {
   home.packages = with pkgs; [
     (python312.withPackages (ps:
-      with ps; [
-        pip
-        virtualenv
-        jupyterlab
-        numpy
-        pillow
-      ]))
+      with ps;
+        [pip virtualenv]
+        ++ lib.optionals (hostname != "gimle") [jupyterlab]
+        ++ [numpy pillow]))
     nodejs_22
     go
     rustc
