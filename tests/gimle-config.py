@@ -27,6 +27,11 @@ in {
   vim = hm.programs.vim.packageConfigurable.pname;
   sshIncludes = hm.programs.ssh.includes;
   gpgAgent = hm.services.gpg-agent.enable;
+  powerRestart = c.power.restartAfterPowerFailure;
+  computerSleep = c.power.sleep.computer;
+  lokiDaemons = builtins.filter (name: builtins.elem name ["loki-volume" "gimle-tailscaled"]) (builtins.attrNames c.launchd.daemons);
+  lokiVolume = if c.networking.hostName == "gimle" then c.launchd.daemons.loki-volume.serviceConfig else null;
+  tailscaled = if c.networking.hostName == "gimle" then c.launchd.daemons.gimle-tailscaled.serviceConfig else null;
 }'''
 
 
@@ -60,6 +65,15 @@ def main():
     }.intersection(mini["hooks"])
     assert "pmset -b" not in mini["postActivation"]
     assert "DisplayLink" not in mini["postActivation"]
+    assert mini["powerRestart"] is True
+    assert mini["computerSleep"] == "never"
+    assert set(mini["lokiDaemons"]) == {"loki-volume", "gimle-tailscaled"}
+    assert mini["lokiVolume"]["RunAtLoad"] is True
+    assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
+    assert mini["lokiVolume"]["ThrottleInterval"] == 30
+    assert mini["tailscaled"]["Disabled"] is True
+    assert mini["tailscaled"]["RunAtLoad"] is False
+    assert mini["tailscaled"]["KeepAlive"] is False
 
     laptop = config("lucas-macbook-pro")
     assert laptop["home"] == "/Users/lucasfreytorreshanson"
@@ -73,6 +87,7 @@ def main():
     assert "jupyterlab" in laptop["pythonPackages"], laptop["pythonPackages"]
     assert {"sshEcorayHosts", "herdrOmpIntegration"}.issubset(laptop["hooks"])
     assert "pmset -b powernap 0" in laptop["postActivation"]
+    assert not laptop["lokiDaemons"], "Gimle daemons must not reach the MacBook"
     print("PASS: Gimle identity and host isolation; MacBook integrations retained")
 
 

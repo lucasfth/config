@@ -24,9 +24,30 @@ JupyterLab. The locked notebook dependency tree failed native builds in
 `trio-websocket` and `backrefs` timeout tests; no upstream tests are disabled.
 The MacBook retains JupyterLab and its original Python package order.
 
-This profile alone does **not** install or start production Loki, migrate its
-state, or establish boot-time Tailscale. The shared Tailscale CLI package is not
-a configured system daemon.
+This profile alone does **not** install or start production Loki. It declares
+a root volume-unlock job and an explicitly disabled Tailscale daemon; production
+gateway/MCP jobs remain absent until native runtime and cutover qualification.
+
+## Boot-chain source — 2026-10-25
+
+`nix/darwin/gimle.nix` is host-scoped: automatic restart after power failure,
+no system sleep, and `dk.loki.volume` at boot. Failed unlocks retry with a
+30-second throttle; successful unlocks exit without polling. The mount helper
+checks the exact image, owner and permissions and passes the key through stdin.
+
+Encrypted storage: `/Library/Application Support/Loki/LokiData.sparsebundle`,
+root-only `volume.key` beside it, mounted at `/Users/gimle/loki-data`. Lucas
+approved unattended on-host key storage. This protects the image separately,
+not against a disk-level attacker who can obtain both image and key. Secrets
+and health data must never enter Git. A reboot/power test is still required.
+
+`services.gimle.tailscaleAtBoot` defaults to false. Do not enable it until the
+GUI-to-daemon handoff has alternate access and a verified tailnet enrollment.
+Service ordering must be enforced by readiness checks, not LaunchDaemon labels.
+
+Clean committed repositories can be pulled; dirty patches, SQLite backups,
+credentials, sessions and untracked vault content require separate verified
+migration. Preserve phone originals until the cutover/rollback window closes.
 
 ## Observed bootstrap state — 2026-10-24
 

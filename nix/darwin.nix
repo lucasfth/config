@@ -11,6 +11,7 @@
     ./darwin/launchd.nix
     ./darwin/services.nix
     ./darwin/davinci-resolve.nix
+    ./darwin/gimle.nix
     ./darwin/homebrew
   ];
 
