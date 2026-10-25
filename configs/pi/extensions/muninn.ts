@@ -5,6 +5,8 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
+// @ts-expect-error Shared native ESM helper has no declaration file.
+import { loadMuninnCredential } from "../credentials.mjs";
 
 
 type McpConfig = { mcpServers?: Record<string, { url?: unknown }> };
@@ -216,7 +218,8 @@ export function createMemoryRecall(client: VaultClient): (paths: string[], maxCh
   };
 }
 
-export default function muninnExtension(pi: ExtensionAPI): void {
+export default async function muninnExtension(pi: ExtensionAPI): Promise<void> {
+  await loadMuninnCredential();
   const injectedSessions: Record<string, true> = {};
   const recall = createMemoryRecall(new McpVaultClient());
   pi.on("before_agent_start", async (_event: BeforeAgentStartEvent, ctx) => {

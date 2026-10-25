@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { sourceDir, prepareRuntime } from './runtime.mjs';
 import { updateProfile } from './update.mjs';
+import { loadMuninnCredential } from './credentials.mjs';
 
 const agentDir = process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), '.local/share/huginn-pi/agent');
 const env = {
@@ -15,6 +16,7 @@ const env = {
   npm_config_cache: path.join(os.homedir(), '.cache/huginn-pi/npm'),
 };
 try {
+  await loadMuninnCredential({ env });
   if (process.argv[2] === 'update') {
     const result = await updateProfile({ sourceDir, cacheDir: env.npm_config_cache, args: process.argv.slice(3), env });
     process.exitCode = result.code;
