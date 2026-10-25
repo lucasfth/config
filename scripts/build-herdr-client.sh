@@ -31,8 +31,10 @@ git -C "$checkout" remote add origin "$HERDR_REPOSITORY"
 git -C "$checkout" fetch --quiet --depth 1 origin "$HERDR_REVISION"
 git -C "$checkout" checkout --quiet --detach FETCH_HEAD
 [[ $(git -C "$checkout" rev-parse HEAD) == "$HERDR_REVISION" ]]
-git -C "$checkout" apply --check "$root/configs/herdr/client.patch"
-git -C "$checkout" apply "$root/configs/herdr/client.patch"
+for patch in client.patch pi-profile.patch; do
+  git -C "$checkout" apply --check "$root/configs/herdr/$patch"
+  git -C "$checkout" apply "$root/configs/herdr/$patch"
+done
 
 archive="$cache/zig-$ZIG_VERSION.tar.xz"
 zig_root="$cache/zig-aarch64-macos-$ZIG_VERSION"
@@ -53,7 +55,7 @@ export CC
 CC=$(xcrun --find clang)
 export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER="$CC"
 export CARGO_TARGET_DIR="$cache/target"
-(cd "$checkout" && cargo test --locked -p herdr --bin herdr client::shell::tests && cargo build --locked --release -p herdr --bin herdr)
+(cd "$checkout" && cargo test --locked -p herdr --bin herdr integration:: -- --test-threads=1 && cargo test --locked -p herdr --bin herdr client::shell::tests && cargo build --locked --release -p herdr --bin herdr)
 built="$CARGO_TARGET_DIR/release/herdr"
 [[ $("$built" --version) == "herdr $HERDR_VERSION" ]]
 if "$install"; then

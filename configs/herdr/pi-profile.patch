@@ -1,0 +1,135 @@
+diff --git a/src/integration/registry.rs b/src/integration/registry.rs
+index 9185c96..805377b 100644
+--- a/src/integration/registry.rs
++++ b/src/integration/registry.rs
+@@ -263,6 +263,21 @@ pub(crate) fn outdated_installed_integrations() -> Vec<super::IntegrationStatus>
+         .collect()
+ }
+ 
++// Discover Huginn's existing hook without changing stock Pi install/uninstall paths
++// or OMP's directory. Explicit overrides and an installed stock hook win.
++fn pi_status_path() -> io::Result<PathBuf> {
++    let standard = pi_extension_dir()?.join(super::PI_EXTENSION_INSTALL_NAME);
++    if std::env::var_os(PI_CODING_AGENT_DIR_ENV_VAR).is_some_and(|value| !value.is_empty())
++        || standard.is_file()
++    {
++        return Ok(standard);
++    }
++    let huginn = home_dir()?
++        .join(".local/share/huginn-pi/agent/extensions")
++        .join(super::PI_EXTENSION_INSTALL_NAME);
++    Ok(if huginn.is_file() { huginn } else { standard })
++}
++
+ fn integration_specs() -> [(
+     crate::api::schema::IntegrationTarget,
+     io::Result<PathBuf>,
+@@ -271,7 +286,7 @@ fn integration_specs() -> [(
+     [
+         (
+             crate::api::schema::IntegrationTarget::Pi,
+-            pi_extension_dir().map(|dir| dir.join(super::PI_EXTENSION_INSTALL_NAME)),
++            pi_status_path(),
+             super::PI_INTEGRATION_VERSION,
+         ),
+         (
+diff --git a/src/integration/tests.rs b/src/integration/tests.rs
+index 147daff..9b8a3cb 100644
+--- a/src/integration/tests.rs
++++ b/src/integration/tests.rs
+@@ -5191,3 +5191,95 @@ fn grok_dir_honors_grok_home_after_config_dir_seam() {
+     clear_integration_path_env();
+     let _ = fs::remove_dir_all(base);
+ }
++
++#[test]
++fn pi_status_discovers_huginn_without_retargeting_installs_or_omp() {
++    let _lock = integration_env_lock();
++    let original_home = std::env::var_os("HOME");
++    let original_pi = std::env::var_os(PI_CODING_AGENT_DIR_ENV_VAR);
++    let base = unique_base();
++    for (case, stock_hook, huginn_hook, explicit) in [
++        ("huginn", false, true, false),
++        ("stock", true, false, false),
++        ("both", true, true, false),
++        ("override", false, true, true),
++        ("empty-huginn", false, false, false),
++    ] {
++        let home = base.join(case);
++        let stock = home.join(".pi/agent/extensions");
++        let huginn = home.join(".local/share/huginn-pi/agent/extensions");
++        let custom = home.join("custom/extensions");
++        let omp = home.join(".omp/agent/extensions");
++        for dir in [&stock, &huginn, &custom, &omp] {
++            fs::create_dir_all(dir).unwrap();
++        }
++        for (present, dir) in [
++            (stock_hook, &stock),
++            (huginn_hook, &huginn),
++            (explicit, &custom),
++        ] {
++            if present {
++                fs::write(dir.join(PI_EXTENSION_INSTALL_NAME), PI_EXTENSION_ASSET).unwrap();
++            }
++        }
++        fs::write(omp.join(OMP_EXTENSION_INSTALL_NAME), OMP_EXTENSION_ASSET).unwrap();
++        std::env::set_var("HOME", &home);
++        if explicit {
++            std::env::set_var(PI_CODING_AGENT_DIR_ENV_VAR, home.join("custom"));
++        } else {
++            std::env::remove_var(PI_CODING_AGENT_DIR_ENV_VAR);
++        }
++        let statuses = installed_integration_statuses();
++        let pi = statuses
++            .iter()
++            .find(|status| status.target == crate::api::schema::IntegrationTarget::Pi)
++            .unwrap();
++        let expected = if explicit {
++            &custom
++        } else if stock_hook || !huginn_hook {
++            &stock
++        } else {
++            &huginn
++        };
++        assert_eq!(pi.path, expected.join(PI_EXTENSION_INSTALL_NAME), "{case}");
++        let expected_state = if stock_hook || huginn_hook || explicit {
++            IntegrationStatusKind::Current
++        } else {
++            IntegrationStatusKind::NotInstalled
++        };
++        assert_eq!(pi.state, expected_state, "{case}");
++        let recommendation = integration_recommendations()
++            .into_iter()
++            .find(|item| item.target == crate::api::schema::IntegrationTarget::Pi)
++            .unwrap();
++        assert_eq!(recommendation.path, pi.path, "{case}");
++        assert_eq!(recommendation.state, expected_state, "{case}");
++        // Installation must follow the real Pi runtime, not the status fallback.
++        assert_eq!(
++            install_pi().unwrap(),
++            if explicit { &custom } else { &stock }.join(PI_EXTENSION_INSTALL_NAME),
++            "{case}"
++        );
++        std::env::remove_var(PI_CODING_AGENT_DIR_ENV_VAR);
++        assert_eq!(omp_extension_dir().unwrap(), omp, "{case}");
++        let omp_status = installed_integration_statuses()
++            .into_iter()
++            .find(|status| status.target == crate::api::schema::IntegrationTarget::Omp)
++            .unwrap();
++        assert_eq!(
++            omp_status.path,
++            omp.join(OMP_EXTENSION_INSTALL_NAME),
++            "{case}"
++        );
++        assert_eq!(omp_status.state, IntegrationStatusKind::Current, "{case}");
++    }
++    match original_home {
++        Some(value) => std::env::set_var("HOME", value),
++        None => std::env::remove_var("HOME"),
++    }
++    match original_pi {
++        Some(value) => std::env::set_var(PI_CODING_AGENT_DIR_ENV_VAR, value),
++        None => std::env::remove_var(PI_CODING_AGENT_DIR_ENV_VAR),
++    }
++    fs::remove_dir_all(base).unwrap();
++}

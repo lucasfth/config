@@ -135,8 +135,9 @@ it independently of Homebrew and keeps Zsh syntax highlighting correct. Run
 `command herdr` bypasses the function and uses
 Homebrew's stock version (currently 0.9.5). A previous Cellar overwrite was
 replaced by Homebrew; do not use that as the patch installation method.
-The complete client diff is captured in [`client.patch`](client.patch), with exact
-upstream commit and Zig archive/hash pins in [`client-build.env`](client-build.env).
+The sidebar diff is captured in [`client.patch`](client.patch), and Pi profile
+discovery in [`pi-profile.patch`](pi-profile.patch), with exact upstream commit
+and Zig archive/hash pins in [`client-build.env`](client-build.env).
 The separate development checkouts are no longer required to reproduce the build.
 
 ```sh
@@ -147,7 +148,7 @@ bash ~/config/scripts/build-herdr-client.sh --install  # also atomically install
 Build prerequisites: Apple Silicon macOS, Command Line Tools, Rust/Cargo, Git and
 network access. The helper downloads checksum-verified Zig 0.16.0 into its cache;
 it does not change system compilers. It builds from a fresh disposable source
-directory at the exact pinned revision and applies only the captured patch.
+directory at the exact pinned revision and applies both captured patches.
 `--install` saves the previous client as `~/.local/libexec/herdr-patched.previous`.
 Neither mode starts, stops or hands off a Herdr server. Detach/re-attach to load
 the installed client. Server updates require separate explicit approval and
@@ -156,6 +157,52 @@ The helper was exercised in build-only mode from a fresh pinned source checkout:
 343 client-shell tests passed (2 ignored), release build completed, and the
 resulting executable reported `herdr 0.9.5`. This does not promise byte-identical
 binaries across Rust toolchains or source/build paths.
+
+### Huginn Pi integration discovery
+
+Herdr's settings API runs in the server process, which does not inherit the
+profile override set inside Huginn's Pi launcher. The Pi-only status patch
+respects a nonempty `PI_CODING_AGENT_DIR` first, then an installed stock hook in
+`~/.pi/agent/extensions/`, then an existing hook in
+`~/.local/share/huginn-pi/agent/extensions/`. An empty Huginn directory is not
+reported as installed. Both settings recommendations and CLI status use this
+same resolution.
+
+Installation and uninstallation are deliberately unchanged: stock Pi still uses
+`~/.pi/agent`, and Huginn's launcher explicitly supplies its private directory.
+OMP keeps its own resolution. Never export `PI_CODING_AGENT_DIR` globally to fix
+this indicator: Herdr's OMP integration also reads that variable.
+
+Verification on 2026-10-25: the regression failed before the discovery change;
+the fresh pinned build passed 190 integration tests and 343 client-shell tests
+(2 ignored). The built CLI reported both Pi and OMP current without a profile
+override. An isolated real server's `integration.list` settings API reported
+both current, and real unwrapped Pi loaded an extension from the stock directory
+after installation there. No provider request was needed.
+
+Lucas approved local installation and one live server handoff on 2026-10-25.
+The verified artifact (SHA-256
+`706cdd8f95632973cd7b742231233cf08a624aad89cd826acc396d08b99e090e`)
+was atomically installed at `~/.local/libexec/herdr-patched`, retaining
+`herdr-patched.previous`. The handoff returned OK and moved from server PID 1783
+to PID 9272; the live settings API reported Pi and OMP current.
+
+**Preservation check failed; do not call this a clean handoff.** The immediate
+post-handoff snapshot retained all 20 panes and their agent-session references,
+and all 35 tracked shell/Pi/bridge processes initially survived, but every
+internal terminal ID changed. A subsequent snapshot had only the 19 original
+panes: extra workspace `wA`, tab `wA:t1`, and pane `wA:p1` were missing.
+That pane had run `-zsh` in `~/Desktop/code/config` (shell PID 8370, terminal
+`term_65eb0b57ca12325`); PID 8370 subsequently no longer existed. All seven
+original Pi session references survived. The disappearance followed handoff;
+whether handoff or a concurrent close caused it is unconfirmed.
+
+Evidence: `~/.cache/huginn/herdr-client/pi-live-handoff.mhuq4f8q/` contains
+before/after snapshots, process tables, integration replies and handoff response;
+`/tmp/herdr-pi-current-snapshot.json` captured the later missing pane.
+No second handoff, restart or rollback was attempted. Further lifecycle changes
+require fresh approval; restoring the previous executable alone cannot recover
+the exited shell. Reattaching a viewing client is not a server discovery fix.
 
 Home Manager now declares the plugin files under
 `~/.config/herdr/plugins/host-summary/` and links the plugin after file deployment.
