@@ -29,7 +29,9 @@ def main():
     assert VOLUME.stat().st_uid == 501 and stat.S_IMODE(VOLUME.stat().st_mode) == 0o700
     assert (LIVE / 'preparation.json').is_file(), 'Native runtime not prepared'
     gate = Path('/etc/loki/production-enabled')
-    assert gate.is_file() and not gate.is_symlink(), 'Production has not been enabled'
+    # /etc files are root-managed symlinks into the Nix store.
+    assert gate.is_file(), 'Production has not been enabled'
+    assert gate.resolve().is_relative_to(Path('/nix/store')), 'Unmanaged production gate'
     assert gate.stat().st_uid == 0 and not gate.stat().st_mode & 0o022, 'Unsafe production gate'
     os.environ['HERMES_HOME'] = str(HOME)
     os.environ['HERMES_RUNTIME_DIR'] = str(HOME / 'tools')
