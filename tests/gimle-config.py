@@ -29,7 +29,7 @@ in {
   gpgAgent = hm.services.gpg-agent.enable;
   powerRestart = c.power.restartAfterPowerFailure;
   computerSleep = c.power.sleep.computer;
-  lokiDaemons = builtins.filter (name: builtins.elem name ["loki-volume" "gimle-tailscaled"]) (builtins.attrNames c.launchd.daemons);
+  lokiDaemons = builtins.filter (name: builtins.match "loki-.*|gimle-tailscaled" name != null) (builtins.attrNames c.launchd.daemons);
   lokiVolume = if c.networking.hostName == "gimle" then c.launchd.daemons.loki-volume.serviceConfig else null;
   tailscaled = if c.launchd.daemons ? gimle-tailscaled then c.launchd.daemons.gimle-tailscaled.serviceConfig else null;
 }'''
@@ -72,6 +72,21 @@ def main():
     assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
     assert mini["lokiVolume"]["ThrottleInterval"] == 30
     assert mini["tailscaled"] is None, "Do not emit a Tailscale job before handoff"
+    production = json.loads(subprocess.check_output([
+        "nix", "eval", "--json", "--impure", "--expr",
+        '''let f = builtins.getFlake (toString ./.); c = f.darwinConfigurations.gimle.extendModules {
+          modules = [{services.gimle.production = true;}];
+        }; in builtins.mapAttrs (_: job: job.serviceConfig) c.config.launchd.daemons''',
+    ], cwd=ROOT, text=True))
+    assert "gimle-tailscaled" not in production
+    for service in ("gateway", "vault", "ask", "browser", "hue"):
+        job = production["loki-" + service]
+        assert job["UserName"] == "gimle" and job["GroupName"] == "staff"
+        assert job["EnvironmentVariables"]["HOME"] == "/Users/gimle"
+        assert job["KeepAlive"]["SuccessfulExit"] is False
+        assert job["RunAtLoad"] is True
+        assert job["ProgramArguments"][0].startswith("/nix/store/")
+        assert job["ProgramArguments"][1:] == ["/etc/loki/service-run.py", service]
 
     laptop = config("lucas-macbook-pro")
     assert laptop["home"] == "/Users/lucasfreytorreshanson"

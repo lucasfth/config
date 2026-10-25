@@ -24,16 +24,22 @@ JupyterLab. The locked notebook dependency tree failed native builds in
 `trio-websocket` and `backrefs` timeout tests; no upstream tests are disabled.
 The MacBook retains JupyterLab and its original Python package order.
 
-This profile alone does **not** install or start production Loki. It declares
-a root volume-unlock job and an opt-in Tailscale daemon; production
-gateway/MCP jobs remain absent until native runtime and cutover qualification.
+Production defaults to off. `services.gimle.production` explicitly enables five
+system LaunchDaemons running as `gimle`: gateway, vault, Ask Loki, browser and Hue.
+Their Nix-pinned Python runner checks the encrypted mount and root-owned enable
+gate. Gateway startup additionally requires a final-snapshot and stopped-phone
+receipt; it never uses `--replace`. Failed starts retry with a 30-second throttle.
+Successful exits stay stopped. Private configuration and runtime live inside
+the encrypted volume; no secrets or migration state belong in the repository.
 
 ## Boot-chain source — 2026-10-25
 
 `nix/darwin/gimle.nix` is host-scoped: automatic restart after power failure,
-no system sleep, and `dk.loki.volume` at boot. Failed unlocks retry with a
-30-second throttle; successful unlocks exit without polling. The mount helper
-checks the exact image, owner and permissions and passes the key through stdin.
+no system sleep, and `dk.loki.volume` at boot. macOS changes from
+`autorestartatconnect` to `autorestart` when applying restart-after-failure.
+Failed unlocks retry with a 30-second throttle; successful unlocks exit without
+polling. The mount helper checks the exact image, owner and permissions and
+passes the key through stdin.
 
 Encrypted storage: `/Library/Application Support/Loki/LokiData.sparsebundle`,
 root-only `volume.key` beside it, mounted at `/Users/gimle/loki-data`. Lucas
@@ -46,6 +52,13 @@ entirely: nix-darwin's `launchctl load -w` could override a plist Disabled flag.
 Do not enable it until the GUI-to-daemon handoff has alternate access and a
 verified tailnet enrollment. Service ordering must use readiness checks, not
 LaunchDaemon labels.
+
+`configs/loki/mcp-requirements.txt` pins the additional browser MCP dependency
+from the phone's lockfile. Install it with hash checking into the private
+`live/service-vendor` directory, not Hermes' managed dependency environment.
+Ask Loki recovery delegates to launchd; do not run the Android stack launcher
+on macOS. Keep copied cron jobs disabled until each job's paths and external
+dependencies have been validated.
 
 Clean committed repositories can be pulled; dirty patches, SQLite backups,
 credentials, sessions and untracked vault content require separate verified

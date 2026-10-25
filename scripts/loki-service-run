@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Run one native Loki service only after its encrypted home is available."""
+import os
+from pathlib import Path
+import json
+import socket
+import stat
+import sys
+
+VOLUME = Path('/Users/gimle/loki-data')
+LIVE = VOLUME / 'live'
+HOME = LIVE / 'hermes'
+SOURCE = LIVE / 'hermes-source'
+SERVICES = {
+    'gateway': None,
+    'vault': 'mcp-vault-server/server.py',
+    'ask': 'mcp-ask-loki/server.py',
+    'browser': 'mcp-browser-server/server.py',
+    'hue': 'mcp-hue-server/server.py',
+}
+
+
+def main():
+    assert os.geteuid() == 501 and socket.gethostname() == 'gimle', 'Must run as gimle on Gimle'
+    assert os.environ.get('HOME') == '/Users/gimle', 'Wrong service HOME'
+    assert len(sys.argv) == 2 and sys.argv[1] in SERVICES, 'Unknown service'
+    service = sys.argv[1]
+    assert VOLUME.is_mount() and not VOLUME.is_symlink(), 'Encrypted volume not mounted'
+    assert VOLUME.stat().st_uid == 501 and stat.S_IMODE(VOLUME.stat().st_mode) == 0o700
+    assert (LIVE / 'preparation.json').is_file(), 'Native runtime not prepared'
+    gate = Path('/etc/loki/production-enabled')
+    assert gate.is_file() and not gate.is_symlink(), 'Production has not been enabled'
+    assert gate.stat().st_uid == 0 and not gate.stat().st_mode & 0o022, 'Unsafe production gate'
+    os.environ['HERMES_HOME'] = str(HOME)
+    os.environ['HERMES_RUNTIME_DIR'] = str(HOME / 'tools')
+    os.environ['VAULT_PATH'] = str(VOLUME / 'loki-memory')
+    os.environ['VAULT_INDEX_DB'] = str(HOME / 'mcp-vault-server/index.db')
+    os.environ['MUNINN_TEMPORAL_DB'] = str(HOME / 'mcp-vault-server/temporal.db')
+    os.environ['MUNINN_MCP_TOKENS'] = str(HOME / 'mcp-vault-server/tokens.json')
+    assert Path(os.environ['MUNINN_MCP_TOKENS']).is_file(), 'Caller authentication file missing'
+    tool_bins = []
+    for directory in sorted((HOME / 'tools').iterdir()):
+        if directory.is_dir():
+            tool_bins.extend(str(p) for p in [directory / 'bin', directory] if p.is_dir())
+    os.environ['PATH'] = ':'.join([
+        '/Users/gimle/.nix-profile/bin', '/opt/homebrew/bin', '/Users/gimle/.local/bin',
+        *tool_bins, '/usr/bin', '/bin', '/usr/sbin', '/sbin',
+    ])
+    os.chdir(SOURCE)
+    python = HOME / 'tools/python-3.14.7+20260901-darwin-arm64/bin/python3'
+    assert python.is_file(), 'Native managed Python missing'
+    # Resolve the managed dependency closure at process start, not at deployment.
+    bootstrap = (
+        'import sys,runpy;'
+        f'sys.path.insert(0,{str(SOURCE)!r});'
+        'import hermes_bootstrap;'
+        f'sys.path.insert(0,{str(LIVE / "service-vendor")!r});'
+        'from dotenv import load_dotenv;'
+        f'load_dotenv({str(HOME / ".env")!r},override=False);'
+    )
+    if service == 'ask':
+        # Ask Loki must not race the API socket at startup. A TCP check doesn't
+        # invoke an API, submit an agent turn, or deliver any message.
+        with socket.create_connection(('127.0.0.1', 8642), timeout=3):
+            pass
+    if service == 'gateway':
+        ready = json.loads((LIVE / 'cutover-ready.json').read_text())
+        assert ready.get('phone_writers_stopped') is True, 'Phone writer stop not recorded'
+        assert ready.get('final_snapshot_verified') is True, 'Final snapshot not verified'
+    if service == 'gateway':
+        bootstrap += "runpy.run_module('hermes_cli.main',run_name='__main__',alter_sys=True)"
+        args = ['gateway', 'run']  # Never --replace; duplicate polling must fail closed.
+    else:
+        target = HOME / SERVICES[service]
+        bootstrap += f'sys.path.insert(0,{str(target.parent)!r});runpy.run_path({str(target)!r},run_name="__main__")'
+        args = []
+    os.execv(str(python), [str(python), '-I', '-c', bootstrap, *args])
+
+
+if __name__ == '__main__':
+    main()
