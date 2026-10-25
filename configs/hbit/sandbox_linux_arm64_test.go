@@ -40,7 +40,7 @@ func TestSandbox(t *testing.T) {
 			t.Fatalf("missing %s", field)
 		}
 	}
-	for _, target := range []string{"127.0.0.1:22", "192.168.86.51:22", "192.168.86.1:443", "1.1.1.1:443", "[::1]:22", "[2606:4700:4700::1111]:443"} {
+	for _, target := range []string{"127.0.0.1:22", "192.0.2.10:22", "198.51.100.1:443", "203.0.113.1:443", "[::1]:22", "[2001:db8::1]:443"} {
 		c, err := net.DialTimeout("tcp", target, time.Second)
 		if c != nil {
 			c.Close()

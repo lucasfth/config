@@ -47,7 +47,7 @@ First terminal (keep open):
 
 ```sh
 ssh -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -N \
-  -L 127.0.0.1:12222:127.0.0.1:2222 gimle@gimle.tail3e4ba0.ts.net
+  -L 127.0.0.1:12222:127.0.0.1:2222 gimle
 ```
 
 Second terminal:
@@ -149,13 +149,12 @@ Do not stop the entire runtime if other workloads have subsequently been added.
 
 ## Public website / DNS follow-up
 
-The operator approved provisioning the separate Nordicway addon domain/zone.
-cPanel confirmed `/home/lucashan/hbit.sh` (not shared with `/public_html`).
-Delegation independently verified against `a0.nic.sh`: ns1–ns4.nordicway.dk.
-All four authoritative servers now answer SOA; Cloudflare and Google resolve
-the generated A record to Nordicway `142.132.203.237`, not Gimle. No manual
-nameserver change or public Mac route was added. Gimle's dedicated browser
-and its same-tab authenticated cPanel handoff were exercised successfully.
+The operator approved a separate hosting-provider addon domain/zone, with its
+own document root rather than the primary site. Authoritative DNS and public
+resolution were verified against the hosting provider, not Gimle. No manual
+nameserver change or public Mac route was added. Gimle’s dedicated browser
+and its same-tab authenticated control-panel handoff were exercised successfully.
+Account-specific addresses, endpoints and paths belong in private operational notes.
 
 Hbit still has no HTTP handler, public SSH endpoint or automatic startup.
 The requested website should resemble Herdr's Catppuccin terminal and use
@@ -173,7 +172,7 @@ About and Quit; exec `id` was refused and the pinned host key matched. The
 temporary test containers and verification tunnel were removed. Latest short
 sample: 7.11 MiB reported guest use, 0.00% reported idle CPU. No load claim.
 
-Unfiltered BusyBox probe on `hbit-private`: host gateway `192.168.128.1:22` and
-Gimle LAN `192.168.86.51:22` reachable; router `192.168.86.1:443` and internet
-`1.1.1.1:443` unreachable. This is why internal vmnet alone is not a safe
+An unfiltered disposable guest on `hbit-private` reached the host through both
+the VM gateway and LAN interface; router HTTPS and public internet HTTPS were
+unreachable in that probe. This is why internal vmnet alone is not a safe
 public host-isolation claim. No host-wide PF edits were performed.

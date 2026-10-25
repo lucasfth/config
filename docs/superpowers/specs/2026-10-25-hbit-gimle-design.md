@@ -59,9 +59,9 @@ on gomle” and “you should always be using that browser and not the freer one
 anymore”. Interpreted `gomle`/`freer` as Gimle/Freyr from context.
 Historical restriction was subsequently migrated: Gimle's dedicated `loki_browser`
 now performs the authenticated same-tab Nordicway/cPanel handoff. Operator approved
-recommended separate addon domain/zone. cPanel confirmed `/home/lucashan/hbit.sh`
-separate from `/public_html`; ns1–ns4 answer authoritatively and public A resolves
-to Nordicway 142.132.203.237. No route to Gimle was exposed.
+a separate addon domain/zone. The control panel confirmed an independent document
+root; authoritative DNS and public resolution point to the hosting provider.
+No route to Gimle was exposed. Account-specific details remain in private notes.
 
 ## Security follow-up and actual evidence
 
