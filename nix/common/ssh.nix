@@ -53,6 +53,7 @@
     echo "    SetEnv TERM=xterm-256color" >> "$OUT"
     emit "freyr ecoray-freyr"  ECORAY_FREYR_USER    ECORAY_FREYR_IP
     echo "    SetEnv TERM=xterm-256color" >> "$OUT"
+    emit "gimle"              GIMLE_USER          GIMLE_IP
     emit "mini"               ECORAY_MAC_MINI_USER ECORAY_MAC_MINI_IP
     emit "neo"                POST_SALES_USER      POST_SALES_IP
     echo "    SetEnv TERM=xterm-256color" >> "$OUT"

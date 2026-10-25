@@ -8,7 +8,6 @@ add_newline = false
 
 format = """
 →\
-$hostname\
 $directory\
 ${custom.giturl}\
 $git_branch\
@@ -18,7 +17,7 @@ $line_break\
 $character\
 """
 
-right_format = ""
+right_format = "$hostname"
 
 palette = "catppuccin_mocha"
 

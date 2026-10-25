@@ -185,6 +185,7 @@ before `direnv allow`; permission is never granted automatically by this config.
 | `vps2` | Ecoray VPS2 |
 | `mimer` | Ecoray mimer (Ubuntu) |
 | `freyr` | Ecoray freyr (NixOS GPU server) |
+| `gimle` | Gimle over Tailscale |
 | `mini` / `minid` | Ecoray Mac Mini (d = dev branch) |
 | `neo` | Neo (formerly post-sales) |
 | `ecoray3d` | Ecoray 3D server (root) |

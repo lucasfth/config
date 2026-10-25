@@ -74,7 +74,7 @@ nix-rollback() {
 unalias post-sales se1 se2 sem se1lv semd se3 vps1lv 2>/dev/null || true
 alias loki='ssh loki' sigyn='ssh sigyn' ssh-windows='ssh windows'
 alias vps1='ssh vps1' vps2='ssh vps2'
-alias mimer='ssh mimer' freyr='ssh freyr' mini='ssh mini' neo='ssh neo'
+alias mimer='ssh mimer' freyr='ssh freyr' gimle='ssh gimle' mini='ssh mini' neo='ssh neo'
 alias ecoray3d='ssh ecoray3d' sep='ssh sep' plato='ssh plato'
 alias minid='ssh -t mini "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
 
