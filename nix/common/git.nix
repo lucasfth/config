@@ -26,7 +26,7 @@
         merge.conflictstyle = "zdiff3";
       }
       // (
-        if hostname == "lucas-macbook-pro"
+        if builtins.elem hostname ["lucas-macbook-pro" "gimle"]
         then {
           user = {
             name = lib.mkForce "lucasfth";
