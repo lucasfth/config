@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Exact operator-approved afawa /etc race repair. Default is read-only."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import socket
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+TARGET = Path('/nix/store/afawa8n5l2rn23g2383hm31v34nn70x8-darwin-system-26.11.57abbd5')
+EXPECTED_OLD = Path('/nix/store/hch0xf5yp5j10rb8svhpwsh5yhqrd928-etc/etc')
+EXPECTED_NEW = Path('/nix/store/p9ich2wc0sfpbdgsi5vbik4d17b2pf95-etc/etc')
+STATIC = Path('/etc/static')
+AUX = Path('/etc/loki/auxiliary-enabled')
+RECOVERY = Path('/Users/gimle/loki-data/recovery')
+PROTECTED = ('ask', 'browser', 'gateway', 'hue', 'tailscaled', 'vault', 'volume')
+
+
+def inspect():
+    if socket.gethostname() != 'gimle' or not Path('/Users/gimle/loki-data').is_mount():
+        raise ValueError('Requires Gimle encrypted mount')
+    if Path('/run/current-system').resolve() != TARGET or Path('/nix/var/nix/profiles/system').resolve() != TARGET:
+        raise ValueError('Reviewed running/profile target changed')
+    if (TARGET / 'etc').resolve() != EXPECTED_NEW or (EXPECTED_NEW / 'loki/auxiliary-enabled').exists():
+        raise ValueError('Reviewed etc tree changed')
+    if not STATIC.is_symlink() or STATIC.readlink() not in (EXPECTED_OLD, EXPECTED_NEW):
+        raise ValueError('Unexpected static link; refusing')
+    repaired = STATIC.resolve() == EXPECTED_NEW
+    if repaired:
+        if AUX.is_symlink() or AUX.exists():
+            raise ValueError('Unexpected auxiliary link in repaired state')
+    elif not AUX.is_symlink() or AUX.readlink() != Path('/etc/static/loki/auxiliary-enabled') or AUX.read_text() != 'enabled\n':
+        raise ValueError('Unexpected auxiliary link/bytes')
+    if Path('/Library/LaunchDaemons/dk.loki.tts-tunnel.plist').exists():
+        raise ValueError('TTS management changed')
+    before = {}
+    for name in PROTECTED + ('muninn-backup', 'org.nixos.activate-system'):
+        label = name if name.startswith('org.') else 'dk.loki.' + name
+        result = subprocess.run(['/bin/launchctl', 'print', 'system/' + label], check=True, capture_output=True, text=True)
+        match = re.search(r'^\s*pid = (\d+)$', result.stdout, re.M)
+        before[name] = int(match.group(1)) if match else None
+        if name in ('org.nixos.activate-system', 'muninn-backup', 'volume'):
+            if match:
+                raise ValueError('Wait for inactive one-shot job: ' + name)
+        elif not match:
+            raise ValueError('Protected service not running: ' + name)
+    for port in (9377, 9444, 9500):
+        result = subprocess.run(['/usr/sbin/lsof', '-nP', '-t', '-iTCP:' + str(port), '-sTCP:LISTEN'], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise ValueError('Expected listener absent: ' + str(port))
+        before[str(port)] = sorted(set(result.stdout.split()))
+    return repaired, before
+
+
+def replace_link(path, target):
+    temporary = path.with_name('.' + path.name + '-repair-' + str(os.getpid()))
+    if temporary.exists() or temporary.is_symlink():
+        raise ValueError('Temporary path collision')
+    try:
+        os.symlink(str(target), temporary)
+        os.replace(temporary, path)
+    finally:
+        if temporary.is_symlink():
+            temporary.unlink()
+
+
+def verify_loki():
+    expected_names = {p.name for p in (EXPECTED_NEW / 'loki').iterdir()}
+    actual_names = {p.name for p in Path('/etc/loki').iterdir() if not p.name.endswith('.before-nix-darwin')}
+    if expected_names != actual_names:
+        raise ValueError('Unexpected managed Loki file set')
+    for name in expected_names:
+        live = Path('/etc/loki') / name
+        expected = EXPECTED_NEW / 'loki' / name
+        if not live.is_symlink() or live.readlink() != Path('/etc/static/loki') / name:
+            raise ValueError('Unexpected managed link: ' + name)
+        if hashlib.sha256(live.read_bytes()).digest() != hashlib.sha256(expected.read_bytes()).digest():
+            raise ValueError('Managed bytes differ: ' + name)
+
+
+def main():
+    if sys.argv[1:] not in ([], ['--apply']):
+        raise SystemExit('Usage: gimle-etc-repair [--apply]')
+    repaired, before = inspect()
+    print(json.dumps({'repaired': repaired, 'protected': before, 'from': str(STATIC.readlink()), 'to': str(EXPECTED_NEW)}, indent=2), flush=True)
+    if not sys.argv[1:]:
+        print('READ-ONLY ETC REPAIR PREFLIGHT PASS')
+        return
+    if os.geteuid() != 0:
+        raise SystemExit('Operator sudo required; no changes')
+    if repaired:
+        verify_loki()
+        print('Already repaired; no mutation')
+        return
+    os.umask(0o022)
+    state = RECOVERY / ('etc-repair-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    state.mkdir(mode=0o700)
+    record = {'static': str(STATIC.readlink()), 'auxiliary': str(AUX.readlink()), 'protected': before}
+    (state / 'before.json').write_text(json.dumps(record, indent=2))
+    (state / 'before.json').chmod(0o600)
+    if json.loads((state / 'before.json').read_text()) != record:
+        raise ValueError('Preservation readback mismatch')
+    try:
+        # No activation/profile/launchctl mutations: only these two approved links.
+        replace_link(STATIC, EXPECTED_NEW)
+        if not AUX.is_symlink() or str(AUX.readlink()) != record['auxiliary']:
+            raise ValueError('Auxiliary link changed; stop')
+        AUX.unlink()
+        verify_loki()
+        _, after = inspect()
+        (state / 'after.json').write_text(json.dumps(after, indent=2))
+        (state / 'after.json').chmod(0o600)
+        if before != after:
+            raise RuntimeError('Protected process changed')
+    except Exception:
+        # Restore only our two known links. Never overwrite another writer.
+        if STATIC.is_symlink() and STATIC.readlink() == EXPECTED_NEW:
+            replace_link(STATIC, Path(record['static']))
+        if not AUX.exists() and not AUX.is_symlink():
+            replace_link(AUX, Path(record['auxiliary']))
+        print('Repair failed; previous links restored where still owned. Inspect ' + str(state), file=sys.stderr)
+        raise
+    print('ETC REPAIR PASS: running/profile/static agree; auxiliary flag absent; all protected PIDs unchanged')
+    print('Receipt: ' + str(state))
+
+
+if __name__ == '__main__':
+    main()

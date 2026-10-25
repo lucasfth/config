@@ -46,6 +46,16 @@ macOS-specific tools, or temporary local services/mocks.
 - `nix-recovery-config.sh` and `setup-efficiency.sh` inspect evaluated Nix
   configuration and activation settings.
 - `gimle-config.py` evaluates the Mac mini identity, host-isolation boundaries and retained MacBook integrations. Run with `python3 tests/gimle-config.py`; it does not activate either host.
+- `loki-service-run.py` checks native service gates and safe auxiliary commands.
+  `gimle-auxiliary-activate.py` checks managed-link readability and rollback refusal.
+- `loki-readcode-transport.py` checks the fixed vault-only vendor path under isolated
+  Python, missing-dependency refusal, and Company-worker isolation.
+  `loki-readcode-vendor.py` checks exact versions/RECORD hashes and refuses overwrite.
+- `gimle-adoption-activate.py` and `gimle-adoption-failures.py` check permanent
+  retirement of the consumed adoption apply path and read-only consistency guards.
+  `gimle-etc-repair.py` checks the exact two-link repair and owned-link rollback.
+  `gimle-tts-activate.py` checks operator gates and profile-before-activation ordering.
+  These tests never activate a host.
 - `configs/pi/`: run `npm run typecheck`, `npm test` and `npm run verify:integration` there. These retain isolated loopback provider, RPC, normal-shell PTY and renderer checks. `pi update` runs them before reporting success; they do not prove live Freyr/Muninn/Herdr integrations.
 
 Run an individual script from the repository root, for example:

@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import json
+import re
 import socket
 import stat
 import sys
@@ -17,7 +18,35 @@ SERVICES = {
     'ask': 'mcp-ask-loki/server.py',
     'browser': 'mcp-browser-server/server.py',
     'hue': 'mcp-hue-server/server.py',
+    'chrome-browser': None,
+    'tts-tunnel': None,
 }
+TTS_TRANSPORT = LIVE / 'tts-transport.json'
+
+
+def auxiliary_command(service):
+    if service == 'chrome-browser':
+        return [
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '--headless=new', '--remote-debugging-address=127.0.0.1',
+            '--remote-debugging-port=9377',
+            f'--user-data-dir={HOME / "browser-profile"}',
+            '--no-first-run', '--no-default-browser-check', '--disable-gpu', 'about:blank',
+        ]
+    assert service == 'tts-tunnel', 'Unknown auxiliary service'
+    assert not TTS_TRANSPORT.is_symlink(), 'Unsafe TTS transport'
+    info = TTS_TRANSPORT.stat()
+    assert info.st_uid == 501 and stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o600, 'Unsafe TTS transport'
+    host = json.loads(TTS_TRANSPORT.read_text())['host']
+    assert isinstance(host, str) and re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*@[A-Za-z0-9][A-Za-z0-9.-]*', host), 'Invalid TTS host'
+    return [
+        '/usr/bin/ssh', '-N', '-T', '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=yes', '-o', 'UpdateHostKeys=no',
+        '-o', 'IdentitiesOnly=yes', '-o', 'ExitOnForwardFailure=yes',
+        '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=30',
+        '-o', 'ServerAliveCountMax=3', '-i', '/Users/gimle/.ssh/id_ed25519',
+        '-L', '127.0.0.1:9500:127.0.0.1:5000', host,
+    ]
 
 
 def main():
@@ -28,11 +57,21 @@ def main():
     assert VOLUME.is_mount() and not VOLUME.is_symlink(), 'Encrypted volume not mounted'
     assert VOLUME.stat().st_uid == 501 and stat.S_IMODE(VOLUME.stat().st_mode) == 0o700
     assert (LIVE / 'preparation.json').is_file(), 'Native runtime not prepared'
-    gate = Path('/etc/loki/production-enabled')
+    auxiliary = service in ('chrome-browser', 'tts-tunnel')
+    gate_name = 'auxiliary' if auxiliary else 'production'
+    gate = Path(f'/etc/loki/{gate_name}-enabled')
     # /etc files are root-managed symlinks into the Nix store.
-    assert gate.is_file(), 'Production has not been enabled'
-    assert gate.resolve().is_relative_to(Path('/nix/store')), 'Unmanaged production gate'
-    assert gate.stat().st_uid == 0 and not gate.stat().st_mode & 0o022, 'Unsafe production gate'
+    assert gate.is_file(), f'{gate_name.title()} has not been enabled'
+    assert gate.resolve().is_relative_to(Path('/nix/store')), 'Unmanaged service gate'
+    assert gate.stat().st_uid == 0 and not gate.stat().st_mode & 0o022, 'Unsafe service gate'
+    if auxiliary:
+        command = auxiliary_command(service)
+        os.execv(command[0], command)
+        return
+    if service == 'vault':
+        node = HOME / 'tools/node-26.7.0-darwin-arm64/bin/node'
+        assert node.is_file(), 'Native managed Node missing'
+        os.environ['READ_CODE_NODE'] = str(node)
     os.environ['HERMES_HOME'] = str(HOME)
     os.environ['HERMES_RUNTIME_DIR'] = str(HOME / 'tools')
     os.environ['VAULT_PATH'] = str(VOLUME / 'loki-memory')

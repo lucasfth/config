@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Copy only the pinned vault-worker dependency closure; never import source packages.
+
+Usage: loki-readcode-vendor SOURCE_SITE_PACKAGES DESTINATION
+The destination must not exist. Distribution RECORD hashes are checked before
+publication; no pip, package scripts, .pth processing or Hermes bootstrap is used.
+"""
+import base64
+import hashlib
+import importlib.metadata
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import sys
+import tempfile
+
+PACKAGES = Path(__file__).resolve().parents[1] / 'configs/loki/readcode/worker-packages.json'
+
+
+def key(name):
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
+def provision(source, destination, packages):
+    source, destination = Path(source).resolve(), Path(destination).absolute()
+    if destination.exists() or destination.is_symlink():
+        raise ValueError('Destination already exists; preserve it before replacement')
+    distributions = {key(d.metadata['Name']): d
+                     for d in importlib.metadata.distributions(path=[str(source)])}
+    staging = Path(tempfile.mkdtemp(prefix='.worker-vendor-', dir=destination.parent))
+    manifest = {}
+    try:
+        for name, version in packages.items():
+            dist = distributions[key(name)]
+            if dist.version != version:
+                raise ValueError(f'Unexpected version of {name}: {dist.version}')
+            if not dist.files:
+                raise ValueError(f'Missing RECORD for {name}')
+            for entry in dist.files:
+                if '..' in entry.parts or '__pycache__' in entry.parts or entry.suffix == '.pyc':
+                    continue  # environment scripts/cache are not worker dependencies
+                if entry.is_absolute() or entry.suffix == '.pth':
+                    raise ValueError(f'Unsafe distribution path: {entry}')
+                origin = Path(dist.locate_file(entry))
+                if origin.is_symlink() or not origin.resolve().is_relative_to(source):
+                    raise ValueError(f'Unsafe source: {entry}')
+                data = origin.read_bytes()
+                if entry.hash:
+                    if entry.hash.mode != 'sha256':
+                        raise ValueError(f'Unsupported RECORD hash: {entry}')
+                    digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).decode().rstrip('=')
+                    if digest != entry.hash.value:
+                        raise ValueError(f'RECORD mismatch: {entry}')
+                elif entry.name != 'RECORD':
+                    raise ValueError(f'Unhashed distribution file: {entry}')
+                target = staging / str(entry)
+                if target.exists():
+                    raise ValueError(f'Overlapping distribution file: {entry}')
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                target.chmod(0o600)
+                manifest[str(entry)] = hashlib.sha256(data).hexdigest()
+        (staging / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
+        (staging / 'manifest.json').chmod(0o600)
+        os.rename(staging, destination)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    return len(manifest)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        raise SystemExit(__doc__)
+    count = provision(sys.argv[1], sys.argv[2], json.loads(PACKAGES.read_text()))
+    print(f'Verified and provisioned {count} files from {len(json.loads(PACKAGES.read_text()))} pinned distributions')

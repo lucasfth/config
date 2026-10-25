@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# Explicit operator-only handoff: TTS9500 + vault Node fix. No Chrome/backup changes.
+# Artifacts are evaluated Nix outputs; run with sudo on Gimle after approval.
+set -euo pipefail
+[ "$(id -u)" = 0 ] && [ "$(hostname)" = gimle ] || { echo 'Run as root on Gimle' >&2; exit 1; }
+[ "$#" = 4 ] || { echo 'usage: gimle-auxiliary-activate RUNNER GATE TTS_PLIST CACHE' >&2; exit 2; }
+RUNNER=$1 GATE=$2 TTS=$3 CACHE=$4
+STATE=/Users/gimle/loki-data/recovery/auxiliary-handoff
+NIX=/nix/var/nix/profiles/default/bin/nix
+PYTHON=/nix/store/0jb1qn7qnpbz8774mq5k2c1p84gp0x76-python3-3.14.8/bin/python3
+# Managed symlinks must be traversable by gimle; private files set explicit modes.
+umask 022
+"$PYTHON" - "$STATE" "$RUNNER" "$GATE" "$TTS" "$CACHE" <<'PY'
+import hashlib, pathlib, stat, subprocess, sys
+state, runner, gate, tts, cache = map(pathlib.Path, sys.argv[1:])
+volume = pathlib.Path('/Users/gimle/loki-data')
+assert volume.is_mount() and not volume.is_symlink(), 'Encrypted volume unavailable'
+assert cache == state / 'store', 'Unexpected import cache'
+for line in (state / 'store.sha256').read_text().splitlines():
+    digest, name = line.split('  ', 1)
+    relative = pathlib.PurePosixPath(name)
+    assert not relative.is_absolute() and '..' not in relative.parts
+    path = cache / relative
+    assert not path.is_symlink() and path.is_file()
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, f'Cache changed: {name}'
+for path in (runner, gate, tts):
+    assert path.parent == pathlib.Path('/nix/store'), 'Expected exact store path'
+assert pathlib.Path('/etc/loki/production-enabled').is_file(), 'Production gate unexpectedly absent'
+assert subprocess.run(['launchctl', 'print', 'system/dk.loki.tts-tunnel'],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0, 'Already loaded; inspect before retry'
+assert not pathlib.Path('/Library/LaunchDaemons/dk.loki.tts-tunnel.plist').exists(), 'Existing plist'
+assert not pathlib.Path('/etc/loki/auxiliary-enabled').exists(), 'Existing auxiliary gate'
+info = (volume / 'live/tts-transport.json').lstat()
+assert stat.S_ISREG(info.st_mode) and info.st_uid == 501 and stat.S_IMODE(info.st_mode) == 0o600
+print('Encrypted storage, private transport and transferred cache hashes verified')
+PY
+# Capture the exact old runner before any import or managed-state mutation.
+"$PYTHON" - "$STATE/previous-runner-link.txt" <<'PY'
+import os, pathlib, stat, sys
+runner = pathlib.Path('/etc/loki/service-run.py')
+assert runner.is_symlink(), 'Previous runner is not a managed link'
+target = runner.resolve(strict=True)
+assert target.is_relative_to('/nix/store') and target.is_file(), 'Invalid previous runner target'
+info = target.stat()
+assert info.st_uid == 0 and not info.st_mode & 0o022, 'Unsafe previous runner target'
+with os.fdopen(os.open(sys.argv[1], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as record:
+    record.write(str(target) + '\n')
+    record.flush()
+    os.fsync(record.fileno())
+print('Previous managed runner recorded; existing records are never overwritten')
+PY
+mkdir -p /nix/var/nix/gcroots/loki-auxiliary
+ln -sfn "$(cat "$STATE/previous-runner-link.txt")" /nix/var/nix/gcroots/loki-auxiliary/previous-runner
+cat > "$STATE/rollback" <<'ROLLBACK'
+#!/bin/bash
+set -euo pipefail
+[ "$(id -u)" = 0 ] && [ "$(hostname)" = gimle ] || exit 1
+umask 022
+STATE=/Users/gimle/loki-data/recovery/auxiliary-handoff
+PYTHON=/nix/store/0jb1qn7qnpbz8774mq5k2c1p84gp0x76-python3-3.14.8/bin/python3
+# Validate recovery evidence before stopping a job or changing any file.
+PREVIOUS=$("$PYTHON" - "$STATE/previous-runner-link.txt" <<'PY'
+import pathlib, stat, sys
+record = pathlib.Path(sys.argv[1])
+info = record.lstat()
+assert stat.S_ISREG(info.st_mode) and info.st_uid == 0 and stat.S_IMODE(info.st_mode) == 0o600, 'Unsafe rollback record'
+value = record.read_text().strip()
+assert value, 'Empty rollback record'
+target = pathlib.Path(value)
+assert target.is_absolute() and target.is_relative_to('/nix/store'), 'Invalid rollback target'
+assert target.resolve(strict=True) == target and target.is_file(), 'Missing or changed rollback target'
+info = target.stat()
+assert info.st_uid == 0 and not info.st_mode & 0o022, 'Unsafe rollback target'
+print(target)
+PY
+)
+launchctl bootout system/dk.loki.tts-tunnel || true
+rm -f /Library/LaunchDaemons/dk.loki.tts-tunnel.plist
+ln -sfn "$PREVIOUS" /etc/loki/service-run.py
+rm -f /etc/loki/auxiliary-enabled
+rm -f /nix/var/nix/gcroots/loki-auxiliary/{runner,gate,tts}
+launchctl kickstart -k system/dk.loki.vault
+echo 'Previous runner restored; TTS job removed. Legacy TTS remains stopped; inspect before explicit recovery.'
+ROLLBACK
+chmod 700 "$STATE/rollback"
+# Explicitly approved local import only; no global Nix trusted-user/key changes.
+"$NIX" --extra-experimental-features nix-command copy --no-check-sigs \
+  --from "file://$CACHE" "$RUNNER" "$GATE" "$TTS"
+"$PYTHON" - "$RUNNER" "$TTS" <<'PY'
+import pathlib, plistlib, sys
+runner, tts = map(pathlib.Path, sys.argv[1:])
+assert runner.read_bytes() == pathlib.Path('/Users/gimle/config/scripts/loki-service-run').read_bytes(), 'Source/artifact mismatch'
+job = plistlib.loads(tts.read_bytes())
+assert job['Label'] == 'dk.loki.tts-tunnel'
+assert job['ProgramArguments'][1:] == ['/etc/loki/service-run.py', 'tts-tunnel']
+assert job['UserName'] == 'gimle' and job['GroupName'] == 'staff'
+assert job['RunAtLoad'] and job['ThrottleInterval'] == 30
+print('Evaluated TTS plist and runner verified')
+PY
+/usr/sbin/lsof -nP -iTCP:9500 -sTCP:LISTEN
+"$PYTHON" <<'PY'
+import os, signal, subprocess, time
+result = subprocess.run(['/usr/sbin/lsof', '-nP', '-iTCP:9500', '-sTCP:LISTEN', '-t'], capture_output=True, text=True)
+assert result.returncode == 0 and {int(p) for p in result.stdout.split()} == {8022}, 'Unexpected9500 listener'
+command = subprocess.check_output(['ps', '-p', '8022', '-o', 'args='], text=True)
+uid = subprocess.check_output(['ps', '-p', '8022', '-o', 'uid='], text=True).strip()
+assert command.strip().startswith('ssh ') and '9500:127.0.0.1:5000' in command and uid == '501'
+os.kill(8022, signal.SIGTERM)
+for _ in range(150):
+    result = subprocess.run(['/usr/sbin/lsof', '-nP', '-iTCP:9500', '-sTCP:LISTEN'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if result.returncode == 1:
+        print('Legacy TTS stopped;9500 free. Both Chrome instances untouched.')
+        break
+    time.sleep(.1)
+else:
+    raise SystemExit('9500 did not become free; no activation performed')
+PY
+ln -sfn "$RUNNER" /nix/var/nix/gcroots/loki-auxiliary/runner
+ln -sfn "$GATE" /nix/var/nix/gcroots/loki-auxiliary/gate
+ln -sfn "$TTS" /nix/var/nix/gcroots/loki-auxiliary/tts
+ln -sfn "$RUNNER" /etc/loki/service-run.py
+ln -sfn "$GATE" /etc/loki/auxiliary-enabled
+for suffix in '' '-error'; do
+  LOG="/Users/gimle/Library/Logs/loki-tts-tunnel$suffix.log"
+  touch "$LOG"
+  chown gimle:staff "$LOG"
+  chmod 600 "$LOG"
+done
+install -o root -g wheel -m 644 "$TTS" /Library/LaunchDaemons/dk.loki.tts-tunnel.plist
+launchctl bootstrap system /Library/LaunchDaemons/dk.loki.tts-tunnel.plist
+launchctl kickstart -k system/dk.loki.vault
+printf '\nTTS/vault handoff applied; consumer verification still required. No Chrome/backup changes.\n'

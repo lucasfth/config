@@ -170,6 +170,65 @@ Do not substitute fixture results for a production-path pass.
   observed enabled; see the dated static-preflight comparison above. Native backup scheduling
   and acceptance below are independent from these copied jobs.
 
+### TTS persistence and independent browser handoff
+
+`services.gimle.auxiliary` independently gates `dk.loki.tts-tunnel` (9500).
+`services.gimle.legacyHeadless` defaults off: legacy Chrome 9377 is not installed
+while the browser owner reconciles its bridge with dedicated Chrome 9444.
+Neither browser/profile/tunnel is changed by this handoff. Auxiliary services use
+the mount-checked runner, root-managed store-backed `/etc/loki/auxiliary-enabled`
+and throttled launchd restarts. TTS transport metadata is private `0600` encrypted
+`live/tts-transport.json`, derived from the approved existing tunnel, not Git.
+
+`scripts/gimle-auxiliary-activate` performs only the approved TTS process handoff,
+one evaluated plist install (`root:wheel 0644`), runner/gate adoption and vault-only
+restart. It verifies the exact existing9500 listener and free port before loading;
+it neither reinstalls backup nor runs a full activation. An explicitly approved
+root import accepts locally built artifacts only after every transferred cache
+file hash matches; no global Nix trust changes occur. Private rollback restores
+the previous runner and removes TTS launchd, without silently reviving legacy
+processes. The next approved full activation adopts the source definitions.
+The vault runner pins native managed Node before dotenv loading, avoiding a
+cached Android Node path in the serving process.
+
+Acceptance: the first operator-run activation FAILED. Its private umask produced
+root-only managed symlinks, preventing TTS from resolving its enable gate; no9500
+listener remained. After lockfile-pinned QuickJS dependencies were restored without
+install scripts, `read_code` still failed in its isolated Python worker. Lucas ran
+the validated rollback: TTS job/gate removed, previous vault runner restored, vault
+running again. The approved legacy TTS tunnel was subsequently restored and real
+speech generation produced valid 24-kHz mono WAV; it is not yet reboot-persistent.
+Neither browser nor backup was changed.
+Source now uses readable managed-link permissions with a failing-before/passing-after
+regression test; 9 runner and 3 activation checks pass. No Python interpreter change
+is staged. The consumed rollout remains reverted; do not rerun the old handoff
+(its stopped PID precondition and saved recovery record intentionally reject retry).
+The final worker repair is separately operator-approved: `readcode/worker-vendor`
+contains only the 11 exact versions in `configs/loki/readcode/worker-packages.json`,
+copied with distribution RECORD verification into private encrypted storage.
+`upstream_worker.py` adds this one fixed directory only for `MuninnLocal`;
+`server_transports.py` is the preserved original. No parent sys.path scanning,
+Hermes venv inheritance, interpreter change, guest permission expansion or restart.
+Scratch `python -I` tests reproduce failure before the fix and pass afterward;
+normal MCP list/read PASS and write DENIED after live deployment. Vault PID39031
+was unchanged. Company workers do not receive the vault vendor directory.
+TTS launchd remains disabled; legacy TTS43544 works but persistence handoff is open.
+The first pinned adoption helper also FAILED full acceptance: delaying its profile
+commit until after activation let `org.nixos.activate-system` (RunAtLoad) read the
+pending vxp7 profile and overwrite `/etc/static` with that generation's aux-enabled
+tree. Although running/profile later matched afawa and protected PIDs stayed stable,
+managed `/etc` did not. `scripts/gimle-adoption-activate --apply` is now permanently
+retired; do not rerun old copies. Read-only checks require static/running consistency.
+The separately approved/reviewed `scripts/gimle-etc-repair` corrects only the exact
+static link and removes the stale auxiliary symlink, preserving/rolling back those
+two links without activation, profile writes or restarts. Its operator sudo step
+was pending at the last verified check. Future switches must set the profile before
+activation (standard nix-darwin ordering) and verify static/profile/running agreement.
+`scripts/gimle-tts-activate` is a subsequent, separately reviewed/operator-run handoff;
+it refuses until that repair completes. Neither browser is included.
+Reboot/calendar acceptance remains independent and unproven.
+
+
 ### Native encrypted Muninn publication
 
 Lucas explicitly approved Gimle as publisher, the existing Salt identity's direct

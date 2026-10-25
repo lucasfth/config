@@ -8,4 +8,6 @@
   nixbldGid = 350;
   tailscaleAtBoot = true;
   lokiProduction = true;
+  # Keep off until the restored tunnel has an explicitly coordinated handoff.
+  lokiAuxiliary = false;
 }

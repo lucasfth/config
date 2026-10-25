@@ -104,6 +104,19 @@ def main():
         assert job["RunAtLoad"] is True
         assert job["ProgramArguments"][0].startswith("/nix/store/")
         assert job["ProgramArguments"][1:] == ["/etc/loki/service-run.py", service]
+    isolated = json.loads(subprocess.check_output([
+        "nix", "eval", "--json", "--impure", "--expr",
+        '''let f = builtins.getFlake (toString ./.); base = f.darwinConfigurations.gimle;
+          names = production: auxiliary: builtins.attrNames (base.extendModules {
+            modules = [{ services.gimle = { inherit production auxiliary; }; }];
+          }).config.launchd.daemons;
+        in { production = names true false; auxiliary = names false true; }''',
+    ], cwd=ROOT, text=True))
+    assert not {"loki-chrome-browser", "loki-tts-tunnel"}.intersection(isolated["production"])
+    assert {"loki-gateway", "loki-vault", "loki-ask", "loki-browser", "loki-hue"}.issubset(isolated["production"])
+    assert "loki-tts-tunnel" in isolated["auxiliary"]
+    assert "loki-chrome-browser" not in isolated["auxiliary"]
+    assert not {"loki-gateway", "loki-vault", "loki-ask", "loki-browser", "loki-hue", "loki-muninn-backup"}.intersection(isolated["auxiliary"])
 
     laptop = config("lucas-macbook-pro")
     assert laptop["home"] == "/Users/lucasfreytorreshanson"

@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Retired one-time adoption helper: read-only diagnostic checks only.
+
+--apply always refuses. Its original delayed profile commit allowed the Nix
+RunAtLoad activation job to reapply a stale etc tree. Never rerun an old copy.
+Use the separately reviewed exact two-link repair for that consumed failure.
+"""
+import hashlib
+import json
+import os
+from pathlib import Path
+import plistlib
+import re
+import socket
+import subprocess
+import sys
+
+OLD = Path('/nix/store/h8lr2qipp915p46m2lgrnis9k20j075v-darwin-system-26.11.57abbd5')
+PENDING = Path('/nix/store/vxp7lq2jcdn2qngg9pbiszavc5g1mfmp-darwin-system-26.11.57abbd5')
+TARGET = Path('/nix/store/afawa8n5l2rn23g2383hm31v34nn70x8-darwin-system-26.11.57abbd5')
+ACTIVATION_SHA = '682ca3582d25d1761b2902254028db1f08d56174936beeec291be1cab81a44a8'
+PROFILE = Path('/nix/var/nix/profiles/system')
+CURRENT = Path('/run/current-system')
+RECOVERY = Path('/Users/gimle/loki-data/recovery')
+NIX_ENV = '/nix/var/nix/profiles/default/bin/nix-env'
+HASHES = {
+    'service-run.py': 'f17cea2bb8e8a81deb1918bca7267be4f954f8173bd797addfa0e4ce45cde1de',
+    'backup-obsidian.py': 'f418100b519dcf069ef63cc291ab3477d738b755ea86882dc41641f0303e6c92',
+}
+PROTECTED = ('ask', 'browser', 'gateway', 'hue', 'tailscaled', 'vault', 'volume')
+
+
+def digest(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def run(*args):
+    return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+
+
+def listener_pids(port):
+    result = subprocess.run(('/usr/sbin/lsof', '-nP', '-t', '-iTCP:' + str(port),
+                             '-sTCP:LISTEN'), capture_output=True, text=True)
+    if result.returncode not in (0, 1):
+        raise RuntimeError('lsof failed for port ' + str(port))
+    if result.returncode == 1:
+        return []
+    return sorted(set(result.stdout.split()))
+
+
+def pids():
+    result = {}
+    for service in PROTECTED:
+        try:
+            output = run('/bin/launchctl', 'print', 'system/dk.loki.' + service)
+        except subprocess.CalledProcessError as exc:
+            raise ValueError('Protected launchd label unavailable: ' + service) from exc
+        match = re.search(r'^\s*pid = (\d+)$', output, re.M)
+        if not match and service != 'volume':
+            raise ValueError('Protected service not running: ' + service)
+        result[service] = int(match.group(1)) if match else None
+    for port in (9377, 9444, 9500):
+        result['port' + str(port)] = listener_pids(port)
+    return result
+
+
+def preflight():
+    if socket.gethostname() != 'gimle':
+        raise ValueError('Gimle only')
+    if not Path('/Users/gimle/loki-data').is_mount():
+        raise ValueError('Encrypted volume not mounted')
+    if digest(TARGET / 'activate') != ACTIVATION_SHA:
+        raise ValueError('Pinned activation changed')
+    if CURRENT.resolve() not in (OLD, TARGET) or PROFILE.resolve() not in (PENDING, OLD, TARGET):
+        raise ValueError('Generation drift; review before activation')
+    if (TARGET / 'etc/loki/auxiliary-enabled').exists() or (TARGET / 'Library/LaunchDaemons/dk.loki.tts-tunnel.plist').exists():
+        raise ValueError('TTS must stay disabled in adoption generation')
+    adopted = CURRENT.resolve() == TARGET
+    if adopted and Path('/etc/static').resolve() != (TARGET / 'etc').resolve():
+        raise ValueError('Adoption incomplete: managed etc does not match running target')
+    for name, expected in HASHES.items():
+        live = Path('/etc/loki') / name
+        if adopted:
+            if not live.is_symlink() or live.readlink() != Path('/etc/static/loki') / name:
+                raise ValueError('Adopted path not managed: ' + name)
+            if digest(live) != digest(TARGET / 'etc/loki' / name):
+                raise ValueError('Adopted bytes differ from target: ' + name)
+        elif digest(live) != expected:
+            raise ValueError('Unexpected /etc bytes: ' + name)
+    reloads = []
+    for candidate in sorted((TARGET / 'Library/LaunchDaemons').glob('*.plist')):
+        live = Path('/Library/LaunchDaemons') / candidate.name
+        if not live.exists() or live.read_bytes() != candidate.read_bytes():
+            reloads.append(candidate.name)
+            if candidate.name not in ('dk.loki.muninn-backup.plist', 'org.nixos.activate-system.plist'):
+                raise ValueError('Unapproved daemon reload: ' + candidate.name)
+            if candidate.name == 'org.nixos.activate-system.plist' and PROFILE.resolve() != TARGET:
+                raise ValueError('Unsafe boot activation: profile must already match target')
+            if candidate.name == 'dk.loki.muninn-backup.plist':
+                if plistlib.loads(live.read_bytes()) != plistlib.loads(candidate.read_bytes()):
+                    raise ValueError('Backup settings differ')
+                status = run('/bin/launchctl', 'print', 'system/dk.loki.muninn-backup')
+                if re.search(r'^\s*pid = ', status, re.M):
+                    raise ValueError('Backup currently running; wait')
+    # The generated activation also removes obsolete jobs: fail before that can
+    # affect any protected daemon or an unexpected previously managed daemon.
+    for installed in (CURRENT.resolve() / 'Library/LaunchDaemons').glob('*.plist'):
+        if not (TARGET / 'Library/LaunchDaemons' / installed.name).exists():
+            raise ValueError('Unapproved daemon removal: ' + installed.name)
+    return {'current': str(CURRENT.resolve()), 'profile': str(PROFILE.resolve()),
+            'target': str(TARGET), 'reloads': reloads, 'pids': pids(), 'adopted': adopted}
+
+
+def main():
+    if sys.argv[1:] not in ([], ['--apply']):
+        raise SystemExit('Usage: gimle-adoption-activate [--apply]')
+    if sys.argv[1:] == ['--apply']:
+        raise SystemExit('RETIRED: unsafe adoption ordering. Use separately reviewed etc repair; never rerun this activation.')
+    before = preflight()
+    print(json.dumps(before, indent=2), flush=True)
+    if not sys.argv[1:]:
+        print('READ-ONLY PREFLIGHT PASS; no profile, /etc, process or source changes')
+        return
+
+
+if __name__ == '__main__':
+    main()
