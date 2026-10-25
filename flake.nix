@@ -37,6 +37,8 @@
           {
             networking.hostName = host.hostname;
             system.primaryUser = host.username;
+            services.gimle.tailscaleAtBoot = nixpkgs.lib.mkDefault (host.tailscaleAtBoot or false);
+            services.gimle.production = nixpkgs.lib.mkDefault (host.lokiProduction or false);
             nixpkgs.config.allowUnfree = true;
             home-manager.backupFileExtension = "before-nix";
             # Set home.stateVersion at home-manager top level (required by aerospace module)

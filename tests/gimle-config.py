@@ -67,18 +67,19 @@ def main():
     assert "DisplayLink" not in mini["postActivation"]
     assert mini["powerRestart"] is True
     assert mini["computerSleep"] == "never"
-    assert mini["lokiDaemons"] == ["loki-volume"]
+    assert mini["lokiDaemons"] == ["gimle-tailscaled", "loki-volume"]
     assert mini["lokiVolume"]["RunAtLoad"] is True
     assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
     assert mini["lokiVolume"]["ThrottleInterval"] == 30
-    assert mini["tailscaled"] is None, "Do not emit a Tailscale job before handoff"
+    assert mini["tailscaled"]["RunAtLoad"] is True
+    assert mini["tailscaled"]["KeepAlive"] is True
     production = json.loads(subprocess.check_output([
         "nix", "eval", "--json", "--impure", "--expr",
         '''let f = builtins.getFlake (toString ./.); c = f.darwinConfigurations.gimle.extendModules {
           modules = [{services.gimle.production = true;}];
         }; in builtins.mapAttrs (_: job: job.serviceConfig) c.config.launchd.daemons''',
     ], cwd=ROOT, text=True))
-    assert "gimle-tailscaled" not in production
+    assert "gimle-tailscaled" in production
     for service in ("gateway", "vault", "ask", "browser", "hue"):
         job = production["loki-" + service]
         assert job["UserName"] == "gimle" and job["GroupName"] == "staff"

@@ -47,11 +47,11 @@ approved unattended on-host key storage. This protects the image separately,
 not against a disk-level attacker who can obtain both image and key. Secrets
 and health data must never enter Git. A reboot/power test is still required.
 
-`services.gimle.tailscaleAtBoot` defaults to false and omits the Tailscale job
-entirely: nix-darwin's `launchctl load -w` could override a plist Disabled flag.
-Do not enable it until the GUI-to-daemon handoff has alternate access and a
-verified tailnet enrollment. Service ordering must use readiness checks, not
-LaunchDaemon labels.
+`services.gimle.tailscaleAtBoot` defaults to false; the Gimle host explicitly
+enables it after the approved GUI-to-daemon handoff on 2026-10-25. The daemon
+enrolled with a new node identity; both tailnet SSH and LAN fallback passed.
+The GUI node stays disconnected. Do not reuse or copy its private node state.
+Service ordering uses readiness checks, not LaunchDaemon labels.
 
 `configs/loki/mcp-requirements.txt` pins the additional browser MCP dependency
 from the phone's lockfile. Install it with hash checking into the private
