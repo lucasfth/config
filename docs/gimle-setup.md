@@ -77,7 +77,7 @@ instructions below do not describe the current installed state.
 
 | Boundary | Evidence / remaining work |
 | --- | --- |
-| Config source | `/Users/gimle/config`; checked at `8d7c699f`. Later local source corrections are not automatically deployed. |
+| Config source | Backup/SSH-gate changes published as `3e8ba72e`; SSH/starship owner subsequently published `4637dde2`. Source publication is not broad system activation; preserve concurrent owner edits. |
 | Vault | Encrypted volume mounted; Muninn reports healthy with vault `/Users/gimle/loki-data/loki-memory`. |
 | Gateway | Reports Telegram and API connected. This is not a new Telegram round-trip or existing-session acceptance. |
 | Boot policy | `pmset` reports `sleep 0`, `autorestart 1`; FileVault reports Off. No reboot or power-loss test performed. |
@@ -85,17 +85,23 @@ instructions below do not describe the current installed state.
 | Pi | Native launch regression tests passed; normal Gimle launch returned the exact diagnostic marker; Muninn and company library connected. Gimle Vercel/Supabase still require sign-in. |
 | MacBook consumers | Two Muninn client URLs changed to Gimle with private backups and unchanged auth. Normal MacBook MCP list connected all four configured servers. Lucas separately approved retaining the matching canonical private URL, with no token changes or activation. |
 | Hue | Real read-only room-list call succeeded. No lighting changes were made. |
-| Browser | Legacy port-8767 browser MCP is unhealthy and still expects Freyr CDP. The separate restricted Loki browser uses dedicated Gimle Chrome; another session owns its source and activation receipts. Do not repurpose the legacy MCP or disturb Freyr's active tunnel. |
-| SSH aliases | Added host variables were rolled back. Local source restores Gimle's SSH include/activation gate; source tests pass, but correction is not published or activated. No private SSH/GPG keys copied. |
-| Accounts | Gimle GitHub CLI auth check exits 1 (not signed in). Installed apps are not proof of signed-in accounts. Lucas handles passwords/2FA. |
+| Browser | Legacy port-8767 browser MCP is unhealthy and still expects Freyr CDP. The separate restricted `loki_browser` uses dedicated Gimle Chrome; its owner reported live same-tab cPanel handoff and native-click acceptance. Public Hbit isolation remains blocked and its source is active WIP. Do not repurpose the legacy MCP or disturb Freyr's active tunnel. |
+| SSH aliases | Added host variables were rolled back. Gimle's shared-host include/activation gate was restored in published `3e8ba72e`. Separate owner published/verified the MacBook's Gimle shortcut as `4637dde2`; resolve effective config rather than assume the historical `loki` alias follows the agent. No private SSH/GPG keys copied. |
+| Accounts | Later GitHub-auth owner verified fresh env-unset `gh` API and ordinary private HTTPS Git using the existing managed gh helper after Lucas's approval. No usable Keychain copy was verified. Gimle Vercel/Supabase consent and other app sign-ins remain open. |
 | Zen | Nine user extensions registered and active in Gimle's main profile; Zotero Connector is the one missing laptop extension. Shared extension IDs/active states match; public-container metadata and bounded layout preferences do not. Additional laptop profiles have no name match. No workspace parity claimed; no cookie/password/session stores inspected or copied. |
 
 ### Copied cron jobs: static preflight only
 
 Private per-job report on Gimle:
 `/Users/gimle/gimle-setup/cron-static-preflight-20261025.json` (`0600`).
-All 45 entries remain disabled. The jobs file was verified byte-for-byte unchanged
-during inspection. Scripts were parsed, not imported or executed; no delivery occurred.
+At this static audit, all 45 entries were disabled. The jobs file was verified
+byte-for-byte unchanged during that inspection. Scripts were parsed, not imported
+or executed; no delivery occurred. This is historical, not the latest scheduler
+state: the 2026-10-25 18:33–18:34 UTC reads found 43 jobs, with EOD nudge,
+Morning check and Mail & Slack
+check enabled by an unknown writer. This backup session did not change those jobs
+and does not claim their qualification or approval. The old Hermes backup remains
+disabled; do not enable a duplicate publisher.
 
 | Classification | Jobs |
 | --- | ---: |
@@ -149,9 +155,9 @@ Do not substitute fixture results for a production-path pass.
 
 ### Interactive steps still required
 
-- GitHub CLI: Lucas runs `gh auth login` on Gimle and completes browser/device
-  authorization himself; then verify `gh auth status`. Do not copy another
-  machine's GitHub sessions or private SSH keys.
+- GitHub CLI: later owner acceptance passed using the explicitly approved existing
+  token and managed gh credential helper. Do not repeat login merely because an
+  older receipt says unauthenticated, or copy another machine's sessions/keys.
 - Gimle Pi: after sourcing its existing private environment, use the managed
   launcher to run `pi mcp login vercel` and `pi mcp login supabase`. Lucas handles
   consent. Verify with `pi mcp list --json`; an OAuth file's presence alone does
@@ -160,9 +166,9 @@ Do not substitute fixture results for a production-path pass.
 - Zen: use supported UI/Sync selectively, with fresh website logins. Do not copy
   session stores as a shortcut to workspace parity. Complete profile mapping,
   Zotero Connector, container metadata and layout verification in the actual UI.
-- All copied Hermes jobs, including the old backup entry, remain disabled.
-  Native encrypted-backup publication is now verified; scheduling state below
-  is independent from the old Hermes job.
+- The old Hermes backup entry remains disabled. Three other jobs were later
+  observed enabled; see the dated static-preflight comparison above. Native backup scheduling
+  and acceptance below are independent from these copied jobs.
 
 ### Native encrypted Muninn publication
 
@@ -189,11 +195,28 @@ new publication. Salt's plaintext cache must resolve to `~/loki-data/backup/cach
 The dedicated Nix-declared job `dk.loki.muninn-backup` runs as `gimle`, daily at
 01:07 host Copenhagen time, with `RunAtLoad = false`, no restart loop, private
 logs and an overlap lock. Lucas approved this scheduler separately because the
-old Hermes script timeout is unsuitable. **Staged one-job installation is waiting
-for Lucas's sudo in `bootstrap:backup-schedule` on the `gimle-setup` tmux socket.**
-At the last read the plist was absent and launchd job was not loaded. No scheduled
-run or scheduler-triggered run is yet verified. Do not claim automatic backup
-complete until installation and execution via that job are checked.
+old Hermes script timeout is unsuitable. Installation and an explicitly approved
+launchctl kickstart test passed: exact evaluated plist/script verified root-owned,
+logs `0600`, `runs = 1`, `last exit code = 0`, no stderr. That run restored and
+hash-compared 5,167 files and published `e637e5df7879583c6291140b5893733f84e00e91`
+at `2026-10-25T18:33:33Z`; fresh local/remote/receipt equality was checked.
+
+Final manual publication after the AAR/status updates:
+`97c466e23296a6f6f62e9c5732d27a205c86b43f` at `18:37:57Z`, 5,167 files,
+`restore_verified` and `remote_verified` true, no history pruning. It includes
+actual live Volundr `de0f771` plus 1,738 worktree files, not a clean rollout of
+published `332718e`. The live dirty skills are preserved, not overwritten.
+
+A later publication check found literal backup origin changed to HTTPS. The
+publisher refused it; the exact approved scoped SSH URL was restored, then the
+final manual publication passed. Cause/time/owner of drift remain unknown. Do
+not change global gh protocol preferences or weaken the origin guard to hide it.
+
+**Still untested:** the first clock-triggered 01:07 firing, unattended reboot,
+power restoration and delayed-network recovery. A successful kickstart/manual
+run does not establish these. Current notes were saved through preservation-
+enabled MCP with prior-archive and read-back verification; later writes always
+need their own backup, rather than claiming a snapshot contains its own receipt.
 
 Credential rotation remains separate: `TYPESAFE_API_KEY` and `LOKI_START` appeared
 in a tool response; rotate with Lucas's approval. `MUNINN_MCP_TOKEN` exposure was
