@@ -120,3 +120,24 @@ test('Muninn bearer configuration upgrades existing entries without persisting t
     assert.deepEqual(JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers.muninn, custom);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('fresh hosts configure private MCP endpoints from environment without copying tokens', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-private-endpoints-'));
+  try {
+    const env = { ...process.env, NEO_PROXY_URL: 'https://proxy.invalid',
+      MUNINN_MCP_URL: 'http://127.0.0.1:8765/mcp', MUNINN_MCP_TOKEN: 'synthetic-vault-secret',
+      COMPANY_LIBRARY_MCP_URL: 'https://library.invalid/mcp', COMPANY_LIBRARY_MCP_TOKEN: 'synthetic-library-secret' };
+    await prepareRuntime({ agentDir: dir, env, ompDir: path.join(dir, 'absent') });
+    const text = await readFile(path.join(dir, 'mcp.json'), 'utf8');
+    const { mcpServers } = JSON.parse(text);
+    assert.equal(mcpServers.muninn.url, env.MUNINN_MCP_URL);
+    assert.equal(mcpServers.muninn.headers.Authorization, 'Bearer ${MUNINN_MCP_TOKEN}');
+    assert.equal(mcpServers.company_library.url, env.COMPANY_LIBRARY_MCP_URL);
+    assert.equal(mcpServers.company_library.headers.Authorization, 'Bearer ${COMPANY_LIBRARY_MCP_TOKEN}');
+    assert.ok(!text.includes('synthetic-vault-secret') && !text.includes('synthetic-library-secret'));
+    mcpServers.muninn.url = 'https://custom.invalid/mcp';
+    await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers }));
+    await prepareRuntime({ agentDir: dir, env, ompDir: path.join(dir, 'absent') });
+    assert.equal(JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers.muninn.url, 'https://custom.invalid/mcp');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

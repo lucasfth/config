@@ -210,6 +210,14 @@ export async function prepareRuntime({ agentDir, env = process.env, ompDir = pat
   const generatedMcp = await jsonFile(path.join(ompDir, 'mcp.json'));
   const existingMcp = await jsonFile(path.join(agentDir, 'mcp.json'));
   const mcpServers = { ...sourceMcp.mcpServers, ...generatedMcp.mcpServers, ...existingMcp.mcpServers };
+  // Fresh hosts need no legacy OMP runtime; endpoints come from private env.
+  if (!mcpServers.muninn && env.MUNINN_MCP_URL) {
+    mcpServers.muninn = { url: env.MUNINN_MCP_URL };
+  }
+  if (!mcpServers.company_library && env.COMPANY_LIBRARY_MCP_URL) {
+    mcpServers.company_library = { url: env.COMPANY_LIBRARY_MCP_URL,
+      headers: { Authorization: 'Bearer ${COMPANY_LIBRARY_MCP_TOKEN}' } };
+  }
   const muninn = mcpServers.muninn;
   if (muninn?.url && !Object.keys(muninn.headers ?? {}).some(name => name.toLowerCase() === 'authorization')) {
     mcpServers.muninn = { ...muninn, headers: { ...muninn.headers, Authorization: 'Bearer ${MUNINN_MCP_TOKEN}' } };

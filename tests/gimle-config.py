@@ -57,7 +57,7 @@ def main():
     assert not mini["signing"], "Do not require the MacBook's private signing key"
     assert not mini["gpgAgent"], "Headless Gimle must not inherit the signing agent"
     assert mini["vim"] == "vim", mini["vim"]
-    assert not mini["sshIncludes"], mini["sshIncludes"]
+    assert mini["sshIncludes"] == ["config.d/ecoray"]
     assert "jupyterlab" not in mini["pythonPackages"], mini["pythonPackages"]
     assert {"pip", "virtualenv", "numpy", "pillow"}.issubset(mini["pythonPackages"])
     assert {"aerospace", "JankyBorders", "lmstudio", "sioyek", "swiftbar"}.issubset(mini["packages"])
@@ -66,7 +66,8 @@ def main():
     assert not {"muninn", "muninn-readable", ".omp/agent/AGENTS.md"}.intersection(mini["files"])
     assert {"generateRaycastAiProviders", "generateMokka", "configureSyntaxHighlight",
             "configureSpotifast", "installSioyek"}.issubset(mini["hooks"])
-    assert not {"generateOmpMcpConfig", "sshEcorayHosts", "herdrOmpIntegration"}.intersection(mini["hooks"])
+    assert "sshEcorayHosts" in mini["hooks"]
+    assert not {"generateOmpMcpConfig", "herdrOmpIntegration"}.intersection(mini["hooks"])
     assert "pmset -b" not in mini["postActivation"]
     assert "DisplayLink" not in mini["postActivation"]
     assert mini["powerRestart"] is True

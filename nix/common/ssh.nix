@@ -74,7 +74,7 @@ in {
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    includes = lib.optionals (hostname != "gimle") ["config.d/ecoray"];
+    includes = ["config.d/ecoray"];
     settings."*" = {
       hashKnownHosts = true;
       identitiesOnly = true;
@@ -83,7 +83,7 @@ in {
   };
 
   # Generate the included SSH config snippet from nix_secrets at switch time
-  home.activation.sshEcorayHosts = lib.mkIf (hostname != "gimle") (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.sshEcorayHosts = lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${genSshConfig}
-  '');
+  '';
 }

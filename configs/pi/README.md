@@ -217,6 +217,13 @@ For live MCP status, run `node launch.mjs mcp list --json` (put `mcp` first; a l
 
 Muninn requires `export MUNINN_MCP_TOKEN='…'` in the gitignored `~/config/nix_secrets`. Source that file before launching Huginn. Runtime preparation adds `Authorization: Bearer ${MUNINN_MCP_TOKEN}` to existing Muninn entries without storing the token or replacing explicit authorization headers. The context loader and `memory_recall` use the exported token directly and reject a missing token before making requests. An already-running Pi process cannot inherit a newly sourced shell variable: exit, source the secrets in its parent terminal, then run `pi --continue`. No Nix rebuild is needed.
 
+Fresh hosts do not need a legacy OMP runtime: `MUNINN_MCP_URL` and
+`COMPANY_LIBRARY_MCP_URL` seed missing MCP entries from the private environment.
+Generated headers reference `MUNINN_MCP_TOKEN` and `COMPANY_LIBRARY_MCP_TOKEN`
+without writing token values. Existing server entries and explicit authorization
+headers remain authoritative. Shared SSH aliases also use the private host/user
+variables in `nix_secrets`; this does not install authentication keys.
+
 Vercel persistence repair (2026-10-19): the live credential file survived restarts, but its token had only `openid` scope, expired after one hour, and contained no refresh token. Vercel's resource metadata advertises only `openid`; its authorization server also supports `offline_access`. `runtime.mjs` now defaults the standard Vercel endpoint to `oauth.scope: "openid offline_access"`, preserving explicit scopes, callback settings, custom endpoints and the OAuth credential file. A regression checks repeated profile generation and byte-for-byte credential preservation. Start Pi through the launcher again to generate the updated config, then run `/mcp login vercel` and approve consent once. Real issuance/persistence of a refresh token and successful renewal after expiration remain **unverified until that sign-in**; passing config tests does not establish a working live refresh.
 
 Retained handoff artifacts: `.worktrees/pi-acceptance` (detached, with copied sources/dependencies), `/tmp/pi-catalogue-acceptance.json` and `/tmp/pi-startup-skills.json` have **not** been removed. Temporary per-run agent directories and the throwaway startup probes were removed. The exact catalogue check remains rerunnable as `configs/pi/integration-catalogue.mjs`; startup captures are evidence, not a retained startup harness. `/tmp` evidence is ephemeral.
