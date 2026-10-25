@@ -74,7 +74,7 @@ in {
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    includes = ["config.d/ecoray"];
+    includes = lib.optionals (hostname != "gimle") ["config.d/ecoray"];
     settings."*" = {
       hashKnownHosts = true;
       identitiesOnly = true;
@@ -82,8 +82,8 @@ in {
     };
   };
 
-  # Generate the included SSH config snippet from nix_secrets at switch time
-  home.activation.sshEcorayHosts = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  # Gimle's host inventory and authentication require separate approval.
+  home.activation.sshEcorayHosts = lib.mkIf (hostname != "gimle") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${genSshConfig}
-  '';
+  '');
 }

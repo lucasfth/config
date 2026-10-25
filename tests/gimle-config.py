@@ -33,6 +33,7 @@ in {
   lokiDaemons = builtins.filter (name: builtins.match "loki-.*|gimle-tailscaled" name != null) (builtins.attrNames c.launchd.daemons);
   lokiVolume = if c.networking.hostName == "gimle" then c.launchd.daemons.loki-volume.serviceConfig else null;
   tailscaled = if c.launchd.daemons ? gimle-tailscaled then c.launchd.daemons.gimle-tailscaled.serviceConfig else null;
+  backup = if c.launchd.daemons ? loki-muninn-backup then c.launchd.daemons.loki-muninn-backup.serviceConfig else null;
 }'''
 
 
@@ -49,15 +50,15 @@ def main():
         "gimle", "gimle", "/Users/gimle")
     assert not mini["nixManaged"], "Determinate must retain Nix ownership"
     assert mini["agents"] == ["aerospace", "nix-health"], mini["agents"]
-    assert mini["taps"] == ["crmne/tap"]
+    assert mini["taps"] == ["crmne/tap", "spicy-lemonade/tap"]
     assert {"ghostty", "zed", "slack", "obsidian", "raycast", "google-chrome"}.issubset(mini["casks"])
     assert not {"betterdisplay", "displaylink"}.intersection(mini["casks"])
-    assert mini["brews"] == ["bun", "container", "herdr"]
+    assert mini["brews"] == ["bun", "container", "herdr", "spicy-lemonade/tap/salt"]
     assert mini["gitUser"] == {"name": "lucasfth", "email": "online@lucashanson.dk"}
     assert not mini["signing"], "Do not require the MacBook's private signing key"
     assert not mini["gpgAgent"], "Headless Gimle must not inherit the signing agent"
     assert mini["vim"] == "vim", mini["vim"]
-    assert mini["sshIncludes"] == ["config.d/ecoray"]
+    assert not mini["sshIncludes"], mini["sshIncludes"]
     assert "jupyterlab" not in mini["pythonPackages"], mini["pythonPackages"]
     assert {"pip", "virtualenv", "numpy", "pillow"}.issubset(mini["pythonPackages"])
     assert {"aerospace", "JankyBorders", "lmstudio", "sioyek", "swiftbar"}.issubset(mini["packages"])
@@ -66,21 +67,28 @@ def main():
     assert not {"muninn", "muninn-readable", ".omp/agent/AGENTS.md"}.intersection(mini["files"])
     assert {"generateRaycastAiProviders", "generateMokka", "configureSyntaxHighlight",
             "configureSpotifast", "installSioyek"}.issubset(mini["hooks"])
-    assert "sshEcorayHosts" in mini["hooks"]
-    assert not {"generateOmpMcpConfig", "herdrOmpIntegration"}.intersection(mini["hooks"])
+    assert not {"generateOmpMcpConfig", "sshEcorayHosts", "herdrOmpIntegration"}.intersection(mini["hooks"])
     assert "pmset -b" not in mini["postActivation"]
     assert "DisplayLink" not in mini["postActivation"]
     assert mini["powerRestart"] is True
     assert mini["computerSleep"] == "never"
     assert mini["lokiDaemons"] == [
         "gimle-tailscaled", "loki-ask", "loki-browser", "loki-gateway",
-        "loki-hue", "loki-vault", "loki-volume",
+        "loki-hue", "loki-muninn-backup", "loki-vault", "loki-volume",
     ], "The persistent host must retain the completed production cutover"
     assert mini["lokiVolume"]["RunAtLoad"] is True
     assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
     assert mini["lokiVolume"]["ThrottleInterval"] == 30
     assert mini["tailscaled"]["RunAtLoad"] is True
     assert mini["tailscaled"]["KeepAlive"] is True
+    backup = mini["backup"]
+    assert backup["Label"] == "dk.loki.muninn-backup"
+    assert backup["UserName"] == "gimle"
+    assert [{k: v for k, v in entry.items() if v is not None}
+            for entry in backup["StartCalendarInterval"]] == [{"Hour": 1, "Minute": 7}]
+    assert not backup["RunAtLoad"] and not backup["KeepAlive"]
+    assert backup["EnvironmentVariables"]["TZ"] == "Europe/Copenhagen"
+    assert backup["ProgramArguments"][1:] == ["/etc/loki/backup-obsidian.py"]
     production = json.loads(subprocess.check_output([
         "nix", "eval", "--json", "--impure", "--expr",
         '''let f = builtins.getFlake (toString ./.); c = f.darwinConfigurations.gimle.extendModules {

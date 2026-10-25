@@ -23,6 +23,7 @@ in {
 
     environment.etc."loki/volume-mount.py".source = ../../scripts/loki-volume-mount;
     environment.etc."loki/service-run.py".source = ../../scripts/loki-service-run;
+    environment.etc."loki/backup-obsidian.py".source = ../../configs/loki/backup_obsidian.py;
     environment.etc."loki/production-enabled" = lib.mkIf cfg.production {text = "enabled\n";};
 
     launchd.daemons = lib.mkMerge [
@@ -44,6 +45,31 @@ in {
           StandardErrorPath = "${home}/Library/Logs/loki-${service}-error.log";
         };
       })))
+      (lib.optionalAttrs cfg.production {
+        loki-muninn-backup.serviceConfig = {
+          Label = "dk.loki.muninn-backup";
+          ProgramArguments = ["${pkgs.python3}/bin/python3" "/etc/loki/backup-obsidian.py"];
+          UserName = "gimle";
+          GroupName = "staff";
+          WorkingDirectory = home;
+          EnvironmentVariables = {
+            HOME = home;
+            TZ = "Europe/Copenhagen";
+          };
+          StartCalendarInterval = [
+            {
+              Hour = 1;
+              Minute = 7;
+            }
+          ];
+          RunAtLoad = false;
+          KeepAlive = false;
+          ProcessType = "Background";
+          LowPriorityIO = true;
+          StandardOutPath = "${home}/Library/Logs/loki-muninn-backup.log";
+          StandardErrorPath = "${home}/Library/Logs/loki-muninn-backup-error.log";
+        };
+      })
       {
         loki-volume = {
           serviceConfig = {

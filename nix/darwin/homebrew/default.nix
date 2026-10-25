@@ -20,7 +20,7 @@
     };
 
     taps =
-      lib.optionals (hostname == "gimle") ["crmne/tap"]
+      lib.optionals (hostname == "gimle") ["crmne/tap" "spicy-lemonade/tap"]
       ++ lib.optionals (hostname == "lucas-macbook-pro") [
         "crmne/tap" # Spotifast native Spotify client
         "homebrew/services" # brew services (postgres, redis)

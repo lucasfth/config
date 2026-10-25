@@ -11,6 +11,7 @@
       "bun"
       "container"
       "herdr"
+      "spicy-lemonade/tap/salt" # Native verified ciphertext backups
     ]
     else [
       "apfel"
