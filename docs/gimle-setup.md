@@ -221,11 +221,20 @@ managed `/etc` did not. `scripts/gimle-adoption-activate --apply` is now permane
 retired; do not rerun old copies. Read-only checks require static/running consistency.
 The separately approved/reviewed `scripts/gimle-etc-repair` corrects only the exact
 static link and removes the stale auxiliary symlink, preserving/rolling back those
-two links without activation, profile writes or restarts. Its operator sudo step
-was pending at the last verified check. Future switches must set the profile before
-activation (standard nix-darwin ordering) and verify static/profile/running agreement.
-`scripts/gimle-tts-activate` is a subsequent, separately reviewed/operator-run handoff;
-it refuses until that repair completes. Neither browser is included.
+two links without activation, profile writes or restarts. Lucas subsequently ran
+that exact repair (receipt `etc-repair-20261025T221901Z`), then the separately
+approved Gimle-only SSH include candidate through ordinary `nrs`. Independent
+23:30 Copenhagen read-only checks found running/profile both `5i0vqgi0srv067rxv8p55q3l82fjj5lj`,
+static `p9ich2wc0sfpbdgsi5vbik4d17b2pf95-etc/etc`, auxiliary flag absent, and
+TTS43544 still listening with no TTS launchd job. Startup owner verified protected
+PIDs and daemon plists unchanged. The SSH candidate's source publication is separate.
+Future switches must set the profile before activation (standard nix-darwin
+ordering) and verify static/profile/running agreement. The later TTS handoff helper
+is still pinned to afawa and correctly refuses the now-running 5i0vq generation;
+do not force it. Both browsers remain outside that handoff.
+Separate unresolved checks: startup owner's `/bin/zsh -lic` diagnostic timed out
+with an osascript descendant; full clean-clone Pi aggregate integration timed out
+after context metrics, although individual context/condense/compaction tests passed.
 Reboot/calendar acceptance remains independent and unproven.
 
 
