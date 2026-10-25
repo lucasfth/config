@@ -26,6 +26,7 @@ in {
   signing = hm.programs.git.signing.signByDefault;
   vim = hm.programs.vim.packageConfigurable.pname;
   sshIncludes = hm.programs.ssh.includes;
+  gpgAgent = hm.services.gpg-agent.enable;
 }'''
 
 
@@ -45,6 +46,7 @@ def main():
     assert not mini["casks"] and not mini["taps"]
     assert mini["brews"] == ["bun", "container", "herdr"]
     assert not mini["signing"], "Do not require the MacBook's private signing key"
+    assert not mini["gpgAgent"], "Headless Gimle must not inherit the signing agent"
     assert mini["vim"] == "vim", mini["vim"]
     assert not mini["sshIncludes"], mini["sshIncludes"]
     assert "jupyterlab" not in mini["pythonPackages"], mini["pythonPackages"]
@@ -65,6 +67,7 @@ def main():
     assert {"displaylink", "ghostty", "gyroflow"}.issubset(laptop["casks"])
     assert {"generateOmpMcpConfig", "generateMokka", "installSioyek"}.issubset(laptop["hooks"])
     assert laptop["signing"]
+    assert laptop["gpgAgent"], "Keep the MacBook's signing agent"
     assert laptop["vim"] == "vim-full", laptop["vim"]
     assert laptop["sshIncludes"] == ["config.d/ecoray"]
     assert "jupyterlab" in laptop["pythonPackages"], laptop["pythonPackages"]

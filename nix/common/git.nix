@@ -71,7 +71,8 @@
   };
 
   services.gpg-agent = {
-    enable = true;
+    # Gimle has no private signing keys; retain macOS SSH authentication.
+    enable = hostname != "gimle";
     # Let GPG agent serve as SSH agent too (useful for git+ssh)
     enableSshSupport = true;
     # Cache PIN for 8 hours
