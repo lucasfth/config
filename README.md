@@ -47,6 +47,7 @@ and activation steps before applying it to another machine.
 | --- | --- |
 | [Application configs](configs/README.md) | Sources, installed destinations, and reload behavior |
 | [Nix modules](nix/README.md) | Host configuration, packages, and deployment ownership |
+| [Resolve Studio and plugins](configs/davinci-resolve/README.md) | Local Studio installer pin, signed Gyroflow OFX installation and CK2 feasibility |
 | [Raycast](raycast/README.md) | AI provider template, Script Commands, extension, and exports |
 | [Scripts](scripts/README.md) | Maintenance and configuration helpers |
 | [Freyr browser skill](.omp/skills/using-freyr-browser/SKILL.md) | Required browser workflow using Freyr's signed-in Chromium |
