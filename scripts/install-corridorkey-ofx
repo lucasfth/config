@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Install only the independent CorridorKey2 bundle; keep successful-upgrade backups.
+
+Resolve must be closed. No model download, licence acceptance or project changes.
+"""
+import argparse
+import hashlib
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+BUNDLE = 'CorridorKey2.ofx.bundle'
+MARKER = '.corridorkey2-nix-sha256'
+
+
+def verify(path):
+    subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', '-R',
+                    '=identifier "org.lucasfth.CorridorKey2"', str(path)], check=True)
+
+
+def digest(path):
+    result = hashlib.sha256()
+    for item in sorted(path.rglob('*')):
+        if item.is_symlink():
+            raise ValueError('Symlinks inside a plugin bundle are not supported')
+        if item.is_file():
+            result.update(item.relative_to(path).as_posix().encode() + b'\0')
+            result.update(hashlib.sha256(item.read_bytes()).digest())
+    return result.hexdigest()
+
+
+def make_writable(path):
+    if path.is_symlink() or not path.exists():
+        return
+    for item in [path, *path.rglob('*')]:
+        if not item.is_symlink():
+            item.chmod(item.stat().st_mode | 0o200)
+
+
+def cleanup(stage, lock):
+    # A partial read-only copy must not mask an installation/rollback error.
+    for path in (stage, lock):
+        if path is None:
+            continue
+        try:
+            if path == stage:
+                make_writable(path)
+                shutil.rmtree(path)
+            else:
+                path.rmdir()
+        except OSError as error:
+            print(f'CorridorKey cleanup warning: {path}: {error}', file=sys.stderr)
+
+
+def install(source, plugin_dir):
+    source, plugin_dir = Path(source), Path(plugin_dir)
+    verify(source)
+    expected = digest(source)
+    target, marker = plugin_dir / BUNDLE, plugin_dir / MARKER
+    if target.is_symlink() or marker.is_symlink():
+        raise ValueError('Refusing a symlink target or ownership marker')
+    if target.exists():
+        verify(target)
+        actual = digest(target)
+        if actual == expected:
+            print('CorridorKey 2.0 OFX is already installed.')
+            return
+        if not marker.is_file() or marker.read_text().strip() != actual:
+            raise ValueError('Refusing to replace an unmanaged or modified plugin')
+    status = subprocess.run(['/usr/bin/pgrep', '-x', 'Resolve'], stdout=subprocess.DEVNULL).returncode
+    if status != 1:
+        raise RuntimeError('Quit Resolve before installing CorridorKey OFX (or process check failed)')
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    lock = plugin_dir / '.corridorkey2-install.lock'
+    lock.mkdir()
+    stage = backup = None
+    changed = False
+    try:
+        stage = Path(tempfile.mkdtemp(prefix='.corridorkey2-stage.', dir=plugin_dir))
+        subprocess.run(['/usr/bin/ditto', str(source), str(stage / BUNDLE)], check=True)
+        make_writable(stage / BUNDLE)
+        verify(stage / BUNDLE)
+        if digest(stage / BUNDLE) != expected:
+            raise ValueError('Staged plugin differs from source')
+        (stage / 'marker').write_text(expected + '\n')
+        backup = Path(tempfile.mkdtemp(prefix='.corridorkey2-backup.', dir=plugin_dir))
+        if marker.exists():
+            os.replace(marker, backup / 'marker')
+        # macOS cannot rename a store-mode read-only directory across parents.
+        if target.exists():
+            make_writable(target)
+            os.replace(target, backup / BUNDLE)
+        changed = True
+        os.replace(stage / BUNDLE, target)
+        os.replace(stage / 'marker', marker)
+        verify(target)
+        print(f'Installed CorridorKey 2.0 OFX: {target}; backup retained: {backup}')
+    except BaseException:
+        if changed and target.exists():
+            shutil.rmtree(target)
+        if backup and (backup / BUNDLE).exists() and not target.exists():
+            os.replace(backup / BUNDLE, target)
+        if backup and (backup / 'marker').exists():
+            os.replace(backup / 'marker', marker)
+        elif changed and marker.exists():
+            marker.unlink()
+        raise
+    finally:
+        cleanup(stage, lock)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('source', type=Path)
+    parser.add_argument('--plugin-dir', type=Path, default=Path('/Library/OFX/Plugins'))
+    args = parser.parse_args()
+    install(args.source, args.plugin_dir)

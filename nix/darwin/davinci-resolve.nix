@@ -6,10 +6,7 @@
 }: let
   cfg = config.programs.resolveStudio;
   gyroflowDmg = import ./gyroflow-ofx-package.nix {inherit pkgs;};
-  corridorMenu = pkgs.replaceVars "${../../configs/davinci-resolve}/CorridorKey 2.0.py" {
-    bridge = "${../../configs/davinci-resolve/corridorkey_bridge.py}";
-    ffprobe = "${pkgs.ffmpeg}/bin/ffprobe";
-  };
+  corridorOfx = import ./corridorkey-ofx-package.nix {inherit pkgs;};
   helpers = pkgs.runCommand "resolve-install-helpers" {} ''
     mkdir -p "$out"
     cp ${../../scripts/install-gyroflow-ofx} "$out/install-gyroflow-ofx"
@@ -45,8 +42,19 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    home-manager.users.${config.system.primaryUser}.home.file.
-      "Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/CorridorKey 2.0.py".source = corridorMenu;
+    # Home Manager removes its obsolete file link; handle older direct store links too.
+    home-manager.users.${config.system.primaryUser} = {lib, ...}: {
+      home.activation.removeCorridorBatchMenu = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        menu="$HOME/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/CorridorKey 2.0.py"
+        if [ -L "$menu" ]; then
+          case "$(/usr/bin/readlink "$menu")" in
+            /nix/store/*-CorridorKey-2.0.py | /nix/store/*-home-manager-files/Library/Application\ Support/Blackmagic\ Design/DaVinci\ Resolve/Fusion/Scripts/Utility/CorridorKey\ 2.0.py)
+              $DRY_RUN_CMD /bin/rm "$menu" ;;
+            *) echo "warning: leaving non-managed CorridorKey menu link unchanged" >&2 ;;
+          esac
+        fi
+      '';
+    };
 
     # Store paths referenced by activation retain the original DMG in the closure.
     system.activationScripts.postActivation.text = lib.mkAfter ''
@@ -54,6 +62,12 @@ in {
         echo "warning: Resolve is open; skipping managed video installs until the next rebuild." >&2
       elif ! /bin/sh ${helpers}/install-gyroflow-dmg ${gyroflowDmg}; then
         echo "Gyroflow OFX installation failed; fix the error and retry." >&2
+        exit 1
+      fi
+      if /usr/bin/pgrep -x Resolve >/dev/null; then
+        echo "warning: Resolve is open; native CorridorKey installation deferred." >&2
+      elif ! ${pkgs.python3}/bin/python3 ${../../scripts/install-corridorkey-ofx} ${corridorOfx}/Library/OFX/Plugins/CorridorKey2.ofx.bundle; then
+        echo "CorridorKey OFX installation failed; fix the error and retry." >&2
         exit 1
       fi
       ${lib.optionalString (cfg.installer != null) ''

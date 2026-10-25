@@ -17,6 +17,18 @@ macOS-specific tools, or temporary local services/mocks.
   refusal, single-clip selection, cutout-only import and failure propagation.
   `corridorkey-menu.py` checks orchestration, project-change refusal and restoring
   the previous bin. These isolated mocks do not prove live menu/render acceptance.
+- Native CorridorKey: `corridorkey-ofx-install.py` covers read-only staging,
+  idempotence, backups/rollback and signature/running/unmanaged refusal without
+  touching live OFX paths. `corridorkey-ofx-worker.py` checks headers and the
+  uint16 BGRA-to-host pixel boundary (requires the private runtime venv).
+  `corridorkey-ofx-inference.py --fixture-root /path/to/fixture-root` runs the real
+  persistent model and compares four frames; fixtures/models are not bundled.
+  `corridorkey-ofx-host.cpp` dynamically loads the built OFX binary and checks
+  adapter-to-worker consistency against frame-0 batch reference, both row strides,
+  image release and unsupported-property/size/scale errors. This is not Resolve
+  acceptance. `corridorkey-ofx-stdout-cache.py`, `corridorkey-ofx-kill.py`, and the
+  transport/failure/sigpipe C++ tests cover logging isolation, cache count and
+  child failure/cancellation outside Resolve. See the [native guide](../configs/davinci-resolve/native/README.md).
 - `sioyek-install.py` tests read-only app upgrades, retained backups, copy/final
   move rollback and dry-run preservation in temporary fixtures, never /Applications.
 - `spotifast-config.py` checks isolated appearance restoration, fresh profiles,

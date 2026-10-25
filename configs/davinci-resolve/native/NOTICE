@@ -1,0 +1,4 @@
+Independent CorridorKey 2.0 OpenFX adapter, 2026 Lucas Hanson. Not an official Corridor Digital plugin.
+Original wrapper code: MIT (see LICENSE). OpenFX SDK headers: BSD-3-Clause (OpenFX-LICENSE.md).
+The user-installed corridorkey-v2-mlx engine is Apache-2.0, Copyright 2026 Peter Teravskis; its CODE-LICENSE and NOTICE remain in CorridorKey-Resolve.
+Model weights are not bundled: Corridor Key Licence 2.0 / CC BY-NC-SA supplement, including no-paid-service, commercial-integration and revenue/seat terms. See the installed models/LICENSE before use.

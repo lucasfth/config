@@ -1,163 +1,165 @@
-# DaVinci Resolve Studio
+# Resolve Studio and video plugins
 
-Nix-darwin owns installation policy in `nix/darwin/davinci-resolve.nix`.
-Preferences, licence keys and project libraries are never managed or replaced.
-Enabled only on `lucas-macbook-pro`; other Darwin hosts are left untouched.
+macOS ownership: `nix/darwin/davinci-resolve.nix`; enabled only on
+`lucas-macbook-pro` from `nix/darwin.nix`. Source, built package, live installation,
+publication and system activation are separate states.
 
-## Studio 21.1.1
+## Resolve Studio
 
-Lucas installed Studio manually during this session. The running application's
-API identifies **DaVinci Resolve Studio 21.1.1.10**. The Studio-specific
-`com.blackmagic-design.Manifest` receipt and application report 21.1.1; strict
-signature verification passed. No licence key is stored in this repository.
+Lucas installed Studio 21.1.1 manually during setup. Studio receipt
+`com.blackmagic-design.Manifest`, app version and Blackmagic code signature were
+verified. Keys are entered privately in Resolve, never in Nix or this repository.
 
-`nix/darwin.nix` now enables management and pins the supplied installer:
+Nix retains the supplied PKG via `requireFile`:
 
-- Filename: `DaVinci-Resolve-Studio-21.1.1.pkg`
-- SHA-256: `sha256-WK7esoMidMzUCb8ceFHwkoUbhLDjFrDHGPymJnpSkt4=`
-- Verified Blackmagic installer signature and notarization.
-- Verified `Distribution` title and `Manifest.pkg/PackageInfo` Studio receipt.
-
-On a new machine, download the Studio macOS installer from Blackmagic yourself,
-extract its PKG, and copy it to the space-free filename above. Then:
-
-```sh
-python3 scripts/install-resolve-studio /path/to/DaVinci-Resolve-Studio-21.1.1.pkg
-nix hash file /path/to/DaVinci-Resolve-Studio-21.1.1.pkg
-nix-store --add-fixed sha256 /path/to/DaVinci-Resolve-Studio-21.1.1.pkg
+```nix
+programs.resolveStudio = {
+  enable = true;
+  installer = {
+    name = "DaVinci-Resolve-Studio-21.1.1.pkg";
+    hash = "sha256-WK7esoMidMzUCb8ceFHwkoUbhLDjFrDHGPymJnpSkt4=";
+  };
+};
 ```
 
-Close Resolve before activation. The helper validates signature, Gatekeeper,
-Studio metadata and installed version, refuses free packages/downgrades, and
-skips reinstalling an already matching Studio receipt/app. Apple's installer
-uses the signed package's default component choices. Keys are entered privately.
-A system rollback does not downgrade/uninstall a PKG-installed application.
+Import a future installer with a unique Studio-specific name, verify it, and pin
+its flat hash. The upstream filename `Install Resolve 21.1.1.pkg` does not itself
+prove Studio; signed Distribution/Manifest metadata does.
 
-Setting `installer = null` leaves the installed application untouched. Setting
-`enable = false` disables this module's plugin, menu and installer deployment.
-Updates require a new explicit version/hash pin and a verified supplied PKG.
+```sh
+python3 scripts/install-resolve-studio /path/to/DaVinci-Resolve-Studio-VERSION.pkg
+nix hash file /path/to/DaVinci-Resolve-Studio-VERSION.pkg
+nix-store --add-fixed sha256 /path/to/DaVinci-Resolve-Studio-VERSION.pkg
+```
 
-## Gyroflow OpenFX 2.1.1
+Only `--install` invokes Apple's installer. It checks the Blackmagic signer and
+notarization, refuses free-edition payloads and downgrades, requires Resolve
+closed, and checks Studio receipt/app versions afterward. Default installer
+options include Blackmagic's optional components; no custom component selection
+is managed. `installer = null` leaves the app untouched. System-generation
+rollback does not downgrade Apple's installed PKG.
 
-The standalone Homebrew cask and OFX effect are separate. The effect is pinned
-from `gyroflow/gyroflow-plugins`; the older `gyroflow/gyroflow-ofx` redirects there.
+## Gyroflow OFX
 
-Nix retains the original signed DMG. Extraction into a normalized Nix output can
-lose signature extended attributes, so activation mounts read-only, verifies
-Developer ID and Gatekeeper, and copies with `ditto` into
-`/Library/OFX/Plugins/Gyroflow.ofx.bundle`. A trap detaches only its own mount.
+Pinned **2.1.1** from `gyroflow/gyroflow-plugins` (the old `gyroflow-ofx` repository
+redirects there). The signed/notarized upstream DMG remains intact in the store.
+Activation mounts read-only, verifies the source, and preserves signed attributes
+with `ditto` into `/Library/OFX/Plugins/Gyroflow.ofx.bundle`. Other bundles are
+untouched. Successful-upgrade `.gyroflow-backup.*` directories are retained until
+manually reviewed; failures roll back.
 
-- Routine rebuilds while Resolve is open warn and defer video installation.
-- Identical installs verify and do nothing; unmanaged/modified collisions fail.
-- Ownership markers use content hashes, not garbage-collectable store paths.
-- Successful upgrades retain `.gyroflow-backup.*` beside the plugin, without
-  automatic expiry. Remove manually only after acceptance of the new version.
-- Failed final marker writes roll back the old plugin and marker.
-- Other OFX plugins are untouched.
+Installed signature verifies and Resolve registers `ofx.xyz.gyroflow`; a native
+Fusion instance exposes its controls. Find **Gyroflow** in the effect/tool search.
+For actual stabilization, load a matching `.gyroflow` project for the source
+footage. No representative gyro-data stabilization render was available in this
+session: discovery/instantiation is verified, stabilization quality is not.
+The standalone Gyroflow app remains separately Brew-managed.
 
-Live verification: strict signature passed; Resolve registered `ofx.xyz.gyroflow`
-and successfully instantiated the Fusion tool with its Gyroflow controls.
-**Stabilization with a real `.gyroflow` project and a completed render is still
-unverified.** A standalone Fusion Saver control failed even without Gyroflow,
-so that experiment cannot diagnose a plugin fault. No successful render is claimed.
+## CorridorKey 2.0 — native experimental OFX
 
-Use **Effects → Open FX → Gyroflow**, then load the matching video/`.gyroflow`
-project. The standalone app creates motion/lens settings; installation alone
-cannot provide those for arbitrary footage.
+**This is now a real native effect**, not the old batch menu. In Fusion use
+Shift-Space and search **CorridorKey 2.0**, then connect:
 
-## CorridorKey 2.0: custom batch menu
+```text
+MediaIn → CorridorKey 2.0 → MediaOut
+```
 
-This is **not a live OFX effect**. The official paid Mac OFX plugin at
-<https://corridorkey.com> is not purchased or installed. Lucas explicitly chose
-the community batch bridge and accepted its model licence on 2026-10-24.
+Controls: green/blue Screen, Despill, Cutout/Matte Output, and input/output
+Encoding. Use opaque **1280×720**, square-pixel SDR source with full-resolution
+preview (no proxy/half resolution). Set encoding explicitly to display sRGB or
+linear sRGB with Rec.709 primaries; convert other gamuts, log and HDR upstream.
+Other dimensions and non-finite/out-of-range pixels fail explicitly. There is no
+real-time claim or temporal smoothing: each frame resets recurrent state for
+reproducible out-of-order host requests.
 
-Nix/Home Manager deploys **Workspace → Scripts → Utility → CorridorKey 2.0**.
-Menu deployment needs activation; restart Resolve if the new entry is not listed.
-Errors and output paths appear in **Workspace → Console → Python 3**. The menu
-blocks while processing: do not switch projects or selections during the job.
+The native bundle is built by `nix/darwin/corridorkey-ofx-package.nix` and installed
+at `/Library/OFX/Plugins/CorridorKey2.ofx.bundle`. It is original wrapper code around
+a persistent private MLX worker, not the official paid plugin or copied community
+OFX code. Bundle signing is ad-hoc, not Developer-ID notarization.
 
-1. Select exactly one source clip in the Media Pool, not the timeline.
-2. Input must be **1280×720**, progressive, square-pixel, constant-frame-rate,
-   explicitly tagged display-referred **sRGB** (`iec61966-2-1`). Unknown transfer,
-   HDR, other sizes and image sequences are refused. Export a separate supported
-   copy; the bridge does not silently resize or change production colour.
-3. Run the menu. A new private job directory is created in `~/Movies/CorridorKey`.
-4. Only the transparent **cutout** sequence is imported, into a new named bin,
-   with verified FPS and **Straight** alpha. The separate RGB matte stays on disk.
-   Original media, existing bins/clips, audio and timelines are unchanged.
+### Verified consumer evidence and limits
 
-Output is numbered 16-bit PNGs plus manifest, benchmark and inference log. Failed
-jobs are never imported; failures preserve their outputs. Audio is not copied.
-Only the FP16 `768x1280-t1` model and temporal chunk/stride 1/1 are supported.
-Native 4K, HDR/EXR, temporal blending and live playback are not implemented.
+Installed describe-fixed build loads in Resolve Studio 21.1.1. Native frame-0
+preview alpha matches the batch fixture exactly. Disposable project
+`CorridorKey-Native-5922253efd` rendered four frames to ProRes 4444 with alpha at
+`~/Movies/CorridorKey-Native-Tests/render/native-cutout-verified.mov`. Decoded
+1280×720 output has nontrivial alpha in all frames. Alpha mean errors versus
+temporal batch: 0.00004895–0.00025900; premultiplied RGB mean errors:
+0.00020271–0.00029444. Maximum RGB error reaches 0.10449 at a semi-transparent
+edge, primarily from stateless versus temporal model state (native-vs-batch max
+0.10156); ProRes-vs-native max is <=0.00597. This is a passing fixture integration,
+not general temporal equivalence or production visual acceptance.
 
-### Runtime and reproducibility
+Initial AddFusionComp-only render attempts incorrectly exported opaque source.
+ImportFusionComp persisted the node graph into the timeline composition table,
+after which Deliver rendered the native result. See the [native guide](native/README.md)
+for detailed protocol, evidence, tests and limitations. `hugi` was not used for
+native rendering. The earlier batch fixture bin `CorridorKey-Fixture-60bb260a`
+remains in `hugi` unless Lucas removes it; no automatic project cleanup occurs.
 
-The local runtime (about 3.2 GB) is separate from Nix and Resolve's Python:
-`~/Library/Application Support/CorridorKey-Resolve`. Nix owns the menu/worker and
-absolute ffprobe path; it never downloads weights or accepts licences on rebuild.
+### Runtime and model licence
+
+Set up the separate private runtime before using the effect:
 
 ```sh
 python3 scripts/setup-corridorkey-resolve --accept-model-license
 ```
 
-Setup refuses an existing runtime; preserve it and choose `--runtime` for a
-separate rebuild. It hash-checks dependencies, source and every model file.
-Code/NOTICE/provenance and weight licence are retained in the runtime.
+It refuses an existing runtime; never overwrite it casually. Runtime root:
+`~/Library/Application Support/CorridorKey-Resolve`; model/engine licences and
+provenance remain there. Source commit: `74065491ebd2eddea494ab34c15a6d84d7415353`.
+Weights: `cdelta/CorridorKey-v2-MLX-fp16`, revision
+`3c75d4756579e2bdd21307c64a1af381bde1cdc1`, profile `fp16/768x1280-t1`.
 
-- Community engine: `peterteravskis/corridorkey-v2-mlx`, commit
-  `74065491ebd2eddea494ab34c15a6d84d7415353`.
-- FP16 weights: `cdelta/CorridorKey-v2-MLX-fp16`, revision
-  `3c75d4756579e2bdd21307c64a1af381bde1cdc1`.
-- Python 3.12.11; dependency hashes in `requirements.txt`, model hashes in
-  `corridorkey-models.json`. Regenerate on the same Apple Silicon Mac:
+Wrapper is MIT, OpenFX headers BSD-3-Clause, MLX engine Apache-2.0. **Weights are
+not unrestricted FOSS**: Corridor Key Licence 2.0 adds restrictions to
+CC BY-NC-SA 4.0, including no paid inference service, free/share-alike derivatives,
+commercial-integration agreement requirements and per-user plugin seats for
+organisations above US $20 million gross revenue. Local testing approval does not
+authorize selling/distributing a commercial integration. No weights are bundled,
+and activation does not accept or download model licences.
 
-```sh
-uv pip compile configs/davinci-resolve/requirements.in \
-  --python "$HOME/Library/Application Support/CorridorKey-Resolve/venv/bin/python" \
-  --generate-hashes --no-annotate --no-header \
-  -o configs/davinci-resolve/requirements.txt
-```
+Worker diagnostics: `~/Library/Application Support/CorridorKey-Resolve/ofx-worker.log`.
+Failures are also reported as persistent OFX host errors. Avoid many simultaneous
+instances on this 18 GB Mac; each effect instance owns a model worker. Native
+installer verifies identifier/signature, refuses unmanaged changes, stages with
+rollback and retains `.corridorkey2-backup.*` without automatic expiry.
 
-Code is Apache-2.0, but weights use **Corridor Key Licence 2.0**, supplementing
-CC BY-NC-SA 4.0: no paid inference service, attribution/free-access/share-alike
-conditions, and seats for organisations above US $20M gross revenue. Commercial
-software integration may require a separate agreement. Foundation licences apply.
-This is not unrestricted FOSS; see the actual retained licence before reuse.
+## Activation and old-menu migration
 
-### Verification and remaining acceptance
+Routine activation defers video installer steps while Resolve is running. It
+retains the original signed Gyroflow DMG and supplied Studio PKG in the closure.
+The native install is idempotent when installed content matches. Backups and
+project media are not removed by rebuilds.
 
-A durable four-frame fixture completed inference, verified 1280×720 16-bit output,
-and imported into Studio as online clips at 24000/1001 FPS. The cutout's Straight
-alpha was read back. The earlier test bin `CorridorKey-Fixture-60bb260a` in `hugi`
-contains both cutout and matte; subsequent imports are cutout-only. No existing
-timeline was edited. The scratch standalone composition was closed; its failed
-render artifact is retained under `~/Movies/CorridorKey-Fixture-Tests/render-checks`.
+The approved native module stops managing the old batch `CorridorKey 2.0.py`
+menu and removes only its store-managed symlink. User-owned files/non-store links
+are preserved. Batch engine/setup sources remain for fixtures and diagnosis;
+console fix `96441907` stays in history but the menu is no longer the intended UI.
+Native source publication and activation receipts must be checked separately from
+the already-verified standalone plugin installation.
 
-**Full menu invocation and final compositing/render acceptance remain pending.**
-During later checks the external API returned no save success and refused a new
-bin. No timeline or Deliver job was created. Save `hugi` manually and return to
-Project Manager before another disposable-project check. `check_resolve_bridge.py`
-refuses to leave any loaded project and never deletes projects.
-
-## Focused checks
+## Checks
 
 ```sh
 python3 tests/gyroflow-install.py
 python3 tests/resolve-studio.py
 python3 tests/resolve-activation.py
+python3 tests/sioyek-install.py
 python3 tests/corridorkey-bridge.py
 python3 tests/corridorkey-menu.py
+python3 tests/corridorkey-ofx-install.py
+"$HOME/Library/Application Support/CorridorKey-Resolve/venv/bin/python" tests/corridorkey-ofx-worker.py
+"$HOME/Library/Application Support/CorridorKey-Resolve/venv/bin/python" tests/corridorkey-ofx-inference.py --fixture-root /path/to/fixture-root
 ```
 
-Mocks verify contracts/rollback, not live UI rendering. `resolve-activation.py`
-evaluates the real module and tests open/closed deferral with isolated commands.
+Mock/unit evidence does not establish host acceptance. Real-model and real-Resolve
+checks require the separate licensed runtime and disposable fixture project.
 
-## Build status
+## Existing build repairs
 
-This publication includes the approved Backrefs 6.2 single-timeout-test
+The earlier publication includes the approved Backrefs 6.2 single-timeout-test
 deselection (`nix/common/packages/python312.nix`), MacBook terminal-only Vim
-(preserving Gimle's existing package), and Sioyek staged replacement/backup
-repair. They address the upstream build and activation blockers encountered
-during this work. Runtime Backrefs code is unchanged. Revisit the deselection
-after a version/upstream test fix. The menu/Studio pin still require activation.
+(preserving Gimle's existing package), and Sioyek staged replacement/backup repair.
+Runtime Backrefs code is unchanged; revisit the test deselection after an upstream
+fix. Native development does not modify those unrelated repair modules.

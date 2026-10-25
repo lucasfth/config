@@ -40,7 +40,7 @@ class ActivationTests(unittest.TestCase):
                 helper.chmod(0o755)
                 shell = tail.replace("/usr/bin/pgrep", str(probe))
                 shell, count = re.subn(r"elif ! .*; then", f'elif ! "{helper}"; then', shell)
-                self.assertEqual(count, 2 if studio else 1)
+                self.assertEqual(count, 3 if studio else 2)
                 for status in ("0", "1"):
                     calls.unlink(missing_ok=True)
                     result = subprocess.run(
