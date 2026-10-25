@@ -32,10 +32,9 @@ in {
       };
     };
 
-    # Merely building/activating the host must not replace the existing GUI
-    # connection. This job stays disabled until the alternate access path and
-    # tailnet enrollment are verified during the networking handoff.
-    launchd.daemons.gimle-tailscaled = {
+    # nix-darwin loads generated jobs with -w, overriding Disabled. Omit this
+    # job completely until the coordinated GUI handoff enables it.
+    launchd.daemons.gimle-tailscaled = lib.mkIf cfg.tailscaleAtBoot {
       serviceConfig = {
         Label = "dk.loki.tailscaled";
         Disabled = !cfg.tailscaleAtBoot;

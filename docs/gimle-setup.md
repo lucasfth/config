@@ -25,7 +25,7 @@ JupyterLab. The locked notebook dependency tree failed native builds in
 The MacBook retains JupyterLab and its original Python package order.
 
 This profile alone does **not** install or start production Loki. It declares
-a root volume-unlock job and an explicitly disabled Tailscale daemon; production
+a root volume-unlock job and an opt-in Tailscale daemon; production
 gateway/MCP jobs remain absent until native runtime and cutover qualification.
 
 ## Boot-chain source — 2026-10-25
@@ -41,9 +41,11 @@ approved unattended on-host key storage. This protects the image separately,
 not against a disk-level attacker who can obtain both image and key. Secrets
 and health data must never enter Git. A reboot/power test is still required.
 
-`services.gimle.tailscaleAtBoot` defaults to false. Do not enable it until the
-GUI-to-daemon handoff has alternate access and a verified tailnet enrollment.
-Service ordering must be enforced by readiness checks, not LaunchDaemon labels.
+`services.gimle.tailscaleAtBoot` defaults to false and omits the Tailscale job
+entirely: nix-darwin's `launchctl load -w` could override a plist Disabled flag.
+Do not enable it until the GUI-to-daemon handoff has alternate access and a
+verified tailnet enrollment. Service ordering must use readiness checks, not
+LaunchDaemon labels.
 
 Clean committed repositories can be pulled; dirty patches, SQLite backups,
 credentials, sessions and untracked vault content require separate verified

@@ -31,7 +31,7 @@ in {
   computerSleep = c.power.sleep.computer;
   lokiDaemons = builtins.filter (name: builtins.elem name ["loki-volume" "gimle-tailscaled"]) (builtins.attrNames c.launchd.daemons);
   lokiVolume = if c.networking.hostName == "gimle" then c.launchd.daemons.loki-volume.serviceConfig else null;
-  tailscaled = if c.networking.hostName == "gimle" then c.launchd.daemons.gimle-tailscaled.serviceConfig else null;
+  tailscaled = if c.launchd.daemons ? gimle-tailscaled then c.launchd.daemons.gimle-tailscaled.serviceConfig else null;
 }'''
 
 
@@ -67,13 +67,11 @@ def main():
     assert "DisplayLink" not in mini["postActivation"]
     assert mini["powerRestart"] is True
     assert mini["computerSleep"] == "never"
-    assert set(mini["lokiDaemons"]) == {"loki-volume", "gimle-tailscaled"}
+    assert mini["lokiDaemons"] == ["loki-volume"]
     assert mini["lokiVolume"]["RunAtLoad"] is True
     assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
     assert mini["lokiVolume"]["ThrottleInterval"] == 30
-    assert mini["tailscaled"]["Disabled"] is True
-    assert mini["tailscaled"]["RunAtLoad"] is False
-    assert mini["tailscaled"]["KeepAlive"] is False
+    assert mini["tailscaled"] is None, "Do not emit a Tailscale job before handoff"
 
     laptop = config("lucas-macbook-pro")
     assert laptop["home"] == "/Users/lucasfreytorreshanson"
