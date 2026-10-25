@@ -393,8 +393,12 @@ It requires estimated headroom of twice the current vault's logical size plus
 a much larger new backup can still exceed the estimate. On failure the current
 vault stays intact. Nothing is resized, deleted, or pruned automatically.
 
-If the image is full but the Mac has space, quit Obsidian, ensure no refresh is
-running, and grow the existing image. Preserve all `vault-before-refresh-*` folders:
+If the image is full but the Mac has space, quit Obsidian, ensure no refresh or
+other process holds the volume, and grow the existing image. Run the repair in a
+named `tmux` session with a persistent log under `~/.local/state/muninn`. Choose a
+capacity above the current limit with room for several retained snapshots, not
+just enough to clear the next restore check. Preserve all `vault-before-refresh-*`
+folders:
 
 ```sh
 image="$HOME/.local/share/muninn/readable.sparsebundle"
@@ -405,7 +409,7 @@ diskutil verifyVolume "$volume"
 hdiutil detach "$volume"
 ditto "$image" "$safety"
 diff -qr "$image" "$safety"  # Must match while both images are detached.
-diskutil image resize --size 32g "$image"  # Choose a larger limit if needed.
+diskutil image resize --size 128g "$image"  # Example ceiling; never shrink a larger image.
 hdiutil attach "$image" -mountpoint "$volume" -nobrowse
 diskutil apfs list  # Confirm the readable container grew too.
 df -h "$volume" "$HOME"
@@ -445,9 +449,15 @@ Verification: `python3 tests/muninn-refresh.py` exercises isolated Git/restore
 scenarios for replacement, rollback, local-edit refusal (including post-crash
 edits), explicit reconciliation with incoming hash verification, interrupted-run
 recovery, trust refusal, unchanged-commit no-ops, and image/host low-space refusal
-before decryption. On October 20, the live image
-was expanded with a hash-verified detached safety copy and a successful APFS
-check; a real Salt refresh restored 4,926 files while retaining prior snapshots.
+before decryption. The October 20 expansion preserved a verified detached safety
+copy and restored 4,926 files. On October 25, a new low-space refusal was resolved
+by growing the image to 128 GB (119 GiB). APFS checks and the detached-copy
+comparison passed; SHA-256 checks verified 69,635 pre-existing non-system files.
+The actual refresh verified a 5,162-file readable manifest, left 92 GiB free, and
+a second refresh correctly returned already current. All 14 rollback snapshots
+(21.4 GiB), other preserved directories and the detached safety copy were retained.
+These are dated receipts, not a retention policy: future changed snapshots keep
+consuming Mac disk space, and pruning requires Lucas's explicit decision.
 No Nix activation is needed for Python changes: the installed launcher uses
 `~/config/scripts/muninn-refresh.py` directly. Newer MCP changes reach the Mac
 only after publication and a successful refresh.
