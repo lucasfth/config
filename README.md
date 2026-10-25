@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/gh/lucasfth/brand@v1/dist/mark/hbit-mark-warm-on-dark.svg" />
+    <img src="https://cdn.jsdelivr.net/gh/lucasfth/brand@v1/dist/mark/hbit-mark-warm-on-light.svg" alt="hbit" width="56" />
+  </picture>
+</p>
+
 <h1 align="center">Config</h1>
 
 <p align="center">
