@@ -75,7 +75,11 @@ in {
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    includes = lib.optionals (hostname != "gimle") ["config.d/ecoray"];
+    # Gimle keeps a separate host-local inventory; never import laptop keys or hosts.
+    includes =
+      if hostname == "gimle"
+      then ["config.d/gimle"]
+      else ["config.d/ecoray"];
     settings."*" = {
       hashKnownHosts = true;
       identitiesOnly = true;
@@ -83,7 +87,7 @@ in {
     };
   };
 
-  # Gimle's host inventory and authentication require separate approval.
+  # Gimle's scoped inventory is maintained separately, not generated from laptop secrets.
   home.activation.sshEcorayHosts = lib.mkIf (hostname != "gimle") (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${genSshConfig}
   '');

@@ -58,7 +58,7 @@ def main():
     assert not mini["signing"], "Do not require the MacBook's private signing key"
     assert not mini["gpgAgent"], "Headless Gimle must not inherit the signing agent"
     assert mini["vim"] == "vim", mini["vim"]
-    assert not mini["sshIncludes"], mini["sshIncludes"]
+    assert mini["sshIncludes"] == ["config.d/gimle"], mini["sshIncludes"]
     assert "jupyterlab" not in mini["pythonPackages"], mini["pythonPackages"]
     assert {"pip", "virtualenv", "numpy", "pillow"}.issubset(mini["pythonPackages"])
     assert {"aerospace", "JankyBorders", "lmstudio", "sioyek", "swiftbar"}.issubset(mini["packages"])

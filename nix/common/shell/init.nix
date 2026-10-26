@@ -48,8 +48,10 @@
     fi
 
 
+    # Defer GUI automation outside a local terminal; SSH startup must not wait on TCC.
     # ── Mokka wallpaper reload (flag-based, only after nrs) ───
-    if [ -f "$HOME/.mokka-reload" ]; then
+    if [[ -o interactive && -t 0 && -z ''${SSH_CONNECTION-} && -z ''${SSH_TTY-} ]] &&
+       [ -f "$HOME/.mokka-reload" ]; then
       LATEST=$(ls -t "$HOME/Pictures/wallpapers/mokka-"*.heic 2>/dev/null | head -1)
       if [ -n "$LATEST" ] &&
         osascript -e "tell application \"System Events\" to set picture of every desktop to \"$LATEST\"" 2>/dev/null; then
