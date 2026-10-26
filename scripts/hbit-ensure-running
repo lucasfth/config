@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Start an existing, verified private Hbit container; never create or recreate it."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+
+IMAGE_DIGEST = 'sha256:e50d0178b610e41e07202aabcedb984991e92d79e2161af76bfa657bd0017758'
+
+
+def validate(info):
+    config = info['configuration']
+    process = config['initProcess']
+    mounts = config['mounts']
+    checks = [
+        config['id'] == 'hbit',
+        config['image']['descriptor']['digest'] == IMAGE_DIGEST,
+        process['user'] == {'raw': {'userString': '10001:10001'}},
+        process['executable'] == '/hbit',
+        process.get('arguments', []) == [],
+        process.get('environment', []) == [],
+        config['readOnly'] is True,
+        config['ssh'] is False,
+        config['capAdd'] == [],
+        config['capDrop'] == ['ALL'],
+        '/dev/kmsg' in config.get('maskedPaths', []),
+        config.get('dns', {}).get('nameservers') == [],
+        config['resources']['cpus'] == 1,
+        config['resources']['memoryInBytes'] == 268435456,
+        config['publishedPorts'] == [{'hostAddress': '127.0.0.1', 'hostPort': 2222, 'containerPort': 2222, 'count': 1, 'proto': 'tcp'}],
+        config['publishedSockets'] == [],
+        len(config['networks']) == 1 and config['networks'][0]['network'] == 'hbit-private',
+        len(mounts) == 1 and mounts[0]['destination'] == '/keys' and mounts[0]['options'] == ['ro'] and mounts[0]['type'].get('volume', {}).get('name') == 'hbit-keys',
+    ]
+    if not all(checks):
+        raise ValueError('Hbit configuration differs from the reviewed private boundary; refusing startup')
+
+
+def ensure(inspect, run):
+    info = inspect()
+    validate(info)
+    state = info['status']['state']
+    if state == 'running':
+        return
+    if state != 'stopped':
+        raise ValueError('Unexpected container state; no action taken')
+    run(['start', 'hbit'])
+    info = inspect()
+    validate(info)
+    if info['status']['state'] != 'running':
+        raise ValueError('Hbit is not running after startup')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--container', required=True, help='Absolute path to Apple Container CLI')
+    parser.add_argument('--check', action='store_true', help='Inspect only; never start anything')
+    args = parser.parse_args()
+    if os.geteuid() == 0:
+        raise SystemExit('Run as the owning user, not root')
+    binary = Path(args.container)
+    if not binary.is_absolute() or not binary.is_file():
+        raise SystemExit('Expected installed Apple Container executable')
+
+    def run(arguments):
+        return subprocess.run([str(binary), *arguments], check=True, capture_output=True, text=True, timeout=45).stdout
+
+    def inspect():
+        infos = json.loads(run(['inspect', 'hbit']))
+        if len(infos) != 1:
+            raise ValueError('Expected exactly the existing hbit container')
+        return infos[0]
+
+    if args.check:
+        info = inspect()
+        validate(info)
+        print('HBIT_CONFIG_PASS state=' + info['status']['state'])
+        return
+    # Fail if the user runtime is unavailable; do not start shared infrastructure.
+    ensure(inspect, run)
+    print('HBIT_PRIVATE_RUNNING')
+
+
+if __name__ == '__main__':
+    main()

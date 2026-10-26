@@ -19,9 +19,8 @@ $line_break\
 $character\
 """
 
-right_format = """
-$all
-"""
+# Disable the right prompt to avoid the reported input cursor displacement.
+right_format = ""
 
 palette = "catppuccin_mocha"
 

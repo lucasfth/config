@@ -69,6 +69,13 @@
     fi
     emit "windows"             WINDOWS_USER         WINDOWS_IP
 
+    # Private shortcut on Lucas's Mac only; preserve all other host entries.
+    if [ "${hostname}" = "lucas-macbook-pro" ]; then
+      install -m 600 ${../../configs/ssh/known_hosts.hbit} "$HOME/.ssh/known_hosts.hbit"
+      printf '\n' >> "$OUT"
+      cat ${../../configs/ssh/hbit.conf} >> "$OUT"
+    fi
+
     echo "gen-ssh-ecoray: wrote $(wc -l < "$OUT") lines to $OUT" >&2
   '';
 in {

@@ -25,5 +25,6 @@
     alejandra
     comma
     nix-index
+    google-cloud-sdk
   ];
 }

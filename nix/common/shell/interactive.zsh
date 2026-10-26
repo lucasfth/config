@@ -1,5 +1,12 @@
 # Loaded through ~/.zshrc_local. Edit this file, then run omz reload.
 
+# Read the prompt source on reload instead of the previous Nix-store snapshot.
+# Keep the ASCII/host-label prompt for SSH and preserve explicit custom configs.
+if [[ -z ${SSH_CONNECTION-} && -z ${SSH_TTY-} &&
+      ( -z ${STARSHIP_CONFIG-} || $STARSHIP_CONFIG == "$HOME/.config/starship.toml" ) ]]; then
+  export STARSHIP_CONFIG="$HOME/config/configs/starship/starship.toml"
+fi
+
 # Select the tracked config explicitly; macOS otherwise uses Application Support.
 alias lg='lazygit --use-config-file "$HOME/config/configs/lazygit/config.yml"'
 

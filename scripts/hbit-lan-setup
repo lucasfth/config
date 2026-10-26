@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Prepare or explicitly install Gimle's Hbit LAN relay. No router, DNS, Funnel or Vercel changes."""
+import argparse
+import json
+import os
+from pathlib import Path
+import plistlib
+import shutil
+import socket
+import subprocess
+import sys
+
+LABEL = 'local.hbit.public-menu-relay'
+ADDRESS = '192.168.86.51'
+PORT = 2223
+BACKEND = '/Users/gimle/.local/share/hbit/public.sock'
+
+
+def plan():
+    return {
+        'listener': f'{ADDRESS}:{PORT}',
+        'target': BACKEND,
+        'owner': 'gimle (non-admin runtime)',
+        'scope': 'LAN listener only; public reachability requires BOTH router forwards',
+        'outer_router': 'TCP 2222 -> 192.168.1.16:2222 (Google Nest WAN)',
+        'google_router': f'TCP 2222 -> {ADDRESS}:{PORT} (Gimle)',
+        'reservations': ['Reserve 192.168.1.16 for Google Nest', 'Reserve 192.168.86.51 for Gimle'],
+        'does_not_change': ['management SSH', 'private Hbit', 'Funnel or Serve', 'router settings', 'DNS', 'Vercel'],
+        'limits': '16 concurrent connections; 2 minute idle / 10 minute maximum connection lifetime',
+        'recovery': 'Runs at user login only; does not promise boot-before-login or container-runtime recovery',
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--plan', action='store_true', help='Print exact endpoint and router steps; no host checks or writes')
+    group.add_argument('--install', action='store_true', help='Explicitly enable the fixed LAN listener and its login job')
+    group.add_argument('--remove', action='store_true', help='Unload only this relay and remove its login job')
+    args = parser.parse_args()
+    if args.plan:
+        print(json.dumps(plan(), indent=2))
+        return
+    if os.geteuid() == 0:
+        raise SystemExit('Do not use sudo: run as gimle. This relay deliberately has no root privileges.')
+    if socket.gethostname().split('.')[0] != 'gimle' or str(Path.home()) != '/Users/gimle':
+        raise SystemExit('This setup is only for the gimle account on Gimle')
+    home = Path.home()
+    target = home / '.local/share/hbit/lan-relay'
+    plist = home / 'Library/LaunchAgents' / (LABEL + '.plist')
+    jobname = f'gui/{os.getuid()}/{LABEL}'
+    if args.remove:
+        # Refuse to remove a plist not matching this narrowly scoped setup.
+        if not plist.exists():
+            raise SystemExit('Relay job is not installed; no files changed')
+        config = plistlib.loads(plist.read_bytes())
+        expected = [str(home / '.nix-profile/bin/python3'), str(target / 'hbit-lan-relay'), '--serve']
+        if config.get('Label') != LABEL or config.get('ProgramArguments') != expected:
+            raise SystemExit('Relay plist differs from this installer; refusing removal')
+        loaded = subprocess.run(['/bin/launchctl', 'print', jobname], capture_output=True)
+        if loaded.returncode == 0:
+            subprocess.run(['/bin/launchctl', 'bootout', jobname], check=True)
+        plist.unlink()
+        print('HBIT_RELAY_REMOVED; router forwards must be removed manually if previously configured')
+        return
+    source = Path(__file__).resolve().with_name('hbit-lan-relay')
+    python = home / '.nix-profile/bin/python3'
+    subprocess.run([str(python), str(source), '--check'], check=True)
+    print(json.dumps(plan(), indent=2))
+    if not args.install:
+        print('CHECK ONLY: no listener or startup job created. Use --install to explicitly enable this endpoint.')
+        return
+    if plist.exists():
+        raise SystemExit('Relay plist already exists; refusing overwrite')
+    if subprocess.run(['/bin/launchctl', 'print', jobname], capture_output=True).returncode == 0:
+        raise SystemExit('Relay job already loaded; refusing replacement')
+    # Verify the exact IPv4 address is assigned and the dedicated port is free before writing.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind((ADDRESS, PORT))
+    target.mkdir(parents=True, exist_ok=True)
+    target.chmod(0o700)
+    destination = target / 'hbit-lan-relay'
+    shutil.copyfile(source, destination)
+    destination.chmod(0o700)
+    (home / 'Library/Logs').mkdir(exist_ok=True)
+    plist.parent.mkdir(exist_ok=True)
+    config = {
+        'Label': LABEL,
+        'ProgramArguments': [str(python), str(destination), '--serve'],
+        'EnvironmentVariables': {'HOME': str(home)},
+        'WorkingDirectory': str(home),
+        'RunAtLoad': True, 'KeepAlive': False,
+        'StandardOutPath': str(home / 'Library/Logs/hbit-lan-relay.log'),
+        'StandardErrorPath': str(home / 'Library/Logs/hbit-lan-relay-error.log'),
+    }
+    plist.write_bytes(plistlib.dumps(config))
+    plist.chmod(0o600)
+    try:
+        subprocess.run(['/bin/launchctl', 'bootstrap', f'gui/{os.getuid()}', str(plist)], check=True)
+    except Exception:
+        plist.unlink()
+        raise
+    print('HBIT_LAN_JOB_LOADED; check its log and pinned SSH identity before enabling router forwarding')
+    print('No router, DNS, management SSH, private Hbit or Funnel settings were changed.')
+
+
+if __name__ == '__main__':
+    main()

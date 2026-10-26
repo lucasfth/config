@@ -211,7 +211,9 @@ test('snapshot identifies visible controls with exact structural selectors, neve
     document: { title: 'Kundeside', body, querySelectorAll: () => [link, hidden, credential] },
   });
   assert.deepEqual(JSON.parse(JSON.stringify(result.controls)), [{ selector: 'html > body:nth-child(1) > a:nth-child(1)', role: 'a', text: 'Log på cPanel' }]);
-  assert.doesNotMatch(JSON.stringify(result), /href|cpsess|token|hidden|password/);
+  const {excludedControls, ...visiblePage} = result;
+  assert.doesNotMatch(JSON.stringify(visiblePage), /href|cpsess|token|hidden|password/);
+  assert.deepEqual(JSON.parse(JSON.stringify(excludedControls)), {hidden:1,credentialLike:1,attributes:{type:1}});
 });
 
 test('click validates a unique visible noncredential target, then uses native mouse input', async () => {
@@ -264,4 +266,75 @@ test('ordinary clicks refuse popup/download controls before sending mouse input'
     } };
     await assert.rejects(nativeClick(fake, '.link'), /refused/);
   }
+});
+
+test('snapshot exclusion diagnostics expose counts and fixed attribute names only', async () => {
+  const { browserSnapshotExpression } = await import('./gimle.ts');
+  const field: any = {tagName:'INPUT',type:'text',name:'',id:'private_token_SECRET',autocomplete:'off',placeholder:'',getClientRects:()=>[1],getAttribute:()=>null,
+    get value(){throw Error('must not read value');}};
+  const result = runInNewContext(browserSnapshotExpression, {
+    location:{origin:'https://example.com',pathname:'/'},
+    document:{title:'Fixture',body:{innerText:''},querySelectorAll:()=>[field]},
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.excludedControls)), {hidden:0,credentialLike:1,attributes:{id:1}});
+  assert.deepEqual(JSON.parse(JSON.stringify(result.controls)), []);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET|private_token|value|href/);
+});
+
+test('autocomplete diagnostics report fixed categories without exposing arbitrary metadata or values', async () => {
+  const { browserSnapshotExpression } = await import('./gimle.ts');
+  const fields = ['new-password', 'current-password', 'section-private username', 'private-token-SECRET'].map(autocomplete => ({
+    tagName:'INPUT', type:'text', autocomplete, getClientRects:()=>[1], getAttribute:()=>null,
+    get value(){throw Error('must not read value');},
+  }));
+  const result = runInNewContext(browserSnapshotExpression, {
+    location:{origin:'https://example.com',pathname:'/'},
+    document:{title:'Fixture',body:{innerText:''},querySelectorAll:()=>fields},
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.excludedControls.autocompleteCategories)), {
+    'new-password':1, 'current-password':1, username:1, other:1,
+  });
+  assert.equal(result.excludedControls.credentialLike, 4);
+  assert.equal(result.controls.length, 0, 'diagnostics must not relax the guard');
+  assert.doesNotMatch(JSON.stringify(result), /SECRET|section-private|private-token/);
+});
+
+test('only Nordicway DNS-row text inputs may ignore the observed new-password hint', async () => {
+  const { browserSnapshotExpression } = await import('./gimle.ts');
+  class Input {
+    stored = ''; type = 'text'; name = ''; id = ''; autocomplete = 'new-password'; placeholder = ''; tagName = 'INPUT';
+    parentElement = {tagName:'HTML',parentElement:null as null,children:[] as unknown[]};
+    get value(): string { throw Error('must not read input value'); }
+    set value(v: string) { this.stored=v; }
+    getAttribute(name: string) { return metadata[name]??null; }
+    getClientRects() { return [1]; }
+    matches() { return inRow; }
+    closest() { return {querySelector:()=>({selectedOptions:[{textContent:recordType}]})}; }
+    dispatchEvent() {}
+  }
+  let inRow=true, recordType='CNAME';
+  const metadata: Record<string,string>={};
+  const e=new Input(); e.parentElement.children=[e];
+  const location={origin:'https://cp08.nordicway.dk:2083',pathname:'/cpsess123456/frontend/jupiter/zone_editor/index.html'};
+  const document={title:'cPanel - DNS',body:{innerText:''},querySelectorAll:()=>[e]};
+  const context={location,document,HTMLInputElement:Input,HTMLTextAreaElement:class {},Event:class {}};
+  const expression=buildInteractionExpression('type','.dns','mail.hbit.sh');
+  assert.equal(runInNewContext(expression,context),'ok');
+  assert.equal(e.stored,'mail.hbit.sh');
+  assert.equal(runInNewContext(browserSnapshotExpression,context).controls.length,1);
+  recordType='A';e.type='number';
+  assert.equal(runInNewContext(expression,context),'ok');
+  recordType='CNAME';e.type='text';
+  const refuse=()=>{
+    assert.throws(()=>runInNewContext(expression,context),/Credential/);
+    assert.equal(runInNewContext(browserSnapshotExpression,context).controls.length,0);
+  };
+  for(const type of ['password','email','hidden']) {e.type=type;refuse();} e.type='text';
+  for(const hint of ['current-password','username','one-time-code','email','section-x new-password']) {e.autocomplete=hint;refuse();} e.autocomplete='new-password';
+  for(const key of ['name','id','placeholder'] as const) {for(const value of ['password','otp','token','secret','username','email']) {e[key]=value;refuse();}e[key]='';}
+  for(const key of ['aria-label','data-placeholder']) {metadata[key]='password';refuse();delete metadata[key];}
+  inRow=false;refuse();inRow=true;
+  recordType='Password';refuse();recordType='CNAME';
+  location.origin='https://example.com';refuse();location.origin='https://cp08.nordicway.dk:2083';
+  for(const path of ['/login','/cpsess123456/frontend/jupiter/other/index.html']) {location.pathname=path;refuse();}
 });

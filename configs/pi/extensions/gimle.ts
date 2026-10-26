@@ -24,6 +24,20 @@ export function validateAppUrl(value: string): URL {
   return url;
 }
 
+// Nordicway marks ordinary DNS inputs new-password to suppress browser autofill.
+// Ignore only that hint in A/CNAME record rows; all other credential metadata still applies.
+const credentialAttributesExpression = `function credentialAttributes(e){
+  const attributes={type:e.type,name:e.name,id:e.id,autocomplete:e.autocomplete,ariaLabel:e.getAttribute('aria-label'),placeholder:e.placeholder,dataPlaceholder:e.getAttribute('data-placeholder')};
+  if(e.tagName==='INPUT'&&['text','number'].includes(e.type)&&e.autocomplete==='new-password'
+    &&typeof location!=='undefined'&&location.origin==='https://cp08.nordicway.dk:2083'
+    &&/^\\/cpsess[0-9]+\\/frontend\\/jupiter\\/zone_editor\\/index\\.html$/.test(location.pathname)
+    &&e.matches('form table tbody tr > td:nth-child(1) input, form table tbody tr > td:nth-child(2) input, form table tbody tr > td:nth-child(4) input')
+    &&['A','CNAME'].includes(e.closest('tr')?.querySelector('td:nth-child(3) select')?.selectedOptions?.[0]?.textContent?.trim())){
+    attributes.autocomplete='';
+  }
+  return attributes;
+}`;
+
 export function buildInteractionExpression(action: 'click' | 'type', selector: string, text = ''): string {
   // Only JSON-encoded data is interpolated, never caller-supplied JavaScript.
   const operation = action === 'click' ? `
@@ -54,7 +68,8 @@ export function buildInteractionExpression(action: 'click' | 'type', selector: s
     const matches=document.querySelectorAll(${JSON.stringify(selector)});
     if(matches.length!==1)throw Error('Select exactly one control');
     const e=matches[0];
-    const c=[e.type,e.name,e.id,e.autocomplete,e.getAttribute('aria-label'),e.placeholder,e.getAttribute('data-placeholder')].join(' ');
+    ${credentialAttributesExpression}
+    const c=Object.values(credentialAttributes(e)).join(' ');
     if(/password|passwd|token|secret|credential|one-time|otp|username|email/i.test(c))throw Error('Credential field interaction forbidden');
     ${operation}
     return 'ok';
@@ -110,11 +125,23 @@ export function requireAssignedApp(state: PageState, tab: OwnedApp, action: stri
 }
 
 export const browserSnapshotExpression = `(()=>{
-  const controls=[];
+  const controls=[],excludedControls={hidden:0,credentialLike:0,attributes:{}};
+  ${credentialAttributesExpression}
   for(const e of Array.from(document.querySelectorAll?.('a,button,input,textarea,select,[role="button"],[role="link"],[contenteditable="true"]')??[])){
-    if(!e.getClientRects().length)continue;
-    const c=[e.type,e.name,e.id,e.autocomplete,e.getAttribute('aria-label'),e.placeholder].join(' ');
-    if(/password|passwd|token|secret|credential|one-time|otp|username|email/i.test(c))continue;
+    if(!e.getClientRects().length){excludedControls.hidden++;continue;}
+    const attributes=credentialAttributes(e);
+    const matched=Object.entries(attributes).filter(([,v])=>/password|passwd|token|secret|credential|one-time|otp|username|email/i.test(v??'')).map(([k])=>k);
+    if(matched.length){
+      excludedControls.credentialLike++;
+      for(const key of matched)excludedControls.attributes[key]=(excludedControls.attributes[key]??0)+1;
+      if(matched.includes('autocomplete')){
+        const tokens=(e.autocomplete??'').toLowerCase().split(/\\s+/);
+        const category=['new-password','current-password','one-time-code','username','email'].find(token=>tokens.includes(token))??'other';
+        const counts=excludedControls.autocompleteCategories??={};
+        counts[category]=(counts[category]??0)+1;
+      }
+      continue;
+    }
     const path=[];let node=e;
     while(node?.parentElement){
       const parent=node.parentElement;
@@ -128,7 +155,7 @@ export const browserSnapshotExpression = `(()=>{
     if(controls.length>=160)break;
   }
   return {url:location.origin+location.pathname.replace(/\\/cpsess[^/]+/g,'/[session]'),
-    title:document.title,text:document.body?.innerText?.slice(0,24000),controls};
+    title:document.title,text:document.body?.innerText?.slice(0,24000),controls,excludedControls};
 })()`;
 
 async function dispatchClick(session: LinkSession, point: {x:number;y:number}, signal?: AbortSignal): Promise<void> {

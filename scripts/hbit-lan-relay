@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Bounded raw TCP relay for Gimle's isolated anonymous Hbit menu. No shell or router control."""
+import argparse
+import asyncio
+import json
+import os
+from pathlib import Path
+import socket
+import stat
+import subprocess
+
+ADDRESS = '192.168.86.51'
+PORT = 2223
+SOCKET = '/Users/gimle/.local/share/hbit/public.sock'
+IMAGE_DIGEST = 'sha256:e50d0178b610e41e07202aabcedb984991e92d79e2161af76bfa657bd0017758'
+
+
+def validate(info):
+    c = info['configuration']
+    p = c['initProcess']
+    mounts = c['mounts']
+    checks = [
+        info['status']['state'] == 'running',
+        c['id'] == 'hbit-public',
+        c['image']['descriptor']['digest'] == IMAGE_DIGEST,
+        p['executable'] == '/hbit',
+        p['arguments'] == ['-listen', 'unix:/run/hbit/ssh.sock', '-public-menu'],
+        p['user'] == {'raw': {'userString': '10001:10001'}},
+        p.get('environment', []) == [],
+        c['capAdd'] == [], c['capDrop'] == ['ALL'], c['ssh'] is False,
+        c['networks'] == [], c['publishedPorts'] == [],
+        c['dns']['nameservers'] == [], '/dev/kmsg' in c['maskedPaths'],
+        c['resources']['cpus'] == 1, c['resources']['memoryInBytes'] == 268435456,
+        c['publishedSockets'] == [{'containerPath': '/run/hbit/ssh.sock', 'hostPath': SOCKET}],
+        len(mounts) == 1 and mounts[0]['destination'] == '/keys'
+        and mounts[0]['options'] == ['ro']
+        and mounts[0]['type'].get('volume', {}).get('name') == 'hbit-public-keys',
+    ]
+    if not all(checks):
+        raise ValueError('Public menu boundary changed; refusing relay')
+
+
+def check():
+    if socket.gethostname().split('.')[0] != 'gimle' or os.geteuid() == 0:
+        raise ValueError('Run as the owning gimle user on Gimle, not root')
+    info = json.loads(subprocess.run(['/opt/homebrew/bin/container', 'inspect', 'hbit-public'],
+                                    check=True, capture_output=True, text=True, timeout=10).stdout)
+    if len(info) != 1:
+        raise ValueError('Expected exactly the existing public menu container')
+    validate(info[0])
+    metadata = Path(SOCKET).lstat()
+    if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid != os.geteuid():
+        raise ValueError('Expected public menu socket owned by this user')
+
+
+class Relay:
+    def __init__(self, path, limit=16, idle=120, lifetime=600):
+        self.path, self.limit, self.idle, self.lifetime = path, limit, idle, lifetime
+        self.active = 0
+
+    async def handle(self, reader, writer):
+        if self.active >= self.limit:
+            writer.close()
+            await writer.wait_closed()
+            return
+        self.active += 1
+        backend = None
+        tasks = []
+        last_activity = asyncio.get_running_loop().time()
+
+        async def copy(source, destination):
+            nonlocal last_activity
+            while data := await source.read(32768):
+                last_activity = asyncio.get_running_loop().time()
+                destination.write(data)
+                await destination.drain()
+
+        async def idle_watch():
+            while True:
+                remaining = self.idle - (asyncio.get_running_loop().time() - last_activity)
+                if remaining <= 0:
+                    return
+                await asyncio.sleep(remaining)
+
+        try:
+            remote, backend = await asyncio.wait_for(asyncio.open_unix_connection(self.path), 5)
+            tasks = [asyncio.create_task(copy(reader, backend)),
+                     asyncio.create_task(copy(remote, writer)),
+                     asyncio.create_task(idle_watch())]
+            await asyncio.wait(tasks, timeout=self.lifetime, return_when=asyncio.FIRST_COMPLETED)
+        except (OSError, TimeoutError):
+            pass
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            for stream in [backend, writer]:
+                if stream:
+                    stream.close()
+                    try:
+                        await asyncio.wait_for(stream.wait_closed(), 2)
+                    except (OSError, TimeoutError):
+                        pass
+            self.active -= 1
+
+
+async def serve():
+    check()
+    relay = Relay(SOCKET)
+    server = await asyncio.start_server(relay.handle, ADDRESS, PORT, family=socket.AF_INET, backlog=16)
+    print(f'HBIT_LAN_RELAY {ADDRESS}:{PORT} -> isolated public menu only', flush=True)
+    async with server:
+        await server.serve_forever()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='Read-only validation; no listener')
+    parser.add_argument('--serve', action='store_true', help='Explicitly enable the fixed LAN listener')
+    args = parser.parse_args()
+    if args.check:
+        check()
+        print('HBIT_PUBLIC_BOUNDARY_PASS; no listener opened')
+    elif args.serve:
+        asyncio.run(serve())
+    else:
+        parser.error('Choose --check or --serve; there is no implicit listener')
