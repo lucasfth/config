@@ -33,7 +33,7 @@ std::string string(OfxPropertySetHandle p,const char *key) {char *v=nullptr;chec
 struct Instance {
  OfxImageClipHandle source=nullptr,output=nullptr;
  OfxParamHandle screen=nullptr,mode=nullptr,despill=nullptr,encoding=nullptr;
- OfxParamHandle policy=nullptr,black=nullptr,white=nullptr,grow=nullptr,softness=nullptr;
+ OfxParamHandle policy=nullptr,black=nullptr,white=nullptr,grow=nullptr,softness=nullptr,temporal=nullptr,lookahead=nullptr;
  std::mutex mutex;
  ck::Worker worker;
 };
@@ -72,7 +72,7 @@ void describe(OfxImageEffectHandle effect) {
  text(p,kOfxImageEffectPropSupportedContexts,kOfxImageEffectContextGeneral,1);
  text(p,kOfxImageEffectPropSupportedPixelDepths,kOfxBitDepthFloat);
  integer(p,kOfxImageEffectPropSupportsTiles,0);integer(p,kOfxImageEffectPropSupportsMultiResolution,0);
- integer(p,kOfxImageEffectPropTemporalClipAccess,0);
+ integer(p,kOfxImageEffectPropTemporalClipAccess,1);
  text(p,kOfxImageEffectPluginRenderThreadSafety,kOfxImageEffectRenderInstanceSafe);
  integer(p,kOfxImageEffectPluginPropHostFrameThreading,0);
  // Resolve rejects optional OfxPropPluginDescription; details live in bundle NOTICE/README.
@@ -82,6 +82,7 @@ void context(OfxImageEffectHandle effect) {
   OfxPropertySetHandle p=nullptr;check(fx->clipDefine(effect,name,&p));
   text(p,kOfxImageEffectPropSupportedComponents,kOfxImageComponentRGBA);
   integer(p,kOfxImageEffectPropSupportsTiles,0);integer(p,kOfxImageClipPropOptional,0);
+  if(!strcmp(name,kOfxImageEffectSimpleSourceClipName))integer(p,kOfxImageEffectPropTemporalClipAccess,1);
  }
  OfxParamSetHandle set=nullptr;check(fx->getParamSet(effect,&set));
  auto choice=[&](const char *name,const char *label,std::initializer_list<const char *> options) {
@@ -93,6 +94,11 @@ void context(OfxImageEffectHandle effect) {
  choice("output","Output",{"Cutout (model foreground)","Matte","Raw model foreground","Despilled model foreground","Checkerboard"});
  choice("encoding","Inference input / model output encoding",{"sRGB (display encoded)","Linear sRGB (Rec.709 primaries)","Gamma 2.4 (Rec.709 primaries)"});
  choice("policy","Inference resolution",{"Fit source (720p model)","Require 1280x720"});
+ choice("temporal","Temporal mode",{"Independent frames","Four-frame context"});
+ OfxPropertySetHandle ahead;check(params->paramDefine(set,kOfxParamTypeInteger,"lookahead",&ahead));
+ text(ahead,kOfxPropLabel,"Lookahead frames (0-3)");integer(ahead,kOfxParamPropDefault,0);
+ integer(ahead,kOfxParamPropMin,0);integer(ahead,kOfxParamPropMax,3);
+ integer(ahead,kOfxParamPropDisplayMin,0);integer(ahead,kOfxParamPropDisplayMax,3);integer(ahead,kOfxParamPropAnimates,0);
  auto scalar=[&](const char *name,const char *label,double value,double low,double high) {
   OfxPropertySetHandle p=nullptr;check(params->paramDefine(set,kOfxParamTypeDouble,name,&p));
   text(p,kOfxPropLabel,label);check(props->propSetDouble(p,kOfxParamPropDefault,0,value));
@@ -117,7 +123,28 @@ void create(OfxImageEffectHandle effect) {
  check(params->paramGetHandle(set,"white",&state->white,nullptr));
  check(params->paramGetHandle(set,"grow",&state->grow,nullptr));
  check(params->paramGetHandle(set,"softness",&state->softness,nullptr));
+ check(params->paramGetHandle(set,"temporal",&state->temporal,nullptr));check(params->paramGetHandle(set,"lookahead",&state->lookahead,nullptr));
  check(props->propSetPointer(properties(effect),kOfxPropInstanceData,0,state.get()));state.release();
+}
+void requireTemporalHost() {
+ int supported=0;
+ ck::require(host&&host->host&&props->propGetInt(host->host,kOfxImageEffectPropTemporalClipAccess,0,&supported)==kOfxStatOK&&supported==1,
+             "Host does not support temporal clip access; explicitly select independent mode");
+}
+std::array<double,4> contextTimes(Instance *state,double time,int ahead) {
+ ck::require(ahead>=0&&ahead<=3,"Lookahead must be 0..3");
+ OfxPropertySetHandle clip;check(fx->clipGetPropertySet(state->source,&clip));
+ double range[2];check(props->propGetDoubleN(clip,kOfxImageEffectPropFrameRange,2,range));
+ ck::require(std::isfinite(time)&&std::isfinite(range[0])&&std::isfinite(range[1])&&range[0]<=range[1]&&time>=range[0]&&time<=range[1],"Invalid temporal clip frame range");
+ std::array<double,4> times{};for(int i=0;i<4;++i)times[i]=std::max(range[0],std::min(range[1],time+i-(3-ahead)));return times;
+}
+void framesNeeded(OfxImageEffectHandle effect,OfxPropertySetHandle args,OfxPropertySetHandle out) {
+ double time;check(props->propGetDouble(args,kOfxPropTime,0,&time));auto *state=instance(effect);int temporal=0,ahead=0;
+ check(params->paramGetValueAtTime(state->temporal,time,&temporal));check(params->paramGetValueAtTime(state->lookahead,time,&ahead));
+ ck::require(temporal==0||temporal==1,"Invalid temporal mode");
+ if(temporal)requireTemporalHost();
+ auto times=temporal?contextTimes(state,time,ahead):std::array<double,4>{time,time,time,time};
+ const char *key="OfxImageClipPropFrameRange_Source";check(props->propSetDouble(out,key,0,times.front()));check(props->propSetDouble(out,key,1,times.back()));
 }
 void render(OfxImageEffectHandle effect,OfxPropertySetHandle args) {
  auto *state=instance(effect);std::lock_guard<std::mutex> guard(state->mutex);
@@ -125,33 +152,44 @@ void render(OfxImageEffectHandle effect,OfxPropertySetHandle args) {
  check(props->propGetDoubleN(args,kOfxImageEffectPropRenderScale,2,scale));
  ck::require(std::isfinite(scale[0]) && std::isfinite(scale[1]) && scale[0]>0 && scale[0]<=1 &&
    std::abs(scale[0]-scale[1])<1e-8,"CorridorKey requires equal positive preview scales <=1");
- Image source(state->source,time),output(state->output,time);
- Pixels src(source.p),dst(output.p);
- ck::require(src.x1==dst.x1 && src.y1==dst.y1 && src.x2==dst.x2 && src.y2==dst.y2,"Input/output frame bounds differ");
- double par=1; if(props->propGetDouble(source.p,kOfxImagePropPixelAspectRatio,0,&par)==kOfxStatOK)
-  ck::require(par==1,"CorridorKey requires square pixels");
- int screen=0,mode=0,encoding=0,policy=0;double despill=1,black=0,white=1,grow=0,softness=0;
+ int screen=0,mode=0,encoding=0,policy=0,temporal=0,ahead=0;double despill=1,black=0,white=1,grow=0,softness=0;
  check(params->paramGetValueAtTime(state->screen,time,&screen));check(params->paramGetValueAtTime(state->mode,time,&mode));
  check(params->paramGetValueAtTime(state->encoding,time,&encoding));check(params->paramGetValueAtTime(state->despill,time,&despill));
  check(params->paramGetValueAtTime(state->policy,time,&policy));check(params->paramGetValueAtTime(state->black,time,&black));
  check(params->paramGetValueAtTime(state->white,time,&white));check(params->paramGetValueAtTime(state->grow,time,&grow));
  check(params->paramGetValueAtTime(state->softness,time,&softness));
+ check(params->paramGetValueAtTime(state->temporal,time,&temporal));check(params->paramGetValueAtTime(state->lookahead,time,&ahead));
+ ck::require((temporal==0||temporal==1)&&ahead>=0&&ahead<=3,"Invalid temporal mode/lookahead");
+ if(temporal)requireTemporalHost();
+ Image output(state->output,time);Pixels dst(output.p);
  ck::require(screen>=0&&screen<=1&&mode>=0&&mode<=4&&encoding>=0&&encoding<=2&&policy>=0&&policy<=1&&
    std::isfinite(despill)&&despill>=0&&despill<=1&&std::isfinite(black)&&std::isfinite(white)&&
    black>=0&&black<white&&white<=1&&std::isfinite(grow)&&std::abs(grow)<=20&&
    std::isfinite(softness)&&softness>=0&&softness<=20,"Invalid CorridorKey parameters: matte white must exceed black");
- const int width=src.x2-src.x1,height=src.y2-src.y1;
- std::vector<float> pixels(static_cast<size_t>(width)*height*4);
- // OFX coordinates are bottom-up; MLX operates top-down. Respect negative row strides.
- for(int y=0;y<height;++y) std::copy_n(src.row(src.y2-1-y),width*4,pixels.data()+static_cast<size_t>(y)*width*4);
+ const int width=dst.x2-dst.x1,height=dst.y2-dst.y1;
+ if(temporal)ck::require(width<=4096&&height<=4096&&width<=(4096*2160)/height,"Temporal context exceeds 4K memory cap; select independent mode");
+ auto pack=[&](Pixels &image){
+  ck::require(image.x1==dst.x1&&image.y1==dst.y1&&image.x2==dst.x2&&image.y2==dst.y2,"Input/output frame bounds differ");
+  std::vector<float> pixels(static_cast<size_t>(width)*height*4);
+  for(int y=0;y<height;++y)std::copy_n(image.row(image.y2-1-y),width*4,pixels.data()+static_cast<size_t>(y)*width*4);
+  return pixels;
+ };
  const char *home=getenv("HOME");ck::require(home,"HOME is not set");
  std::string runtime=std::string(home)+"/Library/Application Support/CorridorKey-Resolve";
  Dl_info location{};ck::require(dladdr(reinterpret_cast<void *>(&render),&location)!=0,"Cannot locate OFX bundle");
  std::string binary=location.dli_fname;auto slash=binary.find_last_of('/');
  std::string script=binary.substr(0,slash)+"/../Resources/worker.py";
  state->worker.start(runtime+"/venv/bin/python",script,runtime+"/ofx-worker.log");
- auto result=state->worker.render(pixels,screen,mode,static_cast<float>(despill),encoding,[&]{return fx->abort(effect)!=0;},
-   width,height,policy,black,white,grow*scale[0],softness*scale[0]);
+ std::vector<float> result;
+ if(temporal) {
+  auto times=contextTimes(state,time,ahead);
+  result=state->worker.renderTemporal(screen,mode,despill,encoding,[&]{return fx->abort(effect)!=0;},width,height,policy,black,white,grow*scale[0],softness*scale[0],3-ahead,
+   [&](unsigned index){Image neighbour(state->source,times[index]);Pixels data(neighbour.p);double par=1;check(props->propGetDouble(neighbour.p,kOfxImagePropPixelAspectRatio,0,&par));ck::require(par==1,"Temporal frame pixel aspect differs");return pack(data);});
+ }else {
+  Image source(state->source,time);Pixels src(source.p);double par=1;
+  if(props->propGetDouble(source.p,kOfxImagePropPixelAspectRatio,0,&par)==kOfxStatOK)ck::require(par==1,"CorridorKey requires square pixels");
+  auto pixels=pack(src);result=state->worker.render(pixels,screen,mode,despill,encoding,[&]{return fx->abort(effect)!=0;},width,height,policy,black,white,grow*scale[0],softness*scale[0]);
+ }
  for(float value:result)ck::require(std::isfinite(value),"Worker returned non-finite pixels");
  int window[4];check(props->propGetIntN(args,kOfxImageEffectPropRenderWindow,4,window));
  ck::require(window[0]>=dst.x1&&window[1]>=dst.y1&&window[2]<=dst.x2&&window[3]<=dst.y2,"Render window exceeds output bounds");
@@ -182,6 +220,7 @@ OfxStatus entry(const char *action,const void *handle,OfxPropertySetHandle in,Of
    text(out,kOfxImageEffectPropPreMultiplication,kOfxImagePreMultiplied);
    integer(out,kOfxImageEffectFrameVarying,1);return kOfxStatOK;
   }
+  if(!strcmp(action,kOfxImageEffectActionGetFramesNeeded)){framesNeeded(effect,in,out);return kOfxStatOK;}
   if(!strcmp(action,kOfxImageEffectActionRender)){render(effect,in);return kOfxStatOK;}
   return kOfxStatReplyDefault;
  }catch(const std::exception &error){

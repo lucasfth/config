@@ -1,45 +1,68 @@
-# CorridorKey 2.0 — native OFX adapter
+# CorridorKey 2.0 — editable native keyer
 
-Original MIT front end for the separately licensed CorridorKey MLX runtime. Not the official CorridorKey plugin or the separately licensed CorridorKey-Runtime wrapper. Model/engine licences remain upstream; see NOTICE.
+Original MIT OFX front end plus a colour-managed Fusion wrapper. Not the official CorridorKey plugin or the separately licensed CorridorKey-Runtime wrapper. Engine/models retain upstream terms; see NOTICE. The models are not unrestricted FOSS.
 
-## Supported native path
+## Use one node
 
-- Apple Silicon macOS / Resolve Studio; float32 RGBA CPU images, opaque input, square pixels, full-frame buffers. No tiles.
-- Source size up to 8192 per side and 40 million pixels, including 1080p, UHD/DCI 4K, portrait and X-E4-sized developed stills.
-- Fit source (default): aspect-preserving fit to 1280x720 with reflected padding, inference using the existing 768x1280 padded profile, crop/unpad and resize foreground/alpha back to source dimensions. This does **not** restore native-4K hair detail.
-- Require 1280x720: explicit strict alternative.
-- Isotropic preview scale above zero and <=1; grow/shrink and softness scale with preview resolution.
-- Explicit display-sRGB, linear-sRGB or Gamma 2.4 with Rec.709 primaries. All inference input components must be finite and within [0,1]. No automatic log/gamut detection or RAW decoding.
-- Outputs: model cutout (premultiplied RGBA), matte (opaque grayscale), raw model foreground, despilled foreground, checkerboard. Checkerboard composites in linear light.
-- Matte refinement: black/white levels, grow/shrink -20..20 source pixels, softness 0..20 source pixels. White must exceed black. Defaults preserve the original matte.
+1. Open a timeline clip in Fusion. Select the source directly connected to `MediaOut1`.
+2. Run **Workspace → Scripts → Utility → CorridorKey Original-colour matte**.
+3. Choose the colour space/gamma of the actual pixels at that node, not merely the camera's recording mode. Cancel makes no graph change.
+4. The command inserts, connects and selects **one CorridorKey group**. Use its Inspector:
+   - **Colour:** input/output primaries and gamma.
+   - **Key:** output view, green/blue screen, model despill.
+   - **Matte:** black/white levels, grow/shrink, softness.
+   - **Advanced:** Fit source / Require 1280x720.
+   - **Temporal:** Independent frames (default) / Four-frame context, Lookahead 0–3.
 
-The model resets every frame. A persistent worker keeps weights loaded, not temporal continuity. No realtime, flicker-reduction or whole-clip equivalence claim. Use a separate display-referred inference branch and apply its matte to the original linear image when preserving HDR/log source colour. A direct MP4 test contained decoded values -0.152..1.131 and correctly failed this strict native input contract; decoding a video does not guarantee [0,1]. Camera-specific transforms, CR3/RAF decoding and representative quality remain separate acceptance checks.
+This is an editable effect: parameter edits reevaluate the existing node. There is **no Render/Apply button, project-cloning bake action or external matte to import**. Resolve's normal render cache can be used for ahead-of-time playback; this is not a realtime promise. Actual host disk-cache reuse/invalidation has not been independently measured.
 
-## Deployment and evidence
+**Shift-Space → CorridorKey 2.0** adds the raw OFX keyer, not the colour-managed group. The setup command is the recommended entry point. Double-clicking a group expands its internals; select the outer group for its published controls. Older groups saved in existing projects do not automatically update when the macro file changes. Do not reuse an old Render/Apply group: make a backed-up fresh setup instead.
 
-Nix owns the package and `scripts/install-corridorkey-ofx` installs it at `/Library/OFX/Plugins/CorridorKey2.ofx.bundle`. Source/build/publication and activation are separate. An activation built from old source can reinstall the old 720p-only bundle; compare installed binary/worker to the intended Nix package, not just the package version string.
+Automatic setup initially requires one composition and a direct source→MediaOut1 connection. It refuses an existing CorridorKey group, ambiguous source identity or complex routing rather than guessing. Original composition exports are retained under `~/Movies/CorridorKey/setup-backups/setup-*`. Rollback is covered by stateful mock tests, not an intentionally failed live Resolve import: it attempts restoration and verifies composition names/count and exported content; if restoration cannot be verified, the error names the backup. Source media is never edited. Setup does not save the user's project automatically.
 
-On 2026-10-26 the installed bundle was found reverted to CK2OFX01. The replacement CK2OFX02 binary and worker were byte-compared to the tested build and its ad-hoc signature verified. A seven-frame synthetic 1920x1080 Resolve Deliver render completed; decoded frames were finite with nontrivial alpha. That repair check establishes functioning output, not independent matte accuracy or camera-footage quality. Native mock-host tests compare actual pixels to direct-worker references at 960x540, 1280x720, 1920x1080, 3840x2160 and 1080x1920, with positive and negative strides.
+## Colour and source resolution
 
-Earlier four-frame 720p ProRes 4444 checks measured alpha MAE <=0.000259 and premultiplied RGB MAE <=0.00029444. The largest RGB difference against the temporal batch reference was 0.10449 at a semitransparent edge; these workflows are not temporally equivalent. A single 6240x4160 worker-only request measured 1,011,630,080 bytes peak RSS and 13.44 seconds; not a worst-case bound, Resolve memory measurement or performance promise.
+Apple Silicon macOS / Resolve Studio; float32 RGBA CPU, opaque input, square pixels, full frame, no tiles. Independent mode accepts up to **8192 per side / 40 million pixels**. Temporal mode is capped at **4096 per side / 4096×2160 pixels**; larger stills must explicitly use Independent mode.
 
-The separate single-node macro and render-first temporal bake UI are under development in another worktree. They are not supplied or qualified by this native-resolution publication. Do not infer Inspector/button acceptance from backend tests.
+Fit source preserves aspect ratio on a 1280×720 reflected-border canvas, runs the padded 768×1280 model, crops the fit padding and restores source dimensions. It does **not** reconstruct native-4K hair detail. Require 1280×720 is the strict alternative. Isotropic reduced previews are accepted; grow/shrink and softness scale with preview scale.
 
-## Runtime and protocol
+The wrapper converts a separate inference branch to display sRGB, while preserving original RGB in linear Rec.709 for applying the matte. Output conversion uses explicit alpha divide/transform/multiply. Original-colour cutout, model cutout, matte, raw foreground, despilled foreground and checkerboard are selectable. By source wiring, model despill affects model foreground, **not** the preserved original-colour branch; that separation has not been independently varied in the live temporal acceptance test.
 
-Runtime: `~/Library/Application Support/CorridorKey-Resolve`; requires its licensed `ready.json` setup, pinned Python environment and model assets. Per-instance worker log: `ofx-worker.log`. Avoid many simultaneous instances on an 18 GB Mac.
+Raw OFX accepts explicit display sRGB, linear sRGB or Gamma 2.4 / Rec.709 primaries and requires finite [0,1] input. It does not guess camera encoding, decode RAW, or accept direct HDR/log. A tested MP4 decoded to -0.152..1.131 and correctly failed the raw native contract. Resolve develops camera media; where CR3/RAF import is unsupported, use a developed image with an explicit colour space. Apple Log/Canon Log 3/F-Log camera accuracy and representative edge quality remain unqualified. Resolve colour-transform roundtrips on synthetic data establish self-consistency, not camera accuracy.
 
-Private `CK2OFX02` pipe header is 52 bytes: `<8sIIIIfIIffff` for magic, width, height, screen, output, despill, encoding, policy, black, white, grow, softness. Input/output are source-size top-down float32 RGBA. Reply is uint32 status and length, then pixels or <=4096 UTF-8 error bytes. Version 1 / 32-byte workers are incompatible. Complete header+pixels identify the one cached result. Timeout is 180 seconds. Broken pipes, cancellation and invalid headers stop the worker; restart on next render. Binary stdout is isolated from Python and C-library logging.
+## Editable temporal processing — experimental
 
-## Verification
+Four-frame context uses pinned t4 stage1 plus per-frame foundations/RVM/stage2. Lookahead `a` selects times `t-(3-a)` through `t+a`; source boundaries hold the first/last frame. RVM resets at each context start so random-access/out-of-order requests reproduce the same pixels. The host must advertise temporal clip access; otherwise temporal mode fails clearly, without silent single-frame substitution.
 
-Use the licensed runtime venv for numerical/model tests:
+This is **not the upstream whole-clip renderer** with persistent recurrence and overlapping-window blending. Against a seven-frame synthetic whole-clip reference, bounded context differed by up to **0.3233 alpha** at an edge. Do not infer less flicker, superior quality or visual equivalence. Independent remains the safe default; inspect temporal results on representative motion before use.
 
-- `tests/corridorkey-ofx-worker.py`, `tests/corridorkey-ofx-resize.py`: protocol, geometry, gamma, matte controls and checker composition.
-- `tests/corridorkey-ofx-inference.py --fixture-root PATH`: real-model cache/order, 720p reference, 1080p/4K and output modes.
-- `tests/corridorkey-ofx-resolutions.py --fixture PNG --host HOST --binary OFX`: direct-worker vs dynamically loaded host, both strides and physically reduced preview buffers.
-- `tests/corridorkey-ofx-memory.py --fixture PNG --encoding 1 --softness 2`: full-size still worker-only measurement.
-- C++ transport, failures and SIGPIPE tests; `tests/corridorkey-ofx-stdout-cache.py`; `tests/corridorkey-ofx-kill.py`.
-- `python3 tests/corridorkey-ofx-install.py`: staged installation, read-only source, backups, refusal while Resolve is running, rollback.
+A native context worker peaked at **2,516,893,696 bytes RSS** in the four-frame reference check; earlier 4K scratch testing measured 937,230,336 bytes. Different paths/measurement scopes, not a general bound, and neither includes Resolve/GPU memory. Avoid multiple concurrent instances on an 18 GB Mac. One cutout test timed out across a recorded system-sleep interval; a command-scoped awake rerun passed. This is correlation, not a proven sole timeout cause. Failed workers can restart on a subsequent render. Do not disable validation or silently reuse stale pixels.
 
-The installer must run with Resolve closed. It retains `.corridorkey2-backup.*`, rejects unmanaged collisions, verifies signatures and restores the previous managed bundle on failure. Enter sudo credentials privately; never embed them in scripts. Models are not bundled or unrestricted FOSS: review Corridor Key Licence 2.0 and the upstream terms before setup.
+## Evidence and limits
+
+- Real worker: single-window premultiplied RGBA matches independently generated unmodified upstream window=4 references exactly; target requests repeated out of order are identical.
+- Mock OFX host: required neighbour ranges, chronological fetch order, held boundaries, capability refusal, handle releases and model-reference comparisons pass. Independent 960×540, 720p, 1080p, 4K and portrait tests pass with both strides.
+- Resolve Studio 21.1.1: synthetic project `CorridorKey-Editable-96e523c5` rendered Independent, lookahead 0/3, changed matte black, first/last frames and repeated settings. Temporal matte equals single-window upstream alpha; native Cutout equals premultiplied RGBA reference (max/mean error 0, tolerance 1e-4). Independent OFX equals the direct native worker, not independently asserted whole-clip upstream equivalence. Vertically flipped reference fails, confirming orientation.
+- **In-place edits without composition import**: lookahead 0→3→0 changes then exactly restores the matte; composition count stays one. This proves parameter reevaluation, not disk-cache reuse.
+- Automatic wrapper: `CorridorKey-EditableGroup-26acb522` created one group/one composition, with no bake controls. Lookahead and black-level edits match references exactly (max/mean 0); restoring settings reproduces output. No representative-camera or real-time claim.
+
+Tests render disposable fixture outputs solely for numerical verification; routine editing does not require exporting files. Prior project-switching bake tests crashed and are not shipped here. Their files/projects are retained as evidence; no automatic deletion or restart occurs.
+
+## Deployment and protocol
+
+Nix module `nix/darwin/davinci-resolve.nix` owns the OFX package, macro, setup command/modules and pinned model manifest. The native installer targets `/Library/OFX/Plugins/CorridorKey2.ofx.bundle`, requires Resolve closed, verifies identifier/signature, refuses unmanaged collisions and retains `.corridorkey2-backup.*`. Ad-hoc signing only, not Developer-ID/notarized. Source, publication, live symlinks and Nix activation are separate states.
+
+Runtime: `~/Library/Application Support/CorridorKey-Resolve`, licensed `ready.json`, pinned Python and models. `scripts/setup-corridorkey-resolve --accept-model-license` validates/downloads pins; activation never accepts a licence or downloads weights automatically. Added t4 stage1 graph/weights are pinned to the same repository revision as t1. No weights are bundled.
+
+Independent private pipe: **CK2OFX02**, 52-byte `<8sIIIIfIIffff>` header: magic,width,height,screen,output,despill,encoding,policy,black,white,grow,softness; source-sized top-down float32 RGBA. One-entry cache keys complete header+pixels. Temporal: **CK2OFX03**, 56-byte `<8sIIIIfIIffffI>`, appended target index, four streamed source-sized frames, no hidden cross-context recurrence. Reply: uint32 status/length then premultiplied RGBA or <=4096 UTF-8 error bytes. No sockets, no shell transport. Stdout is binary-only; diagnostics go to `ofx-worker.log`. Timeout/error/cancel terminates the owned worker; next render can restart it.
+
+## Checks
+
+Runtime venv required for numerical/model tests:
+- `tests/corridorkey-ofx-worker.py`, `-resize.py`, `-stdout-cache.py`, `-kill.py`, `-inference.py --fixture-root PATH`.
+- `tests/corridorkey-ofx-resolutions.py --fixture PNG --host HOST --binary OFX` and `-memory.py --fixture PNG`.
+- `tests/corridorkey-temporal.py`, `tests/corridorkey-temporal-inference.py --models ROOT --frames FOUR_PNG_DIR --reference UPSTREAM_CUTOUT_DIR`.
+- C++ transport/failures/SIGPIPE tests; temporal transport; temporal host with real frame/reference directories. Synthetic host echo mode needs an isolated echo-worker bundle, not the real model bundle.
+- `python3 tests/corridorkey-single-setup.py`, `tests/corridorkey-matte-menu.py`, installer and activation tests.
+
+Lucas confirmed the actual outer-group Temporal mode/lookahead controls are editable and the viewer updates. This does not establish representative-camera quality, improved flicker or host disk-cache reuse. See the editable-temporal spec for scope and remaining gates.

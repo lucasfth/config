@@ -24,7 +24,7 @@ in
       bundle="$out/Library/OFX/Plugins/CorridorKey2.ofx.bundle"
       mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
       cp CorridorKey2.ofx "$bundle/Contents/MacOS/CorridorKey2.ofx"
-      cp worker.py "$bundle/Contents/Resources/worker.py"
+      cp worker.py temporal.py "$bundle/Contents/Resources/"
       cp Info.plist "$bundle/Contents/Info.plist"
       cp sdk/LICENSE.md "$bundle/Contents/Resources/OpenFX-LICENSE.md"
       cp NOTICE LICENSE "$bundle/Contents/Resources/"

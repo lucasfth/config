@@ -44,6 +44,15 @@ in {
   config = lib.mkIf cfg.enable {
     # Home Manager removes its obsolete file link; handle older direct store links too.
     home-manager.users.${config.system.primaryUser} = {lib, ...}: {
+      home.file."Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Macros/CorridorKey.setting".source = ../../configs/davinci-resolve/native/CorridorKey.setting;
+      home.file."Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/CorridorKey Original-colour matte.py".source = ../../configs/davinci-resolve + "/CorridorKey Original-colour matte.py";
+      home.file."Library/Application Support/CorridorKey-Resolve/corridor_matte_menu.py".source = ../../configs/davinci-resolve/native/matte_menu.py;
+      home.file."Library/Application Support/CorridorKey-Resolve/setup".source = pkgs.runCommand "corridorkey-node-setup" {} ''
+        mkdir -p "$out"
+        cp ${../../configs/davinci-resolve/native/setup_single.py} "$out/setup_single.py"
+        cp ${../../configs/davinci-resolve/native/comp_text.py} "$out/comp_text.py"
+      '';
+      home.file."Library/Application Support/CorridorKey-Resolve/corridorkey-models.json".source = ../../configs/davinci-resolve/corridorkey-models.json;
       home.activation.removeCorridorBatchMenu = lib.hm.dag.entryAfter ["writeBoundary"] ''
         menu="$HOME/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/CorridorKey 2.0.py"
         if [ -L "$menu" ]; then

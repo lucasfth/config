@@ -57,22 +57,27 @@ The standalone Gyroflow app remains separately Brew-managed.
 
 ## CorridorKey 2.0 — native experimental OFX
 
-**This is now a real native effect**, not the old batch menu. In Fusion use
-Shift-Space and search **CorridorKey 2.0**, then connect:
+**Use the editable single-node wrapper:** select the source directly connected to
+MediaOut1 in Fusion, then run **Workspace → Scripts → Utility → CorridorKey
+Original-colour matte**. Choose the actual input primaries/gamma. The command
+backs up the composition, inserts one connected **CorridorKey** group, and selects it.
+The raw **CorridorKey 2.0** tool in Shift-Space bypasses that colour-managed wrapper.
 
-```text
-MediaIn → CorridorKey 2.0 → MediaOut
-```
+Inspector controls include input/output colour, output view, screen/model despill,
+matte levels/grow/softness, fit policy, and **Temporal mode / Lookahead 0–3**.
+Changes remain editable on the same node; no project-switching bake/export/import
+workflow is used. The earlier Render/Apply button is retired, not a native render requirement.
 
-Controls: green/blue Screen, model Despill, five output modes, explicit Encoding,
-Fit/Require-720 resolution policy, matte black/white levels, grow/shrink and softness.
-Opaque square-pixel float RGBA is accepted up to **8192 per side / 40 million pixels**,
-including 1080p, 4K and isotropic reduced previews. Fit preserves aspect ratio and
-returns source-sized output, but inference remains the 720p model profile.
-Set display sRGB, linear sRGB or Gamma 2.4 with Rec.709 primaries explicitly.
-Convert log/HDR/gamut on a separate inference branch; input must be finite in [0,1].
-No real-time or temporal smoothing claim: each frame resets recurrent state.
-The grouped macro and render-first temporal UI are separate, unfinished work.
+Independent mode (default): <=8192 per side / 40 million pixels. Experimental
+four-frame context: <=4096 per side / 4096×2160 pixels. Both fit inference to the
+720p model and restore source dimensions, not native-4K detail. The wrapper keeps
+original linear colour separate from its finite [0,1] inference branch. No automatic
+camera gamma/gamut detection or RAW decoding.
+
+Temporal mode is deterministic bounded context, **not** upstream whole-clip
+recurrence/overlap equivalence; differences can be visible. No realtime or
+flicker-quality claim. See the [native guide](native/README.md) for measured
+reference checks, source limits, setup backups and unresolved quality/cache gates.
 
 The native bundle is built by `nix/darwin/corridorkey-ofx-package.nix` and installed
 at `/Library/OFX/Plugins/CorridorKey2.ofx.bundle`. It is original wrapper code around

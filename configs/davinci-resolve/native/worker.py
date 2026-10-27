@@ -41,6 +41,19 @@ def parse_header(data):
     return width, height, screen, output, despill, encoding, policy, black, white, grow, softness
 
 
+def parse_temporal_header(data):
+    if len(data) != HEADER.size + 4 or data[:8] != b'CK2OFX03':
+        raise ValueError('Invalid temporal frame header')
+    fields = parse_header(b'CK2OFX02' + data[8:HEADER.size])
+    width, height = fields[:2]
+    if width > 4096 or height > 4096 or width > (4096 * 2160) // height:
+        raise ValueError('Temporal context supports at most 4096 per side and 4096x2160 pixels; select independent mode')
+    target, = struct.unpack('<I', data[HEADER.size:])
+    if target > 3:
+        raise ValueError('Temporal target must be 0..3')
+    return (*fields, target)
+
+
 def read_exact(stream, count):
     chunks = bytearray()
     while len(chunks) < count:
@@ -199,6 +212,7 @@ def serve(runtime):
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     sys.stdout = sys.stderr
     engine = None
+    temporal = None
     cached_key = cached_value = None
     while True:
         first = sys.stdin.buffer.read(1)
@@ -206,19 +220,35 @@ def serve(runtime):
             return
         try:
             header = first + read_exact(sys.stdin.buffer, HEADER.size - 1)
-            width, height, screen, output, despill, encoding, policy, black, white, grow, softness = parse_header(header)
-            pixels = read_exact(sys.stdin.buffer, width * height * 16)
-            key = hashlib.sha256(header + pixels).digest()
-            if key != cached_key:
+            if header[:8] == b'CK2OFX03':
+                header += read_exact(sys.stdin.buffer, 4)
+                width, height, screen, output, despill, encoding, policy, black, white, grow, softness, target = parse_temporal_header(header)
                 import numpy as np
-                if engine is None:
-                    engine = Engine(runtime)
-                rgba = np.frombuffer(pixels, dtype='<f4').reshape(height, width, 4)
-                cached_value = engine.infer(rgba, screen, output, despill, encoding, policy,
-                                            black, white, grow, softness).tobytes()
-                cached_key = key
-            protocol.write(struct.pack('<II', 0, len(cached_value)))
-            protocol.write(cached_value)
+                if temporal is None:
+                    from temporal import Temporal
+                    temporal = Temporal(sys.modules[__name__], runtime)
+                def frames():
+                    for _ in range(4):
+                        pixels = read_exact(sys.stdin.buffer, width * height * 16)
+                        yield np.frombuffer(pixels, dtype='<f4').reshape(height, width, 4)
+                # No hidden recurrent/cache history: each context is independent.
+                result = temporal.infer(frames(), target, screen, output, despill, encoding,
+                                        black, white, grow, softness).tobytes()
+            else:
+                width, height, screen, output, despill, encoding, policy, black, white, grow, softness = parse_header(header)
+                pixels = read_exact(sys.stdin.buffer, width * height * 16)
+                key = hashlib.sha256(header + pixels).digest()
+                if key != cached_key:
+                    import numpy as np
+                    if engine is None:
+                        engine = Engine(runtime)
+                    rgba = np.frombuffer(pixels, dtype='<f4').reshape(height, width, 4)
+                    cached_value = engine.infer(rgba, screen, output, despill, encoding, policy,
+                                                black, white, grow, softness).tobytes()
+                    cached_key = key
+                result = cached_value
+            protocol.write(struct.pack('<II', 0, len(result)))
+            protocol.write(result)
         except Exception as error:
             message = str(error).encode('utf-8', errors='replace')[:4096]
             print('CorridorKey OFX:', error, file=sys.stderr)
