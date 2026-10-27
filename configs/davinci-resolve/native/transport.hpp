@@ -132,5 +132,41 @@ public:
             return result;
         } catch (...) { stop(); throw; }
     }
+    std::vector<float> renderTemporal(uint32_t screen, uint32_t mode, float despill,
+            uint32_t encoding, const std::function<bool()> &abort,
+            uint32_t frameWidth, uint32_t frameHeight, uint32_t policy,
+            float black, float white, float grow, float softness, uint32_t target,
+            const std::function<std::vector<float>(unsigned)> &frame) {
+        require(frameWidth>0 && frameHeight>0 && frameWidth<=4096 && frameHeight<=4096 &&
+                frameWidth<=(4096u*2160)/frameHeight && target<4,
+                "Temporal context exceeds 4K memory cap or invalid target; select independent mode");
+        const size_t frameBytes=static_cast<size_t>(frameWidth)*frameHeight*16;
+        std::array<unsigned char,56> header{};
+        static_assert(sizeof(header)==8+16+4+8+16+4,"Temporal header is 56 bytes");
+        memcpy(header.data(),"CK2OFX03",8);
+        uint32_t values[]={frameWidth,frameHeight,screen,mode};memcpy(header.data()+8,values,16);
+        memcpy(header.data()+24,&despill,4);memcpy(header.data()+28,&encoding,4);
+        memcpy(header.data()+32,&policy,4);
+        float matte[]={black,white,grow,softness};memcpy(header.data()+36,matte,16);
+        memcpy(header.data()+52,&target,4);
+        auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(180);
+        try {
+            transfer(input,header.data(),header.size(),true,deadline,abort);
+            for(unsigned index=0;index<4;++index) {
+                require(!abort(),"CorridorKey processing cancelled");
+                auto pixels=frame(index);require(pixels.size()==frameBytes/4,"Temporal frame dimensions differ");
+                transfer(input,pixels.data(),frameBytes,true,deadline,abort);
+            }
+            uint32_t response[2];transfer(output,response,sizeof(response),false,deadline,abort);
+            if(response[0]) {
+                require(response[0]==1 && response[1]<=4096,"Invalid temporal worker error");
+                std::string error(response[1],' ');transfer(output,error.data(),error.size(),false,deadline,abort);
+                throw std::runtime_error(error);
+            }
+            require(response[1]==frameBytes,"Invalid temporal response size");
+            std::vector<float> result(frameBytes/4);
+            transfer(output,result.data(),frameBytes,false,deadline,abort);return result;
+        } catch(...) {stop();throw;}
+    }
 };
 } // namespace ck

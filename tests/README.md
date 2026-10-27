@@ -29,6 +29,15 @@ macOS-specific tools, or temporary local services/mocks.
   acceptance. `corridorkey-ofx-stdout-cache.py`, `corridorkey-ofx-kill.py`, and the
   transport/failure/sigpipe C++ tests cover logging isolation, cache count and
   child failure/cancellation outside Resolve. See the [native guide](../configs/davinci-resolve/native/README.md).
+  `corridorkey-temporal.py` covers four-frame scheduling/bounds/protocol and bundling.
+  `corridorkey-temporal-transport.cpp` uses the isolated temporal echo worker.
+  `corridorkey-temporal-host.cpp BINARY FRAME_DIR REFERENCE_DIR` checks real requests
+  against separate upstream single-window references; synthetic no-reference mode
+  requires an echo-worker bundle, not production MLX. The opt-in
+  `corridorkey-temporal-inference.py --models ROOT --frames FOUR_PNG_DIR --reference CUTOUT_DIR`
+  checks real v3 worker pixels and out-of-order determinism, not whole-clip equivalence.
+  `corridorkey-single-setup.py` and `corridorkey-matte-menu.py` test the automatic
+  wrapper text/menu and stateful mock rollback; these do not qualify the UI alone.
 - `sioyek-install.py` tests read-only app upgrades, retained backups, copy/final
   move rollback and dry-run preservation in temporary fixtures, never /Applications.
 - `spotifast-config.py` checks isolated appearance restoration, fresh profiles,

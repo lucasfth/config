@@ -12,6 +12,8 @@
     "fp16/768x1280-t1/stage2/graph.json": "dcd3eda40d6cc0f76d4a03a3e0ae6353a7c91269cb15beaa6909448165fb7b33",
     "fp16/768x1280-t1/stage2/weights.safetensors": "25388844dee2b6a80d30e6a4cc8062bf467527a3ea0a0c1085b7ab2979042e1d",
     "fp16/768x1280-t1/stats.json": "5ec9ff6099f469defa2f63183694218d20609dcd104238cb4f2159a4c9f7f9fd",
+    "fp16/768x1280-t4/stage1/graph.json": "ba6e48136977c45eab669959e1eaa6f47a67bc7e01cf13876e281da6f9563f3f",
+    "fp16/768x1280-t4/stage1/weights.safetensors": "6f4ceb30e962aaf9b7b8775c95a1cfcb4076a77f88ef7405b4452ced02713077",
     "LICENSE": "c92ce56f64162b231c7ce08ce3ed7d8cae15f01a560ca05a8e8db67878eb0065"
   }
 }
