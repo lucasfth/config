@@ -24,6 +24,7 @@
       ++ lib.optionals (hostname == "lucas-macbook-pro") [
         "crmne/tap" # Spotifast native Spotify client
         "homebrew/services" # brew services (postgres, redis)
+        "lucasfth/displaylink-trial" # DisplayLink Manager
         "minio/stable" # minio-warp
         "multica-ai/tap" # multica
         "sdkman/tap" # sdkman-cli

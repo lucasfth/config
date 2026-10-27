@@ -10,7 +10,6 @@
     "temurin"
     "android-platform-tools"
     "claude-code@latest"
-    "cmux"
     "codex"
     "codexbar"
     "dotnet-sdk"
@@ -32,6 +31,7 @@
 
     # ── Productivity ────────────────────────────────────────
     "bitwarden"
+    "ente-auth"
     "notion"
     "obsidian"
     "raycast"
@@ -57,7 +57,6 @@
     "macpacker"
     "the-unarchiver"
     "tigervnc"
-    "typewhisper"
     "wave"
     "yaak"
   ];
