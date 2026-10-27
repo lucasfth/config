@@ -100,6 +100,12 @@ Shared edits belong in Volundr, then config records the new submodule commit. Af
 
 Each new Pi launch reads the pinned tree; running sessions are not restarted. Tests use temporary state and do not regenerate the live profile.
 
+### Close-out and delivery commands
+
+Pi exposes `/done`, `/review`, `/full-send` and `/full-stop` as thin prompts loading the canonical Volundr skills. `/done` saves relevant knowledge and reusable procedures, with an explicitly requested conditional AAR when something went wrong. `/review` is bounded review/fix/verify, not publication approval. `/full-send` grants scoped delegation, commits, pushes and gated integration; `/full-stop` stops before integration. Other approval and safety boundaries remain binding.
+
+Loki loads the same packages through Hermes. `/done`, `/full-send` and `/full-stop` register as skill commands. Hermes reserves `/review` for its own built-in reviewer; use `/skill review` for the shared bounded loop. No built-in command is overridden. `delivery-commands.test.mjs` verifies Pi's fresh-loader resolution and prompt expansion, not model compliance.
+
 ### After-action reviews
 
 Use `/aar [focus]` for the combined after-action review and daily Muninn record. The prompt loads the shared `aar` skill; approval to review is not approval to apply fixes, publish, or deploy.
