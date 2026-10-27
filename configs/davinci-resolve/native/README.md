@@ -4,7 +4,7 @@ Original MIT OFX front end plus a colour-managed Fusion wrapper. Not the officia
 
 ## Use one node
 
-1. Open a timeline clip in Fusion. Select the source directly connected to `MediaOut1`.
+1. **Try a duplicate timeline first.** Open the clip in Fusion; it must have exactly one Fusion composition. Start with the source connected directly to `MediaOut1`, and select that source. Rollback failure paths are mock-tested only, not deliberately exercised in live Resolve.
 2. Run **Workspace → Scripts → Utility → CorridorKey Original-colour matte**.
 3. Choose the colour space/gamma of the actual pixels at that node, not merely the camera's recording mode. Cancel makes no graph change.
 4. The command inserts, connects and selects **one CorridorKey group**. Use its Inspector:
@@ -13,12 +13,27 @@ Original MIT OFX front end plus a colour-managed Fusion wrapper. Not the officia
    - **Matte:** black/white levels, grow/shrink, softness.
    - **Advanced:** Fit source / Require 1280x720.
    - **Temporal:** Independent frames (default) / Four-frame context, Lookahead 0–3.
+5. Check the viewer and colour settings, then **save the project manually**. Setup does not save it for you. Start with Independent frames; Four-frame context is experimental.
+
+If CorridorKey already exists, select the **outer group** instead of running setup again. The script refuses existing groups and complex routing rather than creating duplicates.
 
 This is an editable effect: parameter edits reevaluate the existing node. There is **no Render/Apply button, project-cloning bake action or external matte to import**. Resolve's normal render cache can be used for ahead-of-time playback; this is not a realtime promise. Actual host disk-cache reuse/invalidation has not been independently measured.
 
 **Shift-Space → CorridorKey 2.0** adds the raw OFX keyer, not the colour-managed group. The setup command is the recommended entry point. Double-clicking a group expands its internals; select the outer group for its published controls. Older groups saved in existing projects do not automatically update when the macro file changes. Do not reuse an old Render/Apply group: make a backed-up fresh setup instead.
 
 Automatic setup initially requires one composition and a direct source→MediaOut1 connection. It refuses an existing CorridorKey group, ambiguous source identity or complex routing rather than guessing. Original composition exports are retained under `~/Movies/CorridorKey/setup-backups/setup-*`. Rollback is covered by stateful mock tests, not an intentionally failed live Resolve import: it attempts restoration and verifies composition names/count and exported content; if restoration cannot be verified, the error names the backup. Source media is never edited. Setup does not save the user's project automatically.
+
+### Which entry point?
+
+| Action | Result |
+| --- | --- |
+| Workspace → Scripts → Utility → CorridorKey Original-colour matte | Recommended: automatically creates and connects the colour-managed group. |
+| Shift-Space → CorridorKey 2.0 | Raw OFX only; no colour-managed wrapper. Do not add this as an extra node after the setup command. |
+| Select an existing outer CorridorKey group | Edit its Inspector controls; do not select an internal NativeKey node. |
+
+An old **Render temporal matte… / Processing** interface belongs to the retired bake prototype. “Processing” was a static label, not proof of a running render. Old saved groups do not update from the installed macro file. Preserve a backup and use a fresh simple composition/duplicate timeline for the current setup; do not blindly delete a graph with other edits.
+
+The old synthetic `CorridorKey-Final-51b988c6` project was modified repeatedly during testing, including legacy group replacements and render settings whose prior values were not recorded. Its final saved contents have not been re-audited; do not treat it as a clean template. Evidence and backups were retained, not automatically cleaned up.
 
 ## Colour and source resolution
 
@@ -41,7 +56,7 @@ A native context worker peaked at **2,516,893,696 bytes RSS** in the four-frame 
 ## Evidence and limits
 
 - Real worker: single-window premultiplied RGBA matches independently generated unmodified upstream window=4 references exactly; target requests repeated out of order are identical.
-- Mock OFX host: required neighbour ranges, chronological fetch order, held boundaries, capability refusal, handle releases and model-reference comparisons pass. Independent 960×540, 720p, 1080p, 4K and portrait tests pass with both strides.
+- Mock OFX host: required neighbour ranges, chronological fetch order, held boundaries, capability refusal, handle releases and model-reference comparisons pass. Host-capability refusal is mock-verified only; the actual Resolve host property value was not logged. Independent 960×540, 720p, 1080p, 4K and portrait tests pass with both strides.
 - Resolve Studio 21.1.1: synthetic project `CorridorKey-Editable-96e523c5` rendered Independent, lookahead 0/3, changed matte black, first/last frames and repeated settings. Temporal matte equals single-window upstream alpha; native Cutout equals premultiplied RGBA reference (max/mean error 0, tolerance 1e-4). Independent OFX equals the direct native worker, not independently asserted whole-clip upstream equivalence. Vertically flipped reference fails, confirming orientation.
 - **In-place edits without composition import**: lookahead 0→3→0 changes then exactly restores the matte; composition count stays one. This proves parameter reevaluation, not disk-cache reuse.
 - Automatic wrapper: `CorridorKey-EditableGroup-26acb522` created one group/one composition, with no bake controls. Lookahead and black-level edits match references exactly (max/mean 0); restoring settings reproduces output. No representative-camera or real-time claim.

@@ -62,6 +62,11 @@ MediaOut1 in Fusion, then run **Workspace → Scripts → Utility → CorridorKe
 Original-colour matte**. Choose the actual input primaries/gamma. The command
 backs up the composition, inserts one connected **CorridorKey** group, and selects it.
 The raw **CorridorKey 2.0** tool in Shift-Space bypasses that colour-managed wrapper.
+Try a **duplicate timeline first**. The clip must have exactly one Fusion composition,
+with a direct source→MediaOut1 connection; existing CorridorKey groups and ambiguous
+routing are refused. Select an existing outer group to edit it instead of adding another.
+Check the result, then **save manually**. Setup never saves your project automatically;
+its failure rollback is mock-tested only. See the [step-by-step guide](native/README.md#use-one-node).
 
 Inspector controls include input/output colour, output view, screen/model despill,
 matte levels/grow/softness, fit policy, and **Temporal mode / Lookahead 0–3**.
