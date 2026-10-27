@@ -18,6 +18,7 @@ struct Parameter {Properties properties;};
 struct Effect {Properties properties;std::map<std::string,Properties> clips;std::map<std::string,Parameter> parameters;};
 Properties inputImage,outputImage;
 int acquired=0,released=0;
+int width=1280,height=720;
 std::string lastError;
 void check(OfxStatus status) {ck::require(status==kOfxStatOK,"OFX action failed");}
 Properties &p(OfxPropertySetHandle h){return *reinterpret_cast<Properties *>(h);}
@@ -80,26 +81,29 @@ void init(){
 void configure(Properties &image,float *data,bool negative){
  set(h(image),kOfxImagePropData,0,static_cast<void *>(data));
  setString(h(image),kOfxImageEffectPropPixelDepth,0,kOfxBitDepthFloat);setString(h(image),kOfxImageEffectPropComponents,0,kOfxImageComponentRGBA);
- for(int i=0;i<4;++i)set(h(image),kOfxImagePropBounds,i,(int[]){0,0,1280,720}[i]);
- set(h(image),kOfxImagePropRowBytes,0,(negative?-1:1)*1280*16);set(h(image),kOfxImagePropPixelAspectRatio,0,1.);
+ for(int i=0;i<4;++i)set(h(image),kOfxImagePropBounds,i,(int[]){0,0,width,height}[i]);
+ set(h(image),kOfxImagePropRowBytes,0,(negative?-1:1)*width*16);set(h(image),kOfxImagePropPixelAspectRatio,0,1.);
 }
 }
 int main(int argc,char **argv){
  using namespace test;
  try{
- ck::require(argc==5,"Usage: host input.f32 batch-reference.f32 positive|negative plugin.ofx");init();
+ ck::require(argc==5||argc==7,"Usage: host input.f32 reference.f32 positive|negative plugin.ofx [width height]");init();
+ if(argc==7){width=std::stoi(argv[5]);height=std::stoi(argv[6]);}
+ ck::require(width>0&&height>0&&width<=8192&&height<=8192&&width<=40000000/height,"Invalid test geometry");
+ const size_t bytes=static_cast<size_t>(width)*height*16;
  void *library=dlopen(argv[4],RTLD_NOW|RTLD_LOCAL);ck::require(library,"Cannot load OFX bundle binary");
  auto getPlugin=reinterpret_cast<OfxPlugin *(*)(int)>(dlsym(library,"OfxGetPlugin"));
  auto countPlugins=reinterpret_cast<int (*)()>(dlsym(library,"OfxGetNumberOfPlugins"));
  ck::require(getPlugin&&countPlugins,"Missing OFX exports");
- std::vector<float> src(1280*720*4),dst(src.size(),-1),expected(src.size());
- ck::require(bool(std::ifstream(argv[1],std::ios::binary).read(reinterpret_cast<char *>(src.data()),ck::bytes)),"Truncated input fixture");
- ck::require(bool(std::ifstream(argv[2],std::ios::binary).read(reinterpret_cast<char *>(expected.data()),ck::bytes)),"Truncated batch reference");
+ std::vector<float> src(static_cast<size_t>(width)*height*4),dst(src.size(),-1),expected(src.size());
+ ck::require(bool(std::ifstream(argv[1],std::ios::binary).read(reinterpret_cast<char *>(src.data()),bytes)),"Truncated input fixture");
+ ck::require(bool(std::ifstream(argv[2],std::ios::binary).read(reinterpret_cast<char *>(expected.data()),bytes)),"Truncated reference");
  bool negative=std::string(argv[3])=="negative";
  // Input fixture files are top-down. Positive OFX rows are bottom-up.
- if(!negative)for(int y=0;y<360;++y)for(int x=0;x<1280*4;++x)std::swap(src[y*1280*4+x],src[(719-y)*1280*4+x]);
- configure(inputImage,negative?src.data()+719*1280*4:src.data(),negative);
- configure(outputImage,negative?dst.data()+719*1280*4:dst.data(),negative);
+ if(!negative)for(int y=0;y<height/2;++y)for(int x=0;x<width*4;++x)std::swap(src[y*width*4+x],src[(height-1-y)*width*4+x]);
+ configure(inputImage,negative?src.data()+(height-1)*width*4:src.data(),negative);
+ configure(outputImage,negative?dst.data()+(height-1)*width*4:dst.data(),negative);
  Effect effect;auto e=reinterpret_cast<OfxImageEffectHandle>(&effect);OfxHost host{nullptr,fetch};auto *plugin=getPlugin(0);plugin->setHost(&host);
  ck::require(countPlugins()==1&&getPlugin(1)==nullptr,"Invalid exports");
  auto call=[&](const char *a,OfxPropertySetHandle in=nullptr,OfxPropertySetHandle out=nullptr){return plugin->mainEntry(a,e,in,out);};
@@ -108,24 +112,34 @@ int main(int argc,char **argv){
  check(call(kOfxActionCreateInstance));
  Properties args,prefs;set(h(args),kOfxPropTime,0,0.);
  set(h(args),kOfxImageEffectPropRenderScale,0,1.);set(h(args),kOfxImageEffectPropRenderScale,1,1.);
- for(int i=0;i<4;++i)set(h(args),kOfxImageEffectPropRenderWindow,i,(int[]){0,0,1280,720}[i]);
+ for(int i=0;i<4;++i)set(h(args),kOfxImageEffectPropRenderWindow,i,(int[]){0,0,width,height}[i]);
  check(call(kOfxImageEffectActionGetClipPreferences,nullptr,h(prefs)));
  ck::require(std::get<std::string>(prefs.values[kOfxImageEffectPropPreMultiplication][0])==kOfxImagePreMultiplied,"Wrong alpha contract");
  for(int repeat=0;repeat<2;++repeat){
   check(call(kOfxImageEffectActionRender,h(args)));
   float worst=0;
-  for(int y=0;y<720;++y)for(int x=0;x<1280*4;++x)worst=std::max(worst,std::abs(dst[(negative?y:719-y)*1280*4+x]-expected[y*1280*4+x]));
+  for(int y=0;y<height;++y)for(int x=0;x<width*4;++x)worst=std::max(worst,std::abs(dst[(negative?y:height-1-y)*width*4+x]-expected[y*width*4+x]));
   ck::require(worst<.0001,"Host render pixels do not match reference");
  }
  set(h(args),kOfxImageEffectPropRenderScale,0,.5);
- ck::require(call(kOfxImageEffectActionRender,h(args))==kOfxStatFailed,"Scaled render must fail");
- ck::require(lastError.find("full-resolution")!=std::string::npos,"Missing scaled-render message");
- set(h(args),kOfxImageEffectPropRenderScale,0,1.);set(h(inputImage),kOfxImagePropBounds,2,640);
- ck::require(call(kOfxImageEffectActionRender,h(args))==kOfxStatFailed,"Wrong dimensions must fail");
- ck::require(lastError.find("1280x720")!=std::string::npos,"Missing dimensions error message");
+ ck::require(call(kOfxImageEffectActionRender,h(args))==kOfxStatFailed,"Anisotropic scale must fail");
+ ck::require(lastError.find("scale")!=std::string::npos,"Missing anisotropic-scale message");
+ set(h(args),kOfxImageEffectPropRenderScale,0,2.);set(h(args),kOfxImageEffectPropRenderScale,1,2.);
+ ck::require(call(kOfxImageEffectActionRender,h(args))==kOfxStatFailed,"Scale above one must fail");
+ ck::require(lastError.find("scale")!=std::string::npos,"Missing overscale message");
+ set(h(args),kOfxImageEffectPropRenderScale,0,.5);set(h(args),kOfxImageEffectPropRenderScale,1,.5);
+ check(call(kOfxImageEffectActionRender,h(args)));
+ for(int y=0;y<height;++y)for(int x=0;x<width*4;++x)
+  ck::require(std::abs(dst[(negative?y:height-1-y)*width*4+x]-expected[y*width*4+x])<.0001,"Isotropic preview differs");
+ ck::require(lastError.empty(),"Successful preview did not clear persistent error");
+ set(h(args),kOfxImageEffectPropRenderScale,0,1.);set(h(args),kOfxImageEffectPropRenderScale,1,1.);
+ set(h(inputImage),kOfxImagePropBounds,2,width/2);
+ ck::require(call(kOfxImageEffectActionRender,h(args))==kOfxStatFailed,"Mismatched dimensions must fail");
+ ck::require(lastError.find("bounds")!=std::string::npos,"Missing bounds error message");
  ck::require(acquired==released,"Host image handles leaked");
  check(call(kOfxActionDestroyInstance));check(call(kOfxActionUnload));
  dlclose(library);
  std::cout<<"OFX_HOST_RENDER=PASS stride="<<argv[3]<<" released="<<released<<"\n";
  }catch(const std::exception &e){std::cerr<<e.what()<<"\n";return 1;}
+ return 0;
 }

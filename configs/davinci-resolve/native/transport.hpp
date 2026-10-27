@@ -101,27 +101,34 @@ public:
         input=in[1]; output=out[0];
     }
     std::vector<float> render(std::vector<float> &pixels, uint32_t screen, uint32_t mode, float despill,
-                              uint32_t encoding, const std::function<bool()> &abort) {
+                              uint32_t encoding, const std::function<bool()> &abort,
+                              uint32_t frameWidth=width, uint32_t frameHeight=height, uint32_t policy=0,
+                              float black=0, float white=1, float grow=0, float softness=0) {
         static_assert(sizeof(float)==4,"Protocol requires IEEE float32");
-        require(pixels.size()*4 == bytes, "Invalid CorridorKey frame size");
-        std::array<unsigned char,32> header{};
-        static_assert(sizeof(header)==8+4*4+4+4,"Header must match Python <8sIIIIfI (32 bytes)");
-        memcpy(header.data(),"CK2OFX01",8);
-        uint32_t values[] = {width,height,screen,mode};
-        memcpy(header.data()+8,values,16); memcpy(header.data()+24,&despill,4); memcpy(header.data()+28,&encoding,4);
+        require(frameWidth>0 && frameHeight>0 && frameWidth<=8192 && frameHeight<=8192 &&
+                frameWidth<=40000000u/frameHeight, "Unsupported CorridorKey frame dimensions (8192/40 MP limit)");
+        const size_t frameBytes=static_cast<size_t>(frameWidth)*frameHeight*16;
+        require(pixels.size() == frameBytes/sizeof(float), "Invalid CorridorKey frame size");
+        std::array<unsigned char,52> header{};
+        static_assert(sizeof(header)==8+16+4+8+16,"Header must match Python <8sIIIIfIIffff (52 bytes)");
+        memcpy(header.data(),"CK2OFX02",8);
+        uint32_t values[] = {frameWidth,frameHeight,screen,mode};
+        memcpy(header.data()+8,values,16); memcpy(header.data()+24,&despill,4);
+        memcpy(header.data()+28,&encoding,4); memcpy(header.data()+32,&policy,4);
+        float matte[]={black,white,grow,softness};memcpy(header.data()+36,matte,16);
         auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(180);
         try {
             transfer(input,header.data(),header.size(),true,deadline,abort);
-            transfer(input,pixels.data(),bytes,true,deadline,abort);
+            transfer(input,pixels.data(),frameBytes,true,deadline,abort);
             uint32_t response[2]; transfer(output,response,sizeof(response),false,deadline,abort);
             if (response[0]) {
                 require(response[0]==1 && response[1]<=4096,"Invalid worker error response");
                 std::string error(response[1],' ');transfer(output,error.data(),error.size(),false,deadline,abort);
                 throw std::runtime_error(error);
             }
-            require(response[1]==bytes,"Invalid CorridorKey worker response size");
-            std::vector<float> result(width*height*4);
-            transfer(output,result.data(),bytes,false,deadline,abort);
+            require(response[1]==frameBytes,"Invalid CorridorKey worker response size");
+            std::vector<float> result(static_cast<size_t>(frameWidth)*frameHeight*4);
+            transfer(output,result.data(),frameBytes,false,deadline,abort);
             return result;
         } catch (...) { stop(); throw; }
     }

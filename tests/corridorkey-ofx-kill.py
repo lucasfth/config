@@ -11,7 +11,7 @@ import time
 worker=Path(__file__).resolve().parents[1]/'configs/davinci-resolve/native/worker.py'
 process=subprocess.Popen([sys.executable,'-u',str(worker)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
 try:
-    header=struct.pack('<8sIIIIfI',b'CK2OFX01',1280,720,0,0,1.,0)
+    header=struct.pack('<8sIIIIfIIffff',b'CK2OFX02',1280,720,0,0,1.,0,0,0.,1.,0.,0.)
     process.stdin.write(header+b'\0'*4096)
     process.stdin.flush()
     # Worker is waiting for the remaining fixed-size payload; kill only this child.

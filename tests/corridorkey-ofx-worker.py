@@ -11,13 +11,14 @@ spec.loader.exec_module(worker)
 
 class Protocol(unittest.TestCase):
     def header(self, **changes):
-        values = dict(width=1280, height=720, screen=0, output=0, despill=1., encoding=0)
+        values = dict(width=1280, height=720, screen=0, output=0, despill=1., encoding=0,
+                      policy=0, black=0., white=1., grow=0., softness=0.)
         values.update(changes)
-        return struct.pack('<8sIIIIfI', b'CK2OFX01', *values.values())
+        return struct.pack('<8sIIIIfIIffff', b'CK2OFX02', *values.values())
     def test_supported_header(self):
         self.assertEqual(worker.parse_header(self.header())[:2], (1280, 720))
     def test_refuse_invalid_header(self):
-        for changes in [dict(width=1920), dict(screen=3), dict(output=2), dict(encoding=3), dict(despill=float('nan')), dict(despill=-1.)]:
+        for changes in [dict(width=8193), dict(screen=3), dict(output=5), dict(encoding=3), dict(despill=float('nan')), dict(despill=-1.)]:
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 worker.parse_header(self.header(**changes))
         with self.assertRaises(ValueError): worker.parse_header(b'bad')

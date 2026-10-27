@@ -33,6 +33,7 @@ std::string string(OfxPropertySetHandle p,const char *key) {char *v=nullptr;chec
 struct Instance {
  OfxImageClipHandle source=nullptr,output=nullptr;
  OfxParamHandle screen=nullptr,mode=nullptr,despill=nullptr,encoding=nullptr;
+ OfxParamHandle policy=nullptr,black=nullptr,white=nullptr,grow=nullptr,softness=nullptr;
  std::mutex mutex;
  ck::Worker worker;
 };
@@ -56,8 +57,10 @@ struct Pixels {
   x1=number(image,kOfxImagePropBounds,0);y1=number(image,kOfxImagePropBounds,1);
   x2=number(image,kOfxImagePropBounds,2);y2=number(image,kOfxImagePropBounds,3);
   stride=number(image,kOfxImagePropRowBytes);
-  ck::require(x2-x1==1280 && y2-y1==720 && std::abs(static_cast<long long>(stride))>=1280*16,
-    "CorridorKey 2.0: use full-resolution 1280x720 SDR; disable proxy/half-resolution preview");
+  const auto width=static_cast<long long>(x2)-x1,height=static_cast<long long>(y2)-y1;
+  ck::require(width>0 && height>0 && width<=8192 && height<=8192 && width<=40000000/height &&
+    std::abs(static_cast<long long>(stride))>=width*16,
+    "CorridorKey image bounds/stride invalid: maximum 8192 per side and 40 million pixels");
  }
  float *row(int y) const {return reinterpret_cast<float *>(data+static_cast<ptrdiff_t>(y-y1)*stride);}
 };
@@ -81,18 +84,24 @@ void context(OfxImageEffectHandle effect) {
   integer(p,kOfxImageEffectPropSupportsTiles,0);integer(p,kOfxImageClipPropOptional,0);
  }
  OfxParamSetHandle set=nullptr;check(fx->getParamSet(effect,&set));
- auto choice=[&](const char *name,const char *label,const char *first,const char *second) {
+ auto choice=[&](const char *name,const char *label,std::initializer_list<const char *> options) {
   OfxPropertySetHandle p=nullptr;check(params->paramDefine(set,kOfxParamTypeChoice,name,&p));
-  text(p,kOfxPropLabel,label);text(p,kOfxParamPropChoiceOption,first);text(p,kOfxParamPropChoiceOption,second,1);
+  text(p,kOfxPropLabel,label);int i=0;for(auto option:options)text(p,kOfxParamPropChoiceOption,option,i++);
   integer(p,kOfxParamPropDefault,0);integer(p,kOfxParamPropAnimates,0);
  };
- choice("screen","Screen","Green","Blue");
- choice("output","Output","Cutout","Matte");
- choice("encoding","Input / output encoding","sRGB (display encoded)","Linear sRGB (Rec.709 primaries)");
- OfxPropertySetHandle p=nullptr;check(params->paramDefine(set,kOfxParamTypeDouble,"despill",&p));
- text(p,kOfxPropLabel,"Despill");check(props->propSetDouble(p,kOfxParamPropDefault,0,1));
- check(props->propSetDouble(p,kOfxParamPropMin,0,0));check(props->propSetDouble(p,kOfxParamPropMax,0,1));
- check(props->propSetDouble(p,kOfxParamPropDisplayMin,0,0));check(props->propSetDouble(p,kOfxParamPropDisplayMax,0,1));
+ choice("screen","Screen",{"Green","Blue"});
+ choice("output","Output",{"Cutout (model foreground)","Matte","Raw model foreground","Despilled model foreground","Checkerboard"});
+ choice("encoding","Inference input / model output encoding",{"sRGB (display encoded)","Linear sRGB (Rec.709 primaries)","Gamma 2.4 (Rec.709 primaries)"});
+ choice("policy","Inference resolution",{"Fit source (720p model)","Require 1280x720"});
+ auto scalar=[&](const char *name,const char *label,double value,double low,double high) {
+  OfxPropertySetHandle p=nullptr;check(params->paramDefine(set,kOfxParamTypeDouble,name,&p));
+  text(p,kOfxPropLabel,label);check(props->propSetDouble(p,kOfxParamPropDefault,0,value));
+  check(props->propSetDouble(p,kOfxParamPropMin,0,low));check(props->propSetDouble(p,kOfxParamPropMax,0,high));
+  check(props->propSetDouble(p,kOfxParamPropDisplayMin,0,low));check(props->propSetDouble(p,kOfxParamPropDisplayMax,0,high));
+ };
+ scalar("despill","Despill",1,0,1);scalar("black","Matte black level",0,0,1);
+ scalar("white","Matte white level",1,0,1);scalar("grow","Matte grow / shrink (source pixels)",0,-20,20);
+ scalar("softness","Matte softness (source pixels)",0,0,20);
 }
 void create(OfxImageEffectHandle effect) {
  auto state=std::make_unique<Instance>();
@@ -103,37 +112,51 @@ void create(OfxImageEffectHandle effect) {
  check(params->paramGetHandle(set,"output",&state->mode,nullptr));
  check(params->paramGetHandle(set,"despill",&state->despill,nullptr));
  check(params->paramGetHandle(set,"encoding",&state->encoding,nullptr));
+ check(params->paramGetHandle(set,"policy",&state->policy,nullptr));
+ check(params->paramGetHandle(set,"black",&state->black,nullptr));
+ check(params->paramGetHandle(set,"white",&state->white,nullptr));
+ check(params->paramGetHandle(set,"grow",&state->grow,nullptr));
+ check(params->paramGetHandle(set,"softness",&state->softness,nullptr));
  check(props->propSetPointer(properties(effect),kOfxPropInstanceData,0,state.get()));state.release();
 }
 void render(OfxImageEffectHandle effect,OfxPropertySetHandle args) {
  auto *state=instance(effect);std::lock_guard<std::mutex> guard(state->mutex);
  double time=0,scale[2]={1,1};check(props->propGetDouble(args,kOfxPropTime,0,&time));
  check(props->propGetDoubleN(args,kOfxImageEffectPropRenderScale,2,scale));
- ck::require(scale[0]==1 && scale[1]==1,"CorridorKey requires full-resolution rendering (disable proxies)");
+ ck::require(std::isfinite(scale[0]) && std::isfinite(scale[1]) && scale[0]>0 && scale[0]<=1 &&
+   std::abs(scale[0]-scale[1])<1e-8,"CorridorKey requires equal positive preview scales <=1");
  Image source(state->source,time),output(state->output,time);
  Pixels src(source.p),dst(output.p);
- ck::require(src.x1==dst.x1 && src.y1==dst.y1,"Input/output frame origins differ");
+ ck::require(src.x1==dst.x1 && src.y1==dst.y1 && src.x2==dst.x2 && src.y2==dst.y2,"Input/output frame bounds differ");
  double par=1; if(props->propGetDouble(source.p,kOfxImagePropPixelAspectRatio,0,&par)==kOfxStatOK)
   ck::require(par==1,"CorridorKey requires square pixels");
- int screen=0,mode=0,encoding=0;double despill=1;
+ int screen=0,mode=0,encoding=0,policy=0;double despill=1,black=0,white=1,grow=0,softness=0;
  check(params->paramGetValueAtTime(state->screen,time,&screen));check(params->paramGetValueAtTime(state->mode,time,&mode));
  check(params->paramGetValueAtTime(state->encoding,time,&encoding));check(params->paramGetValueAtTime(state->despill,time,&despill));
- ck::require((screen==0||screen==1)&&(mode==0||mode==1)&&(encoding==0||encoding==1)&&std::isfinite(despill)&&despill>=0&&despill<=1,"Invalid CorridorKey parameters");
- std::vector<float> pixels(ck::width*ck::height*4);
+ check(params->paramGetValueAtTime(state->policy,time,&policy));check(params->paramGetValueAtTime(state->black,time,&black));
+ check(params->paramGetValueAtTime(state->white,time,&white));check(params->paramGetValueAtTime(state->grow,time,&grow));
+ check(params->paramGetValueAtTime(state->softness,time,&softness));
+ ck::require(screen>=0&&screen<=1&&mode>=0&&mode<=4&&encoding>=0&&encoding<=2&&policy>=0&&policy<=1&&
+   std::isfinite(despill)&&despill>=0&&despill<=1&&std::isfinite(black)&&std::isfinite(white)&&
+   black>=0&&black<white&&white<=1&&std::isfinite(grow)&&std::abs(grow)<=20&&
+   std::isfinite(softness)&&softness>=0&&softness<=20,"Invalid CorridorKey parameters: matte white must exceed black");
+ const int width=src.x2-src.x1,height=src.y2-src.y1;
+ std::vector<float> pixels(static_cast<size_t>(width)*height*4);
  // OFX coordinates are bottom-up; MLX operates top-down. Respect negative row strides.
- for(int y=0;y<720;++y) std::copy_n(src.row(src.y2-1-y),1280*4,pixels.data()+y*1280*4);
+ for(int y=0;y<height;++y) std::copy_n(src.row(src.y2-1-y),width*4,pixels.data()+static_cast<size_t>(y)*width*4);
  const char *home=getenv("HOME");ck::require(home,"HOME is not set");
  std::string runtime=std::string(home)+"/Library/Application Support/CorridorKey-Resolve";
  Dl_info location{};ck::require(dladdr(reinterpret_cast<void *>(&render),&location)!=0,"Cannot locate OFX bundle");
  std::string binary=location.dli_fname;auto slash=binary.find_last_of('/');
  std::string script=binary.substr(0,slash)+"/../Resources/worker.py";
  state->worker.start(runtime+"/venv/bin/python",script,runtime+"/ofx-worker.log");
- auto result=state->worker.render(pixels,screen,mode,static_cast<float>(despill),encoding,[&]{return fx->abort(effect)!=0;});
+ auto result=state->worker.render(pixels,screen,mode,static_cast<float>(despill),encoding,[&]{return fx->abort(effect)!=0;},
+   width,height,policy,black,white,grow*scale[0],softness*scale[0]);
  for(float value:result)ck::require(std::isfinite(value),"Worker returned non-finite pixels");
  int window[4];check(props->propGetIntN(args,kOfxImageEffectPropRenderWindow,4,window));
  ck::require(window[0]>=dst.x1&&window[1]>=dst.y1&&window[2]<=dst.x2&&window[3]<=dst.y2,"Render window exceeds output bounds");
  for(int y=window[1];y<window[3];++y) {
-  auto *row=dst.row(y);const float *input=result.data()+(dst.y2-1-y)*1280*4;
+  auto *row=dst.row(y);const float *input=result.data()+static_cast<size_t>(dst.y2-1-y)*width*4;
   std::copy(input+(window[0]-dst.x1)*4,input+(window[2]-dst.x1)*4,row+(window[0]-dst.x1)*4);
  }
  if(messages)messages->clearPersistentMessage(effect);

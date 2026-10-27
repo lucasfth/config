@@ -29,15 +29,16 @@ def exact(count):
         output.extend(chunk)
     return bytes(output)
 
-def render(frame, mode=0, encoding=0, screen=0):
-    p.stdin.write(struct.pack('<8sIIIIfI',b'CK2OFX01',1280,720,screen,mode,1.,encoding))
+def render(frame, mode=0, encoding=0, screen=0, black=0., white=1., grow=0., softness=0.):
+    height,width=frame.shape[:2]
+    p.stdin.write(struct.pack('<8sIIIIfIIffff',b'CK2OFX02',width,height,screen,mode,1.,encoding,0,black,white,grow,softness))
     p.stdin.write(frame.astype('<f4').tobytes());p.stdin.flush()
     status,count=struct.unpack('<II',exact(8))
-    assert count<=1280*720*16
+    assert count<=max(4096,width*height*16)
     output=exact(count)
     if status:raise ValueError(output.decode())
-    assert count==1280*720*16
-    return np.frombuffer(output,'<f4').reshape(720,1280,4).copy()
+    assert count==width*height*16
+    return np.frombuffer(output,'<f4').reshape(height,width,4).copy()
 
 try:
     frames=[];results=[]
@@ -67,6 +68,25 @@ try:
     np.testing.assert_allclose(linear_result[:,:,:3],expected_linear,atol=.0001)
     np.testing.assert_allclose(linear_result[:,:,3],results[0][:,:,3],atol=1/65535)
     np.testing.assert_allclose(render(linear,mode=1,encoding=1),matte,atol=1/65535)
+    gamma24=frames[0].copy();gamma24[:,:,:3]=linear[:,:,:3]**(1/2.4)
+    gamma_result=render(gamma24,encoding=2)
+    np.testing.assert_allclose(gamma_result[:,:,3],results[0][:,:,3],atol=1/65535)
+    np.testing.assert_allclose(gamma_result[:,:,:3],(np.divide(expected_linear,alpha,out=np.zeros_like(expected_linear),where=alpha>0)**(1/2.4))*alpha,atol=.0001)
+    refined=render(frames[0],mode=1,black=.1,white=.9,grow=1.5,softness=1.)
+    assert np.isfinite(refined).all() and not np.array_equal(refined,matte)
+    assert refined[:,:,0].min()<.1 and refined[:,:,0].max()>.9
+    np.testing.assert_array_equal(refined[:,:,3],1.)
+    for width,height in [(1920,1080),(3840,2160)]:
+        scaled=cv2.resize(frames[0],(width,height),interpolation=cv2.INTER_LINEAR)
+        start=time.monotonic();large=render(scaled)
+        assert large.shape==(height,width,4) and np.isfinite(large).all()
+        assert large[:,:,3].min()<.1 and large[:,:,3].max()>.9
+        reference=cv2.resize(results[0],(width,height),interpolation=cv2.INTER_LINEAR)
+        mae=float(abs(large-reference).mean());assert mae<.005,mae
+        print('SOURCE_SIZE',width,height,'RGBA_MAE',mae,'SECONDS',time.monotonic()-start,flush=True)
+    for mode in (2,3,4):
+        extra=render(frames[0],mode=mode)
+        assert np.isfinite(extra).all();np.testing.assert_array_equal(extra[:,:,3],1.)
     bad=frames[0].copy();bad[0,0,0]=float('nan')
     try:render(bad);raise AssertionError('non-finite input was accepted')
     except ValueError as error:assert 'non-finite' in str(error)

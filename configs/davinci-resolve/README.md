@@ -64,13 +64,15 @@ Shift-Space and search **CorridorKey 2.0**, then connect:
 MediaIn → CorridorKey 2.0 → MediaOut
 ```
 
-Controls: green/blue Screen, Despill, Cutout/Matte Output, and input/output
-Encoding. Use opaque **1280×720**, square-pixel SDR source with full-resolution
-preview (no proxy/half resolution). Set encoding explicitly to display sRGB or
-linear sRGB with Rec.709 primaries; convert other gamuts, log and HDR upstream.
-Other dimensions and non-finite/out-of-range pixels fail explicitly. There is no
-real-time claim or temporal smoothing: each frame resets recurrent state for
-reproducible out-of-order host requests.
+Controls: green/blue Screen, model Despill, five output modes, explicit Encoding,
+Fit/Require-720 resolution policy, matte black/white levels, grow/shrink and softness.
+Opaque square-pixel float RGBA is accepted up to **8192 per side / 40 million pixels**,
+including 1080p, 4K and isotropic reduced previews. Fit preserves aspect ratio and
+returns source-sized output, but inference remains the 720p model profile.
+Set display sRGB, linear sRGB or Gamma 2.4 with Rec.709 primaries explicitly.
+Convert log/HDR/gamut on a separate inference branch; input must be finite in [0,1].
+No real-time or temporal smoothing claim: each frame resets recurrent state.
+The grouped macro and render-first temporal UI are separate, unfinished work.
 
 The native bundle is built by `nix/darwin/corridorkey-ofx-package.nix` and installed
 at `/Library/OFX/Plugins/CorridorKey2.ofx.bundle`. It is original wrapper code around
