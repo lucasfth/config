@@ -170,6 +170,24 @@ Do not substitute fixture results for a production-path pass.
   observed enabled; see the dated static-preflight comparison above. Native backup scheduling
   and acceptance below are independent from these copied jobs.
 
+### Noninteractive Hugi development checks
+
+From another terminal, close SSH stdin explicitly when launching a bounded Pi
+prompt. Pi reads non-TTY stdin until EOF. `ssh -T` disables the remote PTY,
+but forwards local stdin unless `-n` is supplied. When its local caller keeps
+that stream open, Pi can wait before creating a session and resemble an
+inference timeout.
+
+```sh
+ssh -nT gimle "zsh -lic 'cd /Users/gimle/Desktop/work/ecoray/report && pi -p --tools read --no-mcp --name gimle-project-read \"Read package.json and report the dev command. Do not edit files.\"'"
+```
+
+Use the managed `pi` function, a new named session, and explicit tools for the
+task. Never use `--continue` in Lucas's checkout. Keep normal session persistence.
+The 2026-10-27 bounded project-read check completed in 40 seconds with real reads
+and returned the correct demo project and emulator ports. This proves that
+read-only path, not all tools, providers or production application access.
+
 ### TTS persistence and independent browser handoff
 
 `services.gimle.auxiliary` independently gates `dk.loki.tts-tunnel` (9500).

@@ -10,6 +10,8 @@
     then [
       "bun"
       "container"
+      "firebase-cli" # Synthetic local Firebase emulators
+      "gum" # muninn-viewer picker and checks
       "herdr"
       "spicy-lemonade/tap/salt" # Native verified ciphertext backups
     ]
