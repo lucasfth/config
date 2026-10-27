@@ -3,6 +3,10 @@
   pkgs,
   lib,
   hostname,
+  hermesDesktop ? null,
+  hermesDesktopIcon ? null,
+  hermesElectron ? null,
+  hermesAgent ? null,
   ...
 }: {
   home.packages = with pkgs;
@@ -16,6 +20,48 @@
       sioyek
     ]
     ++ lib.optionals (stdenv.isDarwin && stdenv.hostPlatform.isAarch64 && hostname == "lucas-macbook-pro") [
+      # Desktop package only: do not import upstream's gateway/service module.
+      # Upstream ships only bin/hermes-desktop on Darwin, which runs a bare Electron
+      # with no app bundle; window managers such as AeroSpace then ignore it.
+      # Package it the standard Electron way: a renamed Electron.app whose
+      # Resources/app is the Hermes desktop bundle.
+      (stdenvNoCC.mkDerivation {
+        pname = "hermes-desktop-app";
+        inherit (hermesDesktop) version;
+        dontUnpack = true;
+        dontFixup = true;
+        installPhase = ''
+          app="$out/Applications/Hermes.app/Contents"
+          mkdir -p "$out/Applications" "$out/bin"
+          # Full copy: Electron fails to load its V8 snapshot through a symlinked
+          # Frameworks directory.
+          cp -R "${hermesElectron}/Applications/Electron.app" "$out/Applications/Hermes.app"
+          chmod -R u+w "$out/Applications/Hermes.app"
+          rm -f "$app/Resources/default_app.asar" "$app/Resources/electron.icns" "$app/Info.plist"
+          ln -s ${hermesDesktop}/share/hermes-desktop "$app/Resources/app"
+          cp ${hermesDesktopIcon} "$app/Resources/Hermes.icns"
+          ln -s "$app/MacOS/Electron" "$out/bin/hermes-desktop"
+          cat > "$app/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Hermes</string>
+            <key>CFBundleDisplayName</key><string>Hermes</string>
+            <key>CFBundleIdentifier</key><string>com.nousresearch.hermes</string>
+            <key>CFBundleExecutable</key><string>Electron</string>
+            <key>CFBundleIconFile</key><string>Hermes</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${hermesDesktop.version}</string>
+            <key>NSPrincipalClass</key><string>AtomApplication</string>
+            <key>NSHighResolutionCapable</key><true/>
+            <key>LSEnvironment</key><dict>
+              <key>ELECTRON_IS_DEV</key><string>0</string>
+              <key>HERMES_DESKTOP_HERMES</key><string>${hermesAgent}/bin/hermes</string>
+            </dict>
+          </dict></plist>
+          EOF
+        '';
+      })
       (stdenvNoCC.mkDerivation {
         pname = "superbacked";
         version = "2.0.0-rc.3";

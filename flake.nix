@@ -3,6 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # Official desktop, including upstream's Darwin pm-package fix.
+    hermes-agent.url = "github:NousResearch/hermes-agent/5a5aa9a3a8d376ebe0013ca6565c184e87318404";
     darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -18,6 +20,7 @@
     nixpkgs,
     darwin,
     home-manager,
+    hermes-agent,
     ...
   }: let
     lib = nixpkgs.lib;
@@ -51,6 +54,11 @@
             ];
             home-manager.extraSpecialArgs = {
               flakeDir = self;
+              hermesDesktop = hermes-agent.packages.${host.system}.desktop;
+              hermesDesktopIcon = "${hermes-agent}/apps/desktop/assets/icon.icns";
+              # Same electron and agent the upstream desktop wrapper uses.
+              hermesElectron = hermes-agent.inputs.nixpkgs.legacyPackages.${host.system}.electron;
+              hermesAgent = hermes-agent.packages.${host.system}.default;
               inherit (host) username hostname homeDirectory stateVersion;
             };
             home-manager.useUserPackages = true;
@@ -96,6 +104,8 @@
         ];
       };
   in {
+    packages.aarch64-darwin.hermes-desktop = hermes-agent.packages.aarch64-darwin.desktop;
+
     darwinConfigurations."lucas-macbook-pro" = mkDarwin "lucas-macbook-pro";
     darwinConfigurations."gimle" = mkDarwin "gimle";
 
