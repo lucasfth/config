@@ -82,12 +82,12 @@ instructions below do not describe the current installed state.
 | Gateway | Reports Telegram and API connected. This is not a new Telegram round-trip or existing-session acceptance. |
 | Boot policy | `pmset` reports `sleep 0`, `autorestart 1`; FileVault reports Off. No reboot or power-loss test performed. |
 | Tailscale | Boot socket `/var/run/gimle-tailscaled.socket`; GUI socket is not authoritative. Approved DNS integration repair enabled `CorpDNS`; normal Pi model/MCP calls subsequently passed. Other sessions own exit-node work; do not overwrite their preferences. |
-| Pi | Native launch regression tests passed; normal Gimle launch returned the exact diagnostic marker; Muninn and company library connected. Gimle Vercel/Supabase still require sign-in. |
+| Pi | Historical native launch tests passed. Fresh development re-audit: all four MCP servers connect after the approved Muninn endpoint repair; two authenticated Muninn reads and a bounded project-tool read passed. See [current parity limits](gimle-dev-parity-2026-10-27.md). |
 | MacBook consumers | Two Muninn client URLs changed to Gimle with private backups and unchanged auth. Normal MacBook MCP list connected all four configured servers. Lucas separately approved retaining the matching canonical private URL, with no token changes or activation. |
 | Hue | Real read-only room-list call succeeded. No lighting changes were made. |
 | Browser | Login-holding Gimle Chrome is CDP `127.0.0.1:9444`; Hermes `browser_exec` (`browser.cdp_url`) drives it (target IDs verified live 2026-10-25). Legacy port-8767 browser MCP (`dk.loki.browser`) is healthy but its process predates the `cdp_local_port: 9444` edit and still serves the empty local Chrome on 9377 (TCP-peer verified) until an approved restart; no Freyr tunnel is involved. The separate restricted `loki_browser` uses dedicated Gimle Chrome; its owner reported live same-tab cPanel handoff and native-click acceptance. Public Hbit isolation remains blocked and its source is active WIP. Do not repurpose the legacy MCP or disturb Freyr's active tunnel. |
 | SSH aliases | Added host variables were rolled back. Gimle's shared-host include/activation gate was restored in published `3e8ba72e`. Separate owner published/verified the MacBook's Gimle shortcut as `4637dde2`; resolve effective config rather than assume the historical `loki` alias follows the agent. No private SSH/GPG keys copied. |
-| Accounts | Later GitHub-auth owner verified fresh env-unset `gh` API and ordinary private HTTPS Git using the existing managed gh helper after Lucas's approval. No usable Keychain copy was verified. Gimle Vercel/Supabase consent and other app sign-ins remain open. |
+| Accounts | GitHub-auth owner verified fresh env-unset `gh` API and ordinary private HTTPS Git using the existing managed gh helper. Current Vercel/Supabase MCP sessions connect; no new consent needed. Firebase CLI has zero accounts; other app sign-ins remain unqualified. No usable Keychain copy was verified. |
 | Zen | Nine user extensions registered and active in Gimle's main profile; Zotero Connector is the one missing laptop extension. Shared extension IDs/active states match; public-container metadata and bounded layout preferences do not. Additional laptop profiles have no name match. No workspace parity claimed; no cookie/password/session stores inspected or copied. |
 
 ### Copied cron jobs: static preflight only
@@ -158,11 +158,11 @@ Do not substitute fixture results for a production-path pass.
 - GitHub CLI: later owner acceptance passed using the explicitly approved existing
   token and managed gh credential helper. Do not repeat login merely because an
   older receipt says unauthenticated, or copy another machine's sessions/keys.
-- Gimle Pi: after sourcing its existing private environment, use the managed
-  launcher to run `pi mcp login vercel` and `pi mcp login supabase`. Lucas handles
-  consent. Verify with `pi mcp list --json`; an OAuth file's presence alone does
-  not establish valid sign-in. The CLI intentionally returns 1 for any enabled
-  server whose state is not `connected`, including `needs-auth`, or config errors.
+- Gimle Pi: use `~/.local/bin/hugi` for the existing managed private-environment
+  launcher. The fresh parity re-audit verified Vercel/Supabase/company-library/
+  Muninn all connected; do not repeat OAuth consent based on the old checkpoint.
+  Check `hugi mcp list --json` first. Lucas handles consent if a future state is
+  `needs-auth`; exit0 requires every enabled server to be connected.
 - Zen: use supported UI/Sync selectively, with fresh website logins. Do not copy
   session stores as a shortcut to workspace parity. Complete profile mapping,
   Zotero Connector, container metadata and layout verification in the actual UI.

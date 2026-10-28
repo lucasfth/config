@@ -1,5 +1,12 @@
 # Gimle development handoff
 
+> Historical execution checkpoint below. The [fresh parity re-audit](../../gimle-dev-parity-2026-10-27.md)
+> supersedes source-match, MCP-login and runtime claims. Root/3001/3002 are reconciled;
+> dirty3003 and the development config checkout still differ. Lucas subsequently approved
+> the private Muninn endpoint-only repair and synthetic emulator web environments.
+> All four MCP servers now connect with authenticated Muninn reads; web startup smoke
+> passed in an outbound-denying sandbox, not full Admin SDK/Storage/application flows.
+
 ## Approved scope
 
 Gimle must support independent work on the MacBook's current projects, with matching Herdr workspaces, tabs, splits and accessible fleet connections. Lucas initially approved project checkouts and matching live Herdr layout/machines without publication. Later explicit `/full-send` authorized task-scoped review, commits, pushes and gated integration, and Lucas separately approved importing the existing local-demo work into the scoped report PR. Nix activation, production service restarts, private-key copying and changes to `/Users/gimle/config` remain outside approval.
