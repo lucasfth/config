@@ -50,7 +50,7 @@ and activation steps before applying it to another machine.
 | [Resolve Studio and plugins](configs/davinci-resolve/README.md) | Local Studio installer pin, signed Gyroflow OFX installation and CK2 feasibility |
 | [Raycast](raycast/README.md) | AI provider template, Script Commands, extension, and exports |
 | [Scripts](scripts/README.md) | Maintenance and configuration helpers |
-| [Freyr browser skill](.omp/skills/using-freyr-browser/SKILL.md) | Required browser workflow using Freyr's signed-in Chromium |
+| [Gimle browser skill](configs/pi/skills/using-gimle-browser/SKILL.md) | Dedicated agent browser workflow and access boundaries |
 | [Native Pi profile](configs/pi/README.md) | `pi` launcher, UI, local JS/TS source outlines, `/cache-report`, updates, verification and OMP parity gaps |
 | [Shared skills](configs/pi/README.md#shared-skills-volundr) | Pinned Volundr submodule, Pi selection rules and explicit cross-machine updates |
 | [Nightly shared-skill delivery](configs/volundr/README.md) | Controller delivery, Loki's published-pin sync, guarded dreaming, verification and rollback |
@@ -74,8 +74,8 @@ nix-which <tool>        # check which version (shows Nix vs Brew)
 nix-update              # update flake.lock + rebuild + reload
 nix-rollback            # list generations, show rollback command
 
-# NOT managed by nrs/nix-update:
-omp update              # update omp (bun global package, not in nixpkgs)
+# Native Pi source and pinned dependencies:
+node configs/pi/launch.mjs --version
 ```
 The rebuild helpers live in `nix/common/shell/interactive.zsh`. On macOS they use
 `/nix/var/nix/profiles/system/sw/bin/darwin-rebuild` directly, so a missing PATH
@@ -301,8 +301,8 @@ Applications do not universally reload when a file changes.
   tests/                     # focused tests for scripts/configuration
   shell/                     # remote Bash prompt helpers
   docs/                      # recovery runbook and dated plans/specs
-  .omp/                      # canonical OMP configuration and skills
-  omp/                       # OMP configuration submodule
+  configs/pi/                # native Pi source; private state lives outside the repo
+  omp/                       # retained historical OMP/Fylgje submodule
   volundr/                   # pinned shared skill library (Pi; Loki consumption configured separately)
 ```
 ## How to...
@@ -320,23 +320,14 @@ Applications do not universally reload when a file changes.
 | Change borders colors | — | Edit `nix/darwin/launchd.nix` | `nrs` |
 | Change git config | — | Edit `nix/common/git.nix` | `nrs` |
 
-### OMP MCP connections
+### Native Pi MCP connections
 
-Public MCP registrations live in `.omp/agent/mcp.json`, including Vercel and
-Supabase (`https://mcp.supabase.com/mcp`). Home Manager generates
-`~/.omp/agent/mcp.json` from that source plus `nix_secrets`; do not edit the
-generated file directly. Validate the source with `jq . .omp/agent/mcp.json`
-before activation.
-
-After regenerating the configuration, run `/mcp reload` in OMP. Complete the
-Supabase browser OAuth prompt, or use `/mcp reauth supabase` to authorize again.
-Verify with `/mcp test supabase` and `/mcp list`. A Vercel MCP `401` with
-`No authorization provided` is a separate login issue: use `/mcp reauth vercel`.
-OAuth credentials belong in OMP's credential storage, not the tracked JSON.
-
-The Supabase registration is account-wide so it can discover or create projects.
-Once a project is selected, prefer a project-scoped connection using
-`?project_ref=<id>`. See the [Supabase MCP documentation](https://supabase.com/docs/guides/ai-tools/mcp).
+Public MCP defaults live in `configs/pi/mcp.json`; `configs/pi/runtime.mjs`
+combines them with existing private Pi server entries and approved environment
+configuration at launch. The generated profile lives in
+`~/.local/share/huginn-pi/agent/`, not the repository. Keep credentials private;
+see the [native Pi guide](configs/pi/README.md#native-model-and-mcp-ownership).
+Home Manager no longer generates OMP MCP configuration or installs OMP agent links.
 
 ### Zig
 
@@ -646,7 +637,7 @@ You'll need to copy these from your old machine — they're gitignored, never in
 - GPG private key (`gpg --export-secret-keys > key.asc`)
 - SSH keys (`~/.ssh/id_*`)
 - `~/config/nix_secrets` (SSH aliases, API tokens)
-- Agent auth: `~/.omp/agent/`
+- Native Pi private credentials and state: `~/.local/share/huginn-pi/agent/`
 
 ### On the new machine
 
@@ -682,7 +673,7 @@ sudo chsh -s ~/.nix-profile/bin/zsh $USER
 ```bash
 gh auth login                              # GitHub CLI
 # Copy ~/.ssh from old machine
-# Copy ~/.omp/agent/ from old machine
+# Transfer approved native Pi private credentials; do not copy credentials into Git
 brew services start postgresql@14          # if using postgres
 brew services start redis                  # if using redis
 ```
@@ -763,10 +754,10 @@ This is a local extension; these commands do not publish it to the Raycast Store
 `nix_secrets`, agent databases, caches, worktrees, and build outputs such as
 `result` are local state, not configuration source. Ignored directories may
 remain in an existing checkout; this layout change does not delete their data.
-Ignore rules do not untrack existing files: `.omp/puppeteer/package.json`, for
-example, remains tracked despite the directory's ignore rule. Review actual
-tracked files rather than assuming every file under `.omp/` is either source or
-runtime state.
+The repository’s legacy `.omp/` tree, including ignored local state, has been
+removed. Its tracked sources remain recoverable from Git history. This does not
+delete home-directory OMP data or the separate historical `omp/` submodule.
+Ignore rules do not untrack existing files; review the actual tracked inventory.
 
 ## Brew vs Nix
 

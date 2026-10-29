@@ -3,14 +3,12 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { spawn as spawnPty } from 'zigpty';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import { DatabaseSync } from 'node:sqlite';
 import os from 'node:os';
 import path from 'node:path';
 import { prepareRuntime, sourceDir, repoDir } from './runtime.mjs';
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'pi-adversarial-'));
 const agentDir = path.join(root, 'agent');
-const ompDir = path.join(root, 'absent-omp');
 const requests = [];
 const server = http.createServer(async (request, response) => {
   let body = ''; for await (const chunk of request) body += chunk;
@@ -24,17 +22,14 @@ const server = http.createServer(async (request, response) => {
 await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
 const env = Object.fromEntries(['PATH','HOME','USER','SHELL','TMPDIR','LANG'].filter(name=>process.env[name]).map(name=>[name,process.env[name]]));
 const endpoint = `http://127.0.0.1:${server.address().port}/v1`;
-Object.assign(env,{PI_CODING_AGENT_DIR:agentDir,NEO_PROXY_URL:endpoint,NEO_PROXY_API_KEY:'synthetic-only',PI_OFFLINE:'1',PI_TELEMETRY:'0',HUGINN_OMP_AGENT_DIR:ompDir,TERM:'xterm-256color',TERM_PROGRAM:'ghostty'});
+Object.assign(env,{PI_CODING_AGENT_DIR:agentDir,NEO_PROXY_URL:endpoint,NEO_PROXY_API_KEY:'synthetic-only',PI_OFFLINE:'1',PI_TELEMETRY:'0',TERM:'xterm-256color',TERM_PROGRAM:'ghostty'});
 const ids = ['gpt-6.1-sol','gpt-6-luna','claude-opus-5-5','claude-haiku-5-5','adversarial-fifth','adversarial-sixth'];
 let child, pty;
 let raw='';
 try {
-  await mkdir(ompDir,{recursive:true});
-  const db = new DatabaseSync(path.join(ompDir,'models.db'));
-  db.exec('CREATE TABLE model_cache(provider_id TEXT, models TEXT, updated_at INTEGER)');
-  db.prepare('INSERT INTO model_cache VALUES(?,?,?)').run('neo-proxy:test',JSON.stringify(ids.map(id=>({id,name:id,reasoning:true,input:['text','image'],contextWindow:128000,maxTokens:8192}))),1);
-  db.close();
-  await prepareRuntime({agentDir,env,ompDir});
+  await mkdir(agentDir,{recursive:true});
+  await writeFile(path.join(agentDir,'models.json'),JSON.stringify({providers:{'neo-proxy':{models:ids.map(id=>({id,name:id,reasoning:true,input:['text','image'],contextWindow:128000,maxTokens:8192}))}}}));
+  await prepareRuntime({agentDir,env});
   await writeFile(path.join(agentDir,'mcp.json'),JSON.stringify({mcpServers:{}}));
   const commands = [];
   const pending = new Map();
@@ -69,7 +64,7 @@ try {
   async function stop(){const processExit=new Promise(resolve=>child.once('exit',resolve));child.stdin.end();await processExit;child=undefined;}
   await start();
   const catalogue=(await send('get_available_models')).data.models.filter(model=>model.provider==='neo-proxy');
-  assert.equal(catalogue.length,6,'Full catalogue must exceed four');
+  assert.equal(catalogue.length,7,'Private catalogue extensions and native Qwen remain available');
   const before=(await send('get_state')).data.model.id;
   await send('prompt',{message:'/switch missing/model'});
   const afterInvalidSwitch = (await send('get_state')).data.model.id;

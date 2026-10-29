@@ -1,7 +1,0 @@
-{
-  "aar": {
-    "local": ".omp/skills/aar/SKILL.md",
-    "shared": "volundr/skills/aar/SKILL.md",
-    "exceptions": []
-  }
-}

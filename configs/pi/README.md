@@ -77,6 +77,16 @@ Private settings, sessions and generated provider/MCP configuration live in `~/.
 
 Each launch regenerates settings from this checkout, retaining saved role choices. Canonical skills are included once; project-provided skill names take precedence. Project skill scanning stops at this checkout's repository root, so an enclosing checkout cannot hide a nested worktree's canonical skills. The isolated checks regenerate temporary state, not the live profile.
 
+### Native model and MCP ownership
+
+Pi does not import OMP's `models.yml`, SQLite catalogue, or generated MCP configuration. `NEO_PROXY_URL` is required; the origin normalizes to `/v1`. The native baseline contains the configured GPT/Claude role models and Qwen. Additional entries in the private Pi `models.json` are retained, not refreshed from an OMP cache. This is an explicit catalogue, not live proxy model discovery.
+
+`qwen-model.json` is the common direct/proxy Qwen contract. Its GGUF-shaped ID is a compatibility alias for TabbyAPI EXL3; both routes share Mimer and are not independent fallbacks. Direct configuration uses `MIMER_BASE_URL`, otherwise `ECORAY_MIMER_IP:8080/v1`, otherwise the saved native Mimer endpoint. A bare origin normalizes to `/v1`. Thinking uses Pi's `qwen-chat-template` format, with `max_tokens` and no OpenAI `reasoning_effort`.
+
+`mcp.json` holds non-secret native server defaults; existing private Pi server entries take precedence. Fresh private Muninn/company-library endpoints come from environment. Credentials and sessions are not migrated or rewritten by a source edit.
+
+Run `node integration-qwen.mjs` explicitly with private endpoint/key environment for bounded live streaming, tool-result continuation and thinking checks on both routes. It creates only a temporary profile and does not prove the current interactive session has reloaded.
+
 ## Private fleet reporting
 
 [Native fleet setup and limits](fleet.md) documents the optional native Pi → portfolio reporter, `/fleet-name` explicit safe labels and `/fleet-status` local diagnostics. Reporting is disabled until a dedicated per-host private credential is configured and the receiver is separately provisioned. A pull plus next normal launch loads source, not production end-to-end activation; no live session reload/restart is automatic. Tests exercise actual SDK lifecycle → isolated HTTP receipt, not production DB/browser proof.
@@ -89,16 +99,11 @@ The root `volundr/` Git submodule pins the shared Huginn/Loki library. Initializ
 git submodule update --init -- volundr
 ```
 
-Pi loads active `volundr/skills/*/SKILL.md` guides; archived guides stay excluded. Volundr wins overlapping names, with four explicit temporary local overrides:
+Pi loads active `volundr/skills/*/SKILL.md` guides; archived guides stay excluded. Shared operational guides, including `sudo-ssh-freyr`, `sudo-ssh-mimer` and `syncing-vps-dotfiles`, resolve directly to Volundr. There are no `.omp/skills` overrides or fallback paths.
 
-| Name | Loaded source | Reason |
-| --- | --- | --- |
-| `sudo-ssh-freyr` | `.omp/skills/` | Preserve configured operational details; sudo now uses interactive TTY authentication, never a password in a command |
-| `sudo-ssh-mimer` | `.omp/skills/` | Preserve configured operational paths |
-| `syncing-vps-dotfiles` | `.omp/skills/` | Preserve configured gist references |
-| `using-gimle-browser` | `configs/pi/skills/` | Pi-only Gimle browser contract; the old shared Freyr browser guide is excluded from Pi, unchanged for other consumers |
+Pi-only adapters stay under `configs/pi/skills/`: `using-gimle-browser` enforces the Gimle browser contract, and `huginn-retro` is loaded explicitly by its prompt. Package-owned Pi skills stay with their packages. Project `.pi/skills` names take precedence; avoid ignored copies that shadow the shared catalogue on only one machine. The repository’s legacy OMP tree is removed; existing home-directory OMP state is not managed or deleted by this change.
 
-Config-only `.omp/skills` names remain fallbacks. Project `.pi/skills` names take precedence; do not keep ignored copies in this config checkout because they shadow the pinned catalogue only on one machine. OMP still uses its existing `.omp/skills` symlinks; this change does not rewire OMP.
+The retired legacy tree contained no unique skill names. Historical support material and gist identifiers remain recoverable from Git history, not loaded configuration. Do not copy private host/gist inventories into Volundr.
 
 Shared edits belong in Volundr, then config records the new submodule commit. After an approved pin update, run `git submodule update --init -- volundr`. Do not use `--remote` for routine synchronization: it bypasses the pin. Loki reads active packages from its own checkout at the same commit via Hermes `skills.external_dirs`; see `volundr/docs/hermes-consumer.md`. Updates are explicit, not automatic. Shared TypeSafe now carries the corrected Noul semantics and experimental image contract; runtime secrets and adapters remain local.
 
@@ -114,7 +119,7 @@ Loki loads the same packages through Hermes. `/done`, `/full-send` and `/full-st
 
 Use `/aar [focus]` for the combined after-action review and daily Muninn record. The prompt loads the shared `aar` skill; approval to review is not approval to apply fixes, publish, or deploy.
 
-OMP’s `.omp/skills/aar` is a compatibility mirror of `volundr/skills/aar`. `skill-mirrors.json` documents the mirror and its empty body-exception list. `node --import tsx --test aar.test.mjs` checks body/reference fidelity and the native `/aar` expansion; it does not prove agent compliance or a successful Muninn write. Keep notices and source attribution with both copies.
+`volundr/skills/aar` is the single AAR source; no OMP compatibility mirror remains. `node --import tsx --test aar.test.mjs` checks native `/aar` expansion, not agent compliance or a successful Muninn write. Notices and source attribution remain with the shared package.
 
 ### Session environment and context retro
 

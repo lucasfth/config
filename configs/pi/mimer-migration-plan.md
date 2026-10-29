@@ -1,0 +1,10 @@
+# Native Pi / Mimer cleanup
+
+Initial approved scope: remove Pi's legacy OMP model and skill dependencies, reconcile operational skills into Volundr, and verify both Qwen routes. Lucas subsequently approved removal of the repository `.omp` tree and publication to main. No service restarts, live-profile regeneration or edits to other sessions are authorized.
+
+1. Add a failing runtime regression proving the proxy/direct Qwen entries have identical Pi-compatible thinking metadata without legacy files. Implement one native Qwen definition and a native proxy catalogue; retain unrelated private provider/model entries. Endpoint configuration comes from environment, not OMP YAML/cache.
+2. Add failing skill selection and operational-guide checks. Remove OMP skill fallback/overrides; use shared Volundr guides and retain Pi-only browser/retro adapters. Reconcile meaningful local operational guidance without copying private identifiers into shared skills. Inventory complete legacy packages before removal of routing.
+3. Move the non-secret MCP defaults to native Pi source; preserve existing private Pi servers and credentials. Stop importing OMP runtime MCP configuration. Update the launcher and synthetic integration fixture to use native private models.
+4. Refresh Volundr's maintenance record/manifest, run its validator/tests and Pi's canonical test/typecheck/integration targets. Exercise real Pi Qwen streaming and tool-result continuation on direct and proxy routes, using temporary profiles and bounded output. Record limitations; do not claim image/thinking behavior proved solely by source assertions.
+
+Checkpoint: tests use temporary agent directories. Home-directory OMP data, the live Pi profile, credentials and sessions remain untouched. The repository `.omp` tree and its Nix deployment declarations are retired; tracked history remains in Git. Publish Volundr through its required gates before committing the consumer pin in Config. New runtime configuration loads on the next normal Pi launch.

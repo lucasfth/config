@@ -45,4 +45,4 @@ The remote Herdr installer fetches the `main` branch from GitHub. Local path cha
 - Keep package declarations, Nix modules, and service definitions in `nix/`.
 - Keep Raycast integrations in `raycast/` and shared remote-shell snippets in `shell/`.
 - Do not add caches, sessions, credentials, generated preferences, or application state here.
-- Keep canonical agent sources under `.omp/`; the portable `omp/` directory is a separate Git submodule.
+- Native agent sources live under `configs/pi/`; shared skills live in the pinned `volundr/` submodule. The legacy `.omp/` tree is retired; `omp/` remains a separate historical submodule.

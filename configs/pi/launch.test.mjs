@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -44,6 +44,14 @@ test('Mimer uses the OpenAI v1 base path and keeps the Qwen compatibility alias'
     assert.equal(providers.mimer.baseUrl, 'http://mimer.invalid:8080/v1');
     assert.equal(providers.mimer.api, 'openai-completions');
     assert.equal(providers.mimer.models[0].id, 'Qwen3.8-27B-UD-Q6_K_L.gguf');
+    const qwen = providers.mimer.models[0];
+    assert.equal(qwen.reasoning, true);
+    assert.equal(qwen.contextWindow, 262144);
+    assert.equal(qwen.maxTokens, 16384);
+    assert.equal(qwen.compat.thinkingFormat, 'qwen-chat-template');
+    assert.equal(qwen.compat.maxTokensField, 'max_tokens');
+    assert.equal(qwen.compat.supportsReasoningEffort, false);
+    assert.deepEqual(providers['neo-proxy'].models.find(model => model.id === qwen.id), qwen);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -139,5 +147,31 @@ test('fresh hosts configure private MCP endpoints from environment without copyi
     await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers }));
     await prepareRuntime({ agentDir: dir, env, ompDir: path.join(dir, 'absent') });
     assert.equal(JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers.muninn.url, 'https://custom.invalid/mcp');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('native preparation ignores malformed legacy files and preserves private catalogue extensions', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-no-omp-'));
+  const env = { NEO_PROXY_URL: 'https://proxy.invalid', MIMER_BASE_URL: 'http://mimer.invalid:8080/' };
+  try {
+    const extra = { id: 'private-model', reasoning: false, input: ['text'], contextWindow: 8192, maxTokens: 1024 };
+    await writeFile(path.join(dir, 'models.json'), JSON.stringify({ providers: { 'neo-proxy': { models: [extra, { id: 'Qwen3.8-27B-UD-Q6_K_L.gguf', reasoning: false }] }, mimer: { baseUrl: 'http://saved.invalid:8080', models: [extra] }, custom: { baseUrl: 'https://custom.invalid/v1', models: [extra] } } }));
+    // Put poison legacy files in a separate location; native MCP state stays valid.
+    const legacy = path.join(dir, 'legacy');
+    await mkdir(legacy);
+    for (const name of ['models.yml', 'models.db', 'mcp.json']) await writeFile(path.join(legacy, name), 'INVALID LEGACY FILE');
+    await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { custom: { url: 'https://custom.invalid/mcp' } } }));
+    for (let i = 0; i < 2; i++) await prepareRuntime({ agentDir: dir, env, ompDir: legacy });
+    const { providers } = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
+    assert.equal(providers.mimer.baseUrl, 'http://mimer.invalid:8080/v1');
+    assert.equal(providers['neo-proxy'].models.filter(m => m.id === 'Qwen3.8-27B-UD-Q6_K_L.gguf').length, 1);
+    assert.deepEqual(providers['neo-proxy'].models.find(m => m.id === extra.id), extra);
+    assert.deepEqual(providers.mimer.models.find(m => m.id === extra.id), extra);
+    await prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: env.NEO_PROXY_URL } });
+    assert.equal(JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8')).providers.mimer.baseUrl, 'http://mimer.invalid:8080/v1');
+    assert.equal(providers.custom.baseUrl, 'https://custom.invalid/v1');
+    assert.equal(JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers.custom.url, 'https://custom.invalid/mcp');
+    await assert.rejects(prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: 'https://proxy.invalid', MIMER_BASE_URL: 'file:///bad' } }), /MIMER_BASE_URL/);
+    await assert.rejects(prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: '' }, ompDir: legacy }), /NEO_PROXY_URL/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

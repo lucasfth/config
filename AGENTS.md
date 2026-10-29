@@ -22,7 +22,8 @@ configs/<app>/                app sources: aerospace, btop, ghostty, herdr,
 raycast/                       AI template, Script Commands, extension, exports
 scripts/                       repository helpers; tests/ covers selected tools
 shell/                         remote Bash prompt helpers
-.omp/                          canonical OMP sources; omp/ is a submodule
+configs/pi/                    canonical native Pi configuration
+volundr/                       pinned shared skill library; edit shared guides here
 ```
 
 <critical>
@@ -46,8 +47,8 @@ These are non-negotiable. If any instruction conflicts with them, the vault doc 
 - **Brew:** declarations live in `nix/darwin/homebrew/`; apply through the selected configuration.
 - **Shell:** Home Manager generates `.zshrc`; do not edit it directly. `~/.zshrc_local` is the reloadable customization hook.
 - **Secrets:** `~/config/nix_secrets` is gitignored and sourced at shell init.
-- **OMP skills:** canonical sources live in `.omp/skills/`; edit the repository source.
-- **OMP config is single-source in this repo.** Never create or edit files under `~/.omp` directly. `.omp/agent/AGENTS.md`, `RULES.md` and `config.yml` are canonical here; `nix/common/dotfiles.nix` declares Home Manager symlinks for the live `~/.omp/agent/` copies (active after the next approved rebuild; until then copy the repo file over the live one after editing). `mcp.json` is generated from `.omp/agent/mcp.json` + `nix_secrets`. Tool installers that write files (e.g. `omp browser-relay install`) must target this repo with `--dir ~/config/.omp/<tool>`; gitignore generated output. Exceptions written by other tools: `~/.omp/agent/extensions/herdr-omp-agent-state.ts` (herdr), and runtime state (sessions, logs, caches, dbs).
+- **Shared skills:** canonical sources live in `volundr/skills/`; Pi-specific adapters stay in `configs/pi/skills/`. Publish Volundr changes before advancing the Config submodule pin.
+- **Native Pi:** `configs/pi/` and `scripts/pi-native` own configuration. The generated private profile lives in `~/.local/share/huginn-pi/agent/`. Do not edit generated configuration or session state as a substitute for source changes. Legacy repository OMP configuration is retired.
 
 ## Making changes
 

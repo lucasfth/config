@@ -6,46 +6,6 @@
   hostname,
   ...
 }: let
-  generateOmpMcpConfig = pkgs.writeShellScript "generate-omp-mcp-config" ''
-    set -euo pipefail
-    SECRETS="$HOME/config/nix_secrets"
-    SOURCE="$HOME/config/.omp/agent/mcp.json"
-    OUT="$HOME/.omp/agent/mcp.json"
-
-    if [ ! -f "$SECRETS" ]; then
-      echo "generate-omp-mcp-config: nix_secrets not found" >&2
-      exit 1
-    fi
-    if [ ! -f "$SOURCE" ]; then
-      echo "generate-omp-mcp-config: tracked mcp.json not found" >&2
-      exit 1
-    fi
-
-    set -a
-    # shellcheck disable=SC1090
-    source "$SECRETS"
-    set +a
-    if [ -z "''${MUNINN_MCP_URL:-}" ]; then
-      echo "generate-omp-mcp-config: MUNINN_MCP_URL is not set" >&2
-      exit 1
-    fi
-
-    umask 077
-    mkdir -p "$(dirname "$OUT")"
-    if [ -n "''${COMPANY_LIBRARY_MCP_URL:-}" ] && [ -n "''${COMPANY_LIBRARY_MCP_TOKEN:-}" ]; then
-      ${pkgs.jq}/bin/jq --arg url "$MUNINN_MCP_URL" \
-        --arg library_url "$COMPANY_LIBRARY_MCP_URL" \
-        --arg library_token "$COMPANY_LIBRARY_MCP_TOKEN" \
-        '.mcpServers.muninn = { type: "http", url: $url }
-        | .mcpServers.company_library = { type: "http", url: $library_url, headers: { Authorization: ("Bearer " + $library_token) } }' \
-        "$SOURCE" > "$OUT.tmp"
-    else
-      ${pkgs.jq}/bin/jq --arg url "$MUNINN_MCP_URL" \
-        '.mcpServers.muninn = { type: "http", url: $url }' "$SOURCE" > "$OUT.tmp"
-    fi
-    mv "$OUT.tmp" "$OUT"
-  '';
-
   generateRaycastAiProviders = pkgs.writeShellScript "generate-raycast-ai-providers" ''
     set -euo pipefail
     SECRETS="$HOME/config/nix_secrets"
@@ -98,18 +58,6 @@ in {
     }
     // lib.optionalAttrs (hostname != "gimle") {
       "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
-      ".omp/agent/AGENTS.md" = {
-        force = true;
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/AGENTS.md";
-      };
-      ".omp/agent/RULES.md" = {
-        force = true;
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/RULES.md";
-      };
-      ".omp/agent/config.yml" = {
-        force = true;
-        source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/.omp/agent/config.yml";
-      };
     }
     // lib.optionalAttrs (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") {
       # The readable backup mount is specific to the laptop.
@@ -143,10 +91,6 @@ in {
       ".config/btop/btop.conf".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/configs/btop/btop.conf";
       ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/configs/btop/themes/catppuccin_mocha.theme";
     };
-
-  home.activation.generateOmpMcpConfig = lib.mkIf (hostname != "gimle") (lib.hm.dag.entryAfter ["writeBoundary"] ''
-    $DRY_RUN_CMD ${generateOmpMcpConfig}
-  '');
 
   home.activation.generateRaycastAiProviders = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateRaycastAiProviders}

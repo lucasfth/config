@@ -122,13 +122,16 @@ def main():
     assert laptop["home"] == "/Users/lucasfreytorreshanson"
     assert {"aerospace", "muninn-readable", "volundr-delivery", "nix-health", "tailwind-cleanup"} == set(laptop["agents"])
     assert {"displaylink", "ghostty", "gyroflow"}.issubset(laptop["casks"])
-    assert {"generateOmpMcpConfig", "generateMokka", "installSioyek"}.issubset(laptop["hooks"])
+    assert {"generateMokka", "installSioyek"}.issubset(laptop["hooks"])
+    assert "generateOmpMcpConfig" not in laptop["hooks"]
+    assert not any(name.startswith(".omp/") for name in laptop["files"])
     assert laptop["signing"]
     assert laptop["gpgAgent"], "Keep the MacBook's signing agent"
     assert laptop["vim"] == "vim-full", laptop["vim"]
     assert laptop["sshIncludes"] == ["config.d/ecoray"]
     assert "jupyterlab" in laptop["pythonPackages"], laptop["pythonPackages"]
-    assert {"sshEcorayHosts", "herdrOmpIntegration"}.issubset(laptop["hooks"])
+    assert "sshEcorayHosts" in laptop["hooks"]
+    assert "herdrOmpIntegration" not in laptop["hooks"]
     assert "pmset -b powernap 0" in laptop["postActivation"]
     assert not laptop["lokiDaemons"], "Gimle daemons must not reach the MacBook"
     print("PASS: Gimle identity and host isolation; MacBook integrations retained")

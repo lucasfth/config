@@ -9,9 +9,6 @@ import * as runtime from './runtime.mjs';
 
 const { prepareRuntime, repoDir, sourceDir } = runtime;
 const localOverrides = new Map([
-  ['sudo-ssh-freyr', path.join(repoDir, '.omp/skills/sudo-ssh-freyr/SKILL.md')],
-  ['sudo-ssh-mimer', path.join(repoDir, '.omp/skills/sudo-ssh-mimer/SKILL.md')],
-  ['syncing-vps-dotfiles', path.join(repoDir, '.omp/skills/syncing-vps-dotfiles/SKILL.md')],
   ['using-gimle-browser', path.join(sourceDir, 'skills/using-gimle-browser/SKILL.md')],
 ]);
 
@@ -57,7 +54,7 @@ async function fixtureSkill(root, relative, name, status) {
   return file;
 }
 
-test('skill selection preserves local-only names, project precedence and archive exclusions', async () => {
+test('skill selection excludes OMP-only names, preserves project precedence and archive exclusions', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'pi-skill-selection-'));
   try {
     const shared = await fixtureSkill(rootDir, 'volundr/skills', 'shared', 'active');
@@ -69,7 +66,8 @@ test('skill selection preserves local-only names, project precedence and archive
     const cwd = path.join(rootDir, 'project');
     await fixtureSkill(cwd, '.pi/skills', 'project-choice');
     const selected = runtime.canonicalSkillPaths({ rootDir, cwd });
-    assert.deepEqual(selected.sort(), [shared, local].sort());
+    assert.deepEqual(selected, [shared]);
+    assert.ok(!selected.includes(local));
   } finally { await rm(rootDir, { recursive: true, force: true }); }
 });
 
@@ -89,4 +87,19 @@ test('missing Volundr initialization fails with the exact recovery command', asy
   try {
     assert.throws(() => runtime.canonicalSkillPaths({ rootDir, cwd: rootDir }), /git submodule update --init -- volundr/);
   } finally { await rm(rootDir, { recursive: true, force: true }); }
+});
+
+test('shared Mimer guide discovers systemd ownership instead of prescribing retired tmux/OMP setup', async () => {
+  const guide = await readFile(path.join(repoDir, 'volundr/skills/sudo-ssh-mimer/SKILL.md'), 'utf8');
+  assert.match(guide, /README-MIMER/);
+  assert.match(guide, /systemctl show mimer-qwen/);
+  assert.match(guide, /fallen off the bus/);
+  assert.doesNotMatch(guide, /Qwen3\.5-122B|~\/\.omp|tmux capture-pane/);
+});
+
+test('shared Freyr guide retains the local TTY and long-operation approval safeguards', async () => {
+  const guide = await readFile(path.join(repoDir, 'volundr/skills/sudo-ssh-freyr/SKILL.md'), 'utf8');
+  assert.match(guide, /SSH TTY/);
+  assert.match(guide, /approved remote tmux/);
+  assert.match(guide, /current approval/);
 });

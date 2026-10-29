@@ -21,7 +21,7 @@ try {
     const result = await updateProfile({ sourceDir, cacheDir: env.npm_config_cache, args: process.argv.slice(3), env });
     process.exitCode = result.code;
   } else {
-    await prepareRuntime({ agentDir, env, ...(env.HUGINN_OMP_AGENT_DIR ? { ompDir: env.HUGINN_OMP_AGENT_DIR } : {}) });
+    await prepareRuntime({ agentDir, env });
     const cli = path.join(sourceDir, 'host-entry.mjs');
     const child = spawn(process.execPath, [cli, ...process.argv.slice(2)], { env, stdio: 'inherit' });
     for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, () => child.kill(signal));
