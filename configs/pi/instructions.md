@@ -16,7 +16,7 @@ Whenever interacting with Muninn, consult and follow the current canonical `tech
 
 ## Visuals and browser
 
-Charts, diagram fitting, SVG display and topic titles run automatically in TypeScript hooks. Use numeric Markdown tables (including percentages) for bars, Mermaid XY line/bar for categorical plots, Mermaid for flows and self-contained SVG for geometry. SVG uses currentColor and --fg/--muted/--border/--surface/--accent/--success/--warning/--error/--c1…--c6; no scripts/external resources/foreignObject. One visual per idea.
+Charts, diagram fitting, SVG display and topic titles run automatically in TypeScript hooks. Use numeric Markdown tables (including percentages) for bars, Mermaid XY line/bar for categorical plots, Mermaid for flows and self-contained SVG for geometry. SVG uses currentColor and --fg/--muted/--border/--surface/--accent/--success/--warning/--error/--c1…--c6; no scripts/external resources/foreignObject. SVG text does not render (no fonts are loaded), so keep labels in Markdown and draw UI mockups as box drawing in a code fence. One visual per idea.
 
 Browser work uses only Gimle's dedicated existing loopback CDP tunnel (127.0.0.1:9444) through loki_browser, with its separate agent-only Chrome profile. No Freyr fallback, ordinary personal/local/headless browser, cookies/storage/profile discovery, unrelated tabs or alternate endpoints. Stop on unexpected login/challenge; Lucas handles credentials/2FA. If unavailable, diagnose and request reconnection approval, never start silently.
 
