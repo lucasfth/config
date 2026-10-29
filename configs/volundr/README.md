@@ -8,7 +8,7 @@ Adopt **config's published Volundr pin**, never arbitrary Volundr main. Local ed
 | --- | --- | --- |
 | Mac controller | :01/:31 while awake; once daily after 02:31 Copenhagen | Fetch published refs and deliver the exact gitlink via bundle |
 | Loki sync | 02:53 Europe/Copenhagen | Validate clean fast-forwards; preserve local work in private candidates |
-| Proposal companion | 03:43 Europe/Copenhagen | Read-only evidence inspection; proposals only |
+| Proposal companion | 03:43 Europe/Copenhagen | Tool-free review of supplied summary evidence; proposals only |
 
 The Mac is not woken. Calendar checks use its local clock; the daily gate uses Copenhagen. Missing delivery preserves current skills. Late delivery may be consumed the following night. Verify enabled schedules and execution receipts on the current production host; historical installation results do not prove current delivery. The retired dreaming/AAR-learning job is not part of skill synchronization.
 
@@ -39,7 +39,7 @@ Installed code lives under `~/.hermes/volundr-nightly/code/`. Private `settings.
 
 `install_loki.py --apply` is an explicit live operation, not an import-time action. It requires the prepared settings and Hermes runtime, verifies the existing dream job, makes verified script/vault/state/job backups, and registers sync/review jobs. It refuses an existing deployment receipt unless the prior attempt rolled back. Do not reinstall over an active deployment merely to update code. Use the private deployment receipt to inspect existing installation state first.
 
-Sync is script-only (`no_agent=true`). The evidence reviewer uses `enabled_toolsets: [file]` to inspect candidate bodies; its prompt forbids writes, execution and publication, but the toolset is not a technical read-only sandbox. Both use private explicit delivery routing. Read back the installed job definitions rather than restoring the historical zero-tool reviewer. Repeated identical evidence suppresses review attempts, not proof of successful model output.
+Sync is script-only (`no_agent=true`). The source installer configures the evidence reviewer with `enabled_toolsets: []` and verifies that no toolsets resolve. It receives only sanitized skill-name pairs and local-review/conflict counts from `loki_job.py`; it cannot inspect candidate bodies or establish redundancy from name overlap. Its prompt requires proposals only and forbids invented inspections or patches. Both jobs use private explicit delivery routing. Read back installed job definitions separately: source configuration does not prove live permissions, and this description does not authorize changing them. Repeated identical evidence suppresses review attempts, not proof of successful model output.
 
 ## Safety boundaries
 
