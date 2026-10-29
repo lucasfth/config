@@ -8,10 +8,9 @@ Adopt **config's published Volundr pin**, never arbitrary Volundr main. Local ed
 | --- | --- | --- |
 | Mac controller | :01/:31 while awake; once daily after 02:31 Copenhagen | Fetch published refs and deliver the exact gitlink via bundle |
 | Loki sync | 02:53 Europe/Copenhagen | Validate clean fast-forwards; preserve local work in private candidates |
-| Existing dreaming | 03:07 Europe/Copenhagen | Shared sync lock; legacy hardener auto-apply disabled; consolidation pointer |
-| Proposal companion | 03:43 Europe/Copenhagen | Tool-free reasoning over scrubbed skill-name pairs/conflict counts |
+| Proposal companion | 03:43 Europe/Copenhagen | Read-only evidence inspection; proposals only |
 
-The Mac is not woken. Calendar checks use its local clock; the daily gate uses Copenhagen. Missing delivery preserves current skills. Late delivery may be consumed the following night. First unattended scheduled executions and actual companion output were not observed during installation; verify those independently.
+The Mac is not woken. Calendar checks use its local clock; the daily gate uses Copenhagen. Missing delivery preserves current skills. Late delivery may be consumed the following night. Verify enabled schedules and execution receipts on the current production host; historical installation results do not prove current delivery. The retired dreaming/AAR-learning job is not part of skill synchronization.
 
 ## Controller installation
 
@@ -40,15 +39,17 @@ Installed code lives under `~/.hermes/volundr-nightly/code/`. Private `settings.
 
 `install_loki.py --apply` is an explicit live operation, not an import-time action. It requires the prepared settings and Hermes runtime, verifies the existing dream job, makes verified script/vault/state/job backups, and registers sync/review jobs. It refuses an existing deployment receipt unless the prior attempt rolled back. Do not reinstall over an active deployment merely to update code. Use the private deployment receipt to inspect existing installation state first.
 
-Review is an LLM job (`no_agent=false`) with `enabled_toolsets=[]`, no session attachment and no injected skill bodies. Sync is script-only (`no_agent=true`). Both use the private explicit `delivery_target`. The companion cannot resolve actual conflicts from counts; its output is a proposal, not an inspected patch. Repeated identical evidence suppresses review attempts, not proof of successful model output.
+Sync is script-only (`no_agent=true`). The evidence reviewer uses `enabled_toolsets: [file]` to inspect candidate bodies; its prompt forbids writes, execution and publication, but the toolset is not a technical read-only sandbox. Both use private explicit delivery routing. Read back the installed job definitions rather than restoring the historical zero-tool reviewer. Repeated identical evidence suppresses review attempts, not proof of successful model output.
 
 ## Safety boundaries
 
-Delivery uses existing authenticated Mac SSH access without credential export or host-key bypass. Loki's direct GitHub SSH remains unresolved. Bundles are checksum-, ref-, target- and age-checked; installed automation is separate from incoming skill content.
+Delivery defaults to the existing authenticated `gimle` SSH alias, Loki's production host. The retained `loki` alias can still address the retired phone; do not use it for production delivery. No credentials are exported and host-key checking remains enabled. Bundles are checksum-, ref-, target- and age-checked; installed automation is separate from incoming skill content.
 
 Local edits/commits divert to a private disposable clone and rebase candidate. Even clean local reconciliation remains review-required. No stash, reset, blanket ours/theirs, force-push, candidate activation or semantic publication. Raw conflict paths, bodies and exceptions do not enter companion context.
 
 Validation runs the library validator and Hermes loader in scratch profiles, checking canonical active names, ambiguity and archive exclusion. Failed postchecks attempt attached-branch rollback. Injected tree/CAS failures reconcile recognizable old/new bytes to actual HEAD; unknown concurrent edits stop recovery and retain receipts rather than overwrite work. This is not isolation from an uncooperative writer or comprehensive privacy clearance.
+
+To adopt a newly published Volundr release, update the clean config submodule and publish that gitlink separately. Delivery intentionally ignores an unpublished local pin. Before running the installed sync wrapper, compare the signed inbox target, config's published gitlink and live library HEAD. Never send an older pin to a newer dirty checkout or treat `last_status=ok` as convergence: verify `last-sync.json`, the actual library revision and a fresh Hermes skill loader. Pending live skill edits remain unpublished overlays, not permission to publish or overwrite them.
 
 Dream installation verifies script, `dreams/`, `.dream_state.json` and job backups before rewriting. The original proactive suggestion body remains under a private name; a wrapper adds an evidence pointer on every return path. The retired hardener consumer returns a report and zero applied/queued counts, matching its three-value caller. Existing suggestions do not authorize shared-skill edits. A real dream run mutates the vault: never use it as a smoke test.
 

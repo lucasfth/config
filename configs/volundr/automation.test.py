@@ -32,6 +32,19 @@ class AutomationTests(unittest.TestCase):
             self.assertEqual(controller.tick('.', '.', state, now, send)['status'], 'delivered')
             self.assertEqual(controller.tick('.', '.', state, now, send)['status'], 'not-due')
             self.assertEqual(send.call_count, 1)
+            send.assert_called_once_with('.', '.', 'gimle')
+
+    def test_delivery_cli_defaults_to_production_host(self):
+        source = ast.parse((HERE / 'deliver.py').read_text())
+        defaults = [
+            keyword.value.value
+            for call in ast.walk(source)
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+            and call.func.attr == 'add_argument' and call.args
+            and isinstance(call.args[0], ast.Constant) and call.args[0].value == '--host'
+            for keyword in call.keywords if keyword.arg == 'default'
+        ]
+        self.assertEqual(defaults, ['gimle'])
 
     def test_controller_install_is_reproducible_without_activation(self):
         with tempfile.TemporaryDirectory() as directory:

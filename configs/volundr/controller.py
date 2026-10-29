@@ -23,7 +23,7 @@ def tick(config, library, state, now=None, send=deliver.deliver):
         day = now.date().isoformat()
         if (now.hour, now.minute) < (2, 31) or last.get('day') == day:
             return {'status': 'not-due'}
-        result = send(config, library, 'loki')
+        result = send(config, library, 'gimle')
         result['day'] = day
         temporary = marker.with_suffix('.tmp')
         temporary.write_text(json.dumps(result) + '\n')

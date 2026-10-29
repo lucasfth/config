@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deliver config's published Volundr pin through the existing Loki SSH alias.
+"""Deliver config's published Volundr pin to Loki on Gimle.
 
 No remote credentials are exported. Local unpublished pins are never delivered.
 """
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--library', type=Path, required=True)
-    parser.add_argument('--host', default='loki')
+    parser.add_argument('--host', default='gimle')
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--inbox', type=Path, help='Local delivery destination for offline transport tests')
     args = parser.parse_args()
