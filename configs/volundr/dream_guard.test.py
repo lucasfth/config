@@ -62,7 +62,7 @@ class DreamGuardTests(unittest.TestCase):
             with patch.dict(sys.modules, {'nightly': consolidation, 'aar_learning': learning}), \
                     patch.object(module.subprocess, 'run', return_value=types.SimpleNamespace(returncode=0)), \
                     contextlib.redirect_stdout(output):
-                self.assertEqual(module.run_dream(settings, root/'unused.py'), 0)
+                self.assertEqual(module.run_dream(settings, root/'unused.py'), 1)
             self.assertNotIn('PRIVATE_', output.getvalue())
             self.assertIn('candidates', output.getvalue())
             self.assertIn('errors', output.getvalue())

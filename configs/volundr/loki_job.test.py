@@ -1,3 +1,4 @@
+# Tests exercise opt-in source integration, not installed scheduler changes.
 import contextlib
 import importlib.util
 import io
@@ -57,6 +58,36 @@ class CronEntryTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 loki_job.execute(settings, 'review')
             self.assertIn('wakeAgent', output.getvalue())
+
+    def test_aar_action_is_explicit_and_reports_only_counts(self):
+        import types
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings = root / 'settings.json'
+            settings.write_text(json.dumps({'path': os.environ['PATH'], 'aar_learning_config': str(root/'private-config')}))
+            result = {'processed': ['PRIVATE_ID'], 'errors': [{'source': 'PRIVATE_PATH'}], 'skipped': [{}]}
+            with patch.dict(sys.modules, {'aar_learning': types.SimpleNamespace(nightly=lambda _: result)}), contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(loki_job.execute(settings, 'aar'), 1)
+            self.assertNotIn('PRIVATE', output.getvalue())
+            self.assertEqual(json.loads(output.getvalue())['errors'], 1)
+            settings.write_text(json.dumps({'path': os.environ['PATH']}))
+            with self.assertRaisesRegex(ValueError, 'configured'):
+                loki_job.execute(settings, 'aar')
+
+    def test_learning_action_is_explicit_review_only_and_redacts_evidence(self):
+        import learning.cycle as cycle
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);settings=root/'settings.json'
+            settings.write_text(json.dumps({'path':os.environ['PATH']}))
+            with self.assertRaisesRegex(ValueError,'configured'):
+                loki_job.execute(settings,'learning')
+            config=root/'learning.json';config.write_text('{}')
+            settings.write_text(json.dumps({'path':os.environ['PATH'],'learning_cycle_config':str(config)}))
+            result={'receipt_sha256':'a'*64,'summary':{'state':'awaiting-evaluation-and-review','packets':1}}
+            with patch.object(cycle,'configured',return_value=result) as call, contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(loki_job.execute(settings,'learning'),0)
+            call.assert_called_once_with(config)
+            self.assertEqual(json.loads(output.getvalue()),result['summary'])
 
     def test_sync_failure_refreshes_evidence_and_records_only_error_type(self):
         with tempfile.TemporaryDirectory() as directory:

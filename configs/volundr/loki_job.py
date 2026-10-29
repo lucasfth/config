@@ -56,15 +56,32 @@ def execute(settings_path, action):
         else:
             print(evidence)
             nightly.save(marker, {'sha256': signature})
-    else:
+    elif action == 'aar':
+        if not settings.get('aar_learning_config'):
+            raise ValueError('AAR extraction must be explicitly configured')
+        import aar_learning
+        result = aar_learning.nightly(Path(settings['aar_learning_config']))
+        print(json.dumps({'candidates': len(result.get('processed', [])),
+            'errors': len(result.get('errors', [])), 'skipped': len(result.get('skipped', [])),
+            'guidance_applied': False, 'skills_changed': False}))
+        return 1 if result.get('errors') else 0
+    elif action == 'learning':
+        if not settings.get('learning_cycle_config'):
+            raise ValueError('Learning cycle must be explicitly configured')
+        from learning.cycle import configured
+        result = configured(Path(settings['learning_cycle_config']))
+        print(json.dumps(result['summary']))
+    elif action == 'dream':
         import dream_guard
         return dream_guard.run_dream(settings_path, settings['dream_script'])
+    else:
+        raise ValueError('Unknown Volundr action')
     return 0
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--settings', type=Path, required=True)
-    parser.add_argument('action', choices=['sync', 'review', 'dream'])
+    parser.add_argument('action', choices=['sync', 'review', 'dream', 'aar', 'learning'])
     args = parser.parse_args()
     raise SystemExit(execute(args.settings, args.action))

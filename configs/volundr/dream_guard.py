@@ -107,6 +107,7 @@ def run_dream(settings_path, script):
         # Only deterministic evidence generation precedes the already-scheduled dream.
         import nightly
         nightly.consolidation(settings)
+        learning_failed = False
         # Source-only opt-in; existing deployments have no config key and stay unchanged.
         if settings.get('aar_learning_config'):
             import aar_learning
@@ -115,10 +116,12 @@ def run_dream(settings_path, script):
             print('AAR learning: ' + json.dumps({
                 'candidates': len(result.get('processed', [])),
                 'errors': len(result.get('errors', [])),
-                'archive_eligible': len(result.get('archive_plan', {}).get('eligible', [])),
-                'archive_applied': bool(result.get('archive_result', {}).get('applied', False)),
+                'skipped': len(result.get('skipped', [])),
+                'skills_changed': False,
             }))
-        return subprocess.run([sys.executable, str(script)], check=False, env=os.environ).returncode
+            learning_failed = bool(result.get('errors'))
+        dream_status = subprocess.run([sys.executable, str(script)], check=False, env=os.environ).returncode
+        return dream_status or (1 if learning_failed else 0)
 
 
 if __name__ == '__main__':

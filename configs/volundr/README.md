@@ -114,127 +114,156 @@ Each activated sync retains revision/config backups under `state/rollback-*`. Un
 
 Publication of these sources does not provision another host, rotate credentials, resolve the Hermes source-updater mismatch, clear opaque Raycast exports, complete historical catalogue audits, or clear the separate Pi integration-context budget issue.
 
-## AAR learning — source implementation and activation
+## AAR-to-Volundr procedural learning
 
-`aar_learning.py` is the separate bounded distillation/review/archive entry point.
-On 2026-10-20 Lucas requested completion after host and lifecycle verification.
-Candidate generation is installed on Loki and connected to the existing dream
-wrapper through private `aar_learning_config`; archival is explicitly disabled.
-A bounded live run produced eight candidate/diff pairs. No candidate guidance was
-approved, no source AAR was archived, and the full dream was not run manually.
-The installed hashes/backups are recorded in private `aar-activation.json`.
-The existing cron definition, time, script target and delivery were preserved.
-The first unattended run of this connection remains unobserved.
-Do not run the full installer over the active deployment to pick up code changes.
+Implementation, tests and fixtures live in [`learning/`](learning/README.md).
+The root `aar_learning.py` is only an installed-wrapper compatibility adapter;
+deploy the whole package with it. `learning.cycle` connects fresh reviewed evidence
+to candidate packets and private content-addressed receipts without model calls,
+skill writes, publication or activation. The explicit `loki_job.py learning` action
+prints only count/status summaries and is not automatically scheduled.
 
-### Data flow and approval
+The source now routes reusable AAR findings toward reviewed skills, not Muninn
+startup supplements. Publication and activation are separate: existing installed
+wrappers may still run the legacy candidate/diff implementation until migrated.
+Do not run the full installer over an active deployment or restore retired jobs.
 
-- Nightly reads at most eight previously unprocessed AAR/correction notes per run.
-  Each source is limited to 24,000 characters, with no silent truncation. It reuses
-  only the local dream script's model-call function, not module setup or agent tools.
-  Only date-shaped session files are opened; sensitive salary/contract/payroll/people
-  paths and the non-session Klaus-perspective collection are excluded before reads.
-- Candidate Markdown and illustrative diffs go to `dreams/aar-learning/`. They are
-  evidence, never startup instructions. The external JSON ledger binds source and
-  proposal hashes and preserves explicit review decisions.
-  Nightly stdout reports counts only, never source paths or candidate text.
-- `review --decision approved` requires a Lucas approval reference and an explicit
-  `general` or exact `org/repo` scope. A model cannot supply approval fields.
-  Existing-coverage findings cannot be promoted as duplicate rules. `covered` and
-  `rejected` dispositions are also explicit review actions.
-- Approved supplements live at `tech/learning/general.md` and
-  `tech/learning/projects/<org>/<repo>.md`. Each is capped at 20 entries and 8,000
-  rendered UTF-16 units; approval refuses overflow before writing the note/ledger.
-- The existing Pi startup hook reads only these exact approved paths. It validates
-  approval/provenance fields, excludes candidates, and never loads candidate prose.
-  Retired generated correction tables are filtered from initial context without
-  deleting source text; explicit recall still returns the original documents.
+### Read-only evidence and external candidates
 
-### Archival
+`aar_learning.py nightly` makes at most eight model attempts: seven newest pending
+AARs and one oldest backlog item when more than eight are available. Sources are
+bounded at 24,000 characters, sensitive paths excluded, and changed-source results
+rejected. Classification skips are separate from actual parse/provider/I/O errors.
+Actual errors produce partial-failure output and a nonzero CLI exit status.
 
-`obligations --items <JSON array> --reference <review>` explicitly reconciles
-historical open-item candidates. Durable obligations are written to
-`tech/learning/open-items.md` before the ledger records the review. Neither the
-model nor archival marks obligations resolved.
+All generated candidates now live under the private external state's `candidates/`
+directory. The schema-1 proposal ledger remains compatible; historical dispositions
+are retained, not reinterpreted as authorization. No candidate, diff, startup rule
+or obligation note is written into Muninn. Legacy guidance-review and filesystem
+archive commands are removed. `archive_enabled: true` fails closed; preservation
+and active-vault cleanup use reviewed Muninn MCP writes/archives only.
 
-`plan-archive` is read-only. A source is eligible only after 30 days, unchanged
-source bytes, dispositions for every valid lesson index, explicit obligation review,
-and an unchanged durable obligations note. `archive --apply` moves it to
-`projects/_archive/<org>/<repo>/<branch>/<file>.md` using an independent verified
-copy and journal states `copying → copied → archived`, rechecking source bytes
-immediately before unlink. Source edits cannot mutate the archived copy.
-An interrupted `copying` entry may publish/reuse only its hash-matching copy;
-missing-source recovery requires a `copied` (or legacy `linked`) journal entry
-and matching archive SHA-256. Unrelated destination collisions are never overwritten.
-Copy creation uses exclusive-create (`xb`) and fsync, supported by Termux Python;
-no hard links or shared source/destination filesystem are required. A crash during
-a partial copy leaves the source intact and blocks recovery until manually reviewed.
-Original paths remain in provenance; Pi recall tries the deterministic archive path
-if the original cannot be read, and startup excludes archived session-index entries.
+### Reviewed pattern routing
 
-Nightly always returns an archive plan. Actual automatic archival additionally
-requires `archive_enabled: true` in the private config; default/missing is off.
-Do not enable it until a live dry-run and its candidate dispositions are reviewed.
+`learning.patterns` takes a reviewed findings JSON array plus the vault, external
+state and canonical skills checkout. Findings contain `record_id`, `lesson_index`,
+an exact source `quote`, reviewed `incident`, `pattern`, `workflow`, `system`,
+`diagnosis`, existing `target`, exact `coverage_quote` and review `reference`.
+These are review inputs, not proof that an operator approved them. Do not let an
+unattended model invent trusted incident identities or review references.
 
-### Private configuration and commands
+Identical source bytes and shared incident IDs merge transitively. Two independent
+incidents make a pattern review-ready; one stays on watch. Existing-coverage
+findings cannot be labeled a missing procedure. Diagnoses route to skill content,
+discovery, enforcement, code review, history or hold. New skills and urgent single
+incidents need separate explicit review rather than an invented recurrence count.
+Fresh source and target hashes bind the report; changed evidence requires retriage.
 
-Create private config only during an approved activation; the following is a
-template, not a deployed file. Use absolute host paths, external private state,
-and the existing installed dream script; no credentials or delivery targets belong
-in this config. An optional `provider_env` absolute path loads only allowlisted
-Mimer/DeepSeek variables from KEY=VALUE lines; it never evaluates shell commands.
-Existing process environment values take precedence. No credential values are logged.
+`learning.review` prepares a diff from a qualified group and a candidate file.
+It writes no target, grants no approval and rejects stale targets, no-ops, changed
+frontmatter and unsafe targets. V1 handles existing-skill body patches only; trigger
+metadata and new-skill changes remain explicit manual reviews. Hashes provide
+integrity, not semantic safety. This helper is not a sandbox.
 
-```json
-{
-  "enabled": false,
-  "archive_enabled": false,
-  "vault": "/absolute/private/vault",
-  "state": "/absolute/private/aar-state",
-  "dream_script": "/absolute/private/dream_obsidian.py",
-  "provider_env": "/absolute/private/provider.env"
-}
-```
+### Evaluations and delivery
+
+`learning.evaluate` compares captured baseline/candidate artifacts for both Hugi
+and Loki. Public development cases cover downstream job failure, intentional
+silence, unrelated requests and staged/published/loaded/behavior-proven distinctions.
+The comparator checks completeness, exact skill/artifact hashes and measured usage.
+Synthetic runs remain fixture-only; native labels still require independent trace
+and loader review. It never turns supplied claims into publication authorization.
+
+Native exploratory runners are `configs/pi/evaluate-aar-skill.mjs` and
+`learning/evaluate_hermes.py`. Both use scratch profiles, zero agent tools and
+transport budgets of at most sixteen requests per harness. The corrected Hermes
+gate blocks repeated attempts for one case even if native outer retries fire.
+They preload the selected skill equally: content behavior only, not autonomous
+discovery, production-profile parity or live adoption. Model/provider identity
+must remain constant within each comparison. The Hermes runner uses the installed
+native dependency closure and reads only the configured inference credential; it
+does not copy plugins, MCP, memory or live configuration into the scratch profile.
+Credentials stay in the transport gate and never in model prompts/artifacts.
+
+The first authorized 32-request run is not a qualifying benchmark: Pi produced
+answers but the original prompt omitted exact output keys, invalidating strict
+schema scores; all sixteen Hermes calls failed the provider's unsupported
+reasoning-off setting. Its error envelope was mistakenly accepted as a nonempty
+answer. The second authorized batch completed sixteen Pi requests against the
+metadata-preserving payload; both variants passed the five boolean/numeric cases.
+String-valued outcomes remained too underspecified for exact scoring (5/8 each
+is schema agreement, not task accuracy or uplift). Hermes made nine requests on
+the first case before failing: the gate had incorrectly converted streaming SSE
+into JSON and native outer retries bypassed the SDK retry setting. No answer or
+completed Loki capture resulted. Across both batches 57 provider requests were
+made, within 64 explicitly authorized; unused allowance is not silently reused.
+
+The local runner now preserves native SSE, hard-blocks same-case retries at the
+transport boundary and rejects failed result envelopes. Two loopback tests prove
+the corrected streaming and retry boundaries without model calls. Explicit allowed
+string values are now in the development contract. A fresh budget is needed for
+another behavioral run; the contract must not expose expected answers.
+Neither batch qualifies the candidate or establishes cross-agent improvement.
+
+Real native behavior remains an acceptance gate. Do not run arbitrary commands
+from evidence or expose live tools to the patch writer. Agree a bounded model
+budget, preserve acceptance cases outside the writer, and inspect actual traces
+rather than trusting structured claims.
+
+After review, use the existing Volundr maintenance-record, manifest and secret gates;
+publish/pin/deliver only with current authorization. Verify exact installed revisions
+and fresh loaders separately on Hugi and Loki. No framework, publication bypass,
+new schedule, automatic SOUL.md edit or unrestricted self-modification is added.
+
+### Fresh Hugi sessions and Muninn retirement
+
+The Pi Muninn hook retains mandatory identity, safety, coding and project guidance
+and the bounded prior-session index. It no longer fetches `tech/learning/general.md`
+or project supplements. It adds a short skills-first pointer; native installed
+skills remain the procedure consumer. Historical notes are still explicitly
+recallable, and archived session paths retain the old recall fallback.
+
+Do not bulk-delete AARs or `dreams/` evidence. Inventory any actual supplement files
+and active producers, preserve unique facts, repair inbound links/indexes, and use
+MCP archival/readback only after the replacement is ready. No absent file needs
+a fake tombstone. Source-only tests are not permission to remove still-used notes.
+
+### Commands and checks
+
+Private nightly configuration retains absolute `vault`, external `state`, existing
+`dream_script`, optional allowlisted `provider_env`, `enabled`, and
+`archive_enabled: false`. It contains no credential values or delivery targets.
 
 ```sh
-python3 configs/volundr/aar_learning.py nightly --config /private/aar-config.json
-python3 configs/volundr/aar_learning.py plan-archive --config /private/aar-config.json
-# Only after the specific proposal/obligations have been explicitly reviewed:
-python3 configs/volundr/aar_learning.py review --config /private/aar-config.json \
-  --id PROPOSAL_SHA256 --index 0 --decision approved --scope org/repo \
-  --reference 'Lucas approval reference' --apply
-python3 configs/volundr/aar_learning.py obligations --config /private/aar-config.json \
-  --id PROPOSAL_SHA256 --items /private/reconciled-items.json \
-  --reference 'Lucas reconciliation reference' --apply
+cd configs/volundr
+python3 -m learning extract --config /private/aar-config.json
+python3 -m learning triage --vault /private/vault --state /private/aar-state \
+  --skills /private/volundr --findings /private/reviewed-findings.json
+python3 -m learning review --skills /private/volundr \
+  --group /private/fresh-group.json --candidate /private/candidate.md
+python3 -m learning evaluate --root /private/captures \
+  --suite learning/fixtures/pilots.json \
+  --packet /private/packet.json --traces /private/traces.json
 ```
 
-Activation is a separate operation: back up/hash the existing private runtime,
-copy only reviewed learning/wrapper sources, configure the opt-in, then exercise
-one bounded distillation without the full dream. Real guidance approval and real
-archival are separate from that candidate-generation run. Do not restart gateways,
-reinstall Volundr, or change cron/delivery targets as part of this source update.
-
-Rollback: remove the private `aar_learning_config` setting or set `enabled` false
-to stop new processing; preserve the ledger, generated notes and archive evidence.
-Approved guidance remains until explicitly withdrawn/curated. Restore an archived
-source only after checking source absence, archive bytes and ledger state. Never
-restore a pre-disable dream script as a shortcut: that can re-enable the old writer.
-The requested writer-preserving rollback policy is not yet enforced by tooling.
-
-Local verification (no real vault, provider, cron or archival):
+Local verification (no live vault/model/job changes):
 
 ```sh
-python3 configs/volundr/aar_learning.test.py -v
-python3 configs/volundr/dream_guard.test.py -v
-cd configs/pi
+cd configs/volundr
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s learning/tests -v
+for test in learning-layout dream_guard nightly automation loki_job; do
+  PYTHONDONTWRITEBYTECODE=1 python3 $test.test.py -v || exit
+done
+cd ../pi
 node --import tsx --test extensions/muninn.test.ts extensions/muninn-learning.test.ts
 npm run typecheck
 node integration-learning.mjs
 ```
 
-The SDK integration uses the actual startup hook and MCP client with a fixture
-server and synthetic provider. It proves two fresh-session context fetches, not
-live Loki scheduling, actual Muninn approvals, or improved agent behavior.
+The native SDK integration captures two fresh sessions and four fixture-provider
+requests through the actual hook, MCP client and installed skill catalogue. It
+proves context delivery and absence of legacy supplement reads—not model compliance,
+Loki adoption, unattended scheduling or a behaviorally improved skill.
 
 ## Credential containment and secret gates
 

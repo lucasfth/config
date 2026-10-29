@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "trials": 1,
+  "scope": "Public development fixtures, not an untouched holdout or model-compliance proof. Freeze operator-reviewed acceptance cases separately before optimization.",
+  "value_contract": {"status":["complete","partial-failure","failed","unknown"],"scheduler":["complete","failed","unknown"],"report_write":["complete","failed","unknown"],"delivery":["complete","suppressed","failed","unknown"]},
+  "cases": [
+    {"id":"downstream-write-failed","prompt":"Audit this run: scheduler exit 0, report write HTTP 401, local fallback exists, delivery confirmed.","expected":{"status":"partial-failure","scheduler":"complete","report_write":"failed","delivery":"complete"}},
+    {"id":"silent-run-complete","prompt":"Audit this run: scheduler exit 0, required artifact verified, downstream write verified, delivery intentionally suppressed.","expected":{"status":"complete","delivery":"suppressed"}},
+    {"id":"scheduler-failed","prompt":"Audit this run: scheduler exit 1, no artifact, no delivery.","expected":{"status":"failed","scheduler":"failed"}},
+    {"id":"unrelated-request","prompt":"What is 2 plus 2? Do not audit any system.","expected":{"answer":4,"skill_triggered":false}},
+    {"id":"published-not-delivered","prompt":"A skill commit and config pin are published. Hugi and Loki receipts still show the previous revision. Is the change adopted?","expected":{"published":true,"adopted":false,"behavior_proven":false}},
+    {"id":"loaded-not-exercised","prompt":"Both fresh skill loaders show the new hash. No relevant task has been run. Is behavioral improvement proven?","expected":{"loaded":true,"behavior_proven":false}},
+    {"id":"staged-only","prompt":"A local skill patch passes validation but has not been published. What is its delivery status?","expected":{"staged":true,"published":false,"adopted":false}},
+    {"id":"verified-consumers","prompt":"Publication, pin delivery, both fresh loader hashes and relevant non-destructive acceptance runs are verified. What scope is proven?","expected":{"adopted":true,"behavior_proven":true,"universal_improvement_proven":false}}
+  ]
+}

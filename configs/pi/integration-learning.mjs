@@ -1,24 +1,15 @@
-// Fresh native SDK sessions, actual Muninn hook/MCP client, synthetic model only.
+// Actual startup hook, installed skill loader and MCP transport; fixture provider.
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { createAgentSession, SessionManager, DefaultResourceLoader, SettingsManager } from '@earendil-works/pi-coding-agent';
 import { prepareRuntime, repoDir } from './runtime.mjs';
 
 const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-learning-proof-'));
 const requests = [], reads = [];
-const approved = 'APPROVED_STARTUP_FIXTURE_LESSON';
-const candidate = 'UNAPPROVED_STARTUP_FIXTURE_CANDIDATE';
-const payload = entries => '---\ntype: agent-config\n---\n# Fixture\n\n```json\n' + JSON.stringify({ schema: 1, scope: 'general', entries }) + '\n```';
-const lifecycle = JSON.parse(execFileSync('python3', [fileURLToPath(new URL('../volundr/aar_learning.test.py', import.meta.url)), '--lifecycle-fixture'], { encoding: 'utf8' }));
-const approvedNote = lifecycle.note;
-assert.ok(lifecycle.obligations.includes('Retained fixture obligation.'));
-assert.ok(lifecycle.candidate.includes(candidate));
-let activeNote = approvedNote;
+const previous = { ...process.env };
 const server = http.createServer(async (req, res) => {
   try {
     let raw = '';
@@ -32,16 +23,7 @@ const server = http.createServer(async (req, res) => {
         let value;
         if (name === 'vault_read') {
           reads.push(args.filename);
-          if (args.filename === 'tech/learning/general.md') value = { content: activeNote };
-          else if (args.filename === lifecycle.source) {
-            result = { isError: true, content: [{ type: 'text', text: 'not found' }] };
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
-            return;
-          }
-          else if (args.filename === lifecycle.archived) value = { content: lifecycle.evidence };
-          else if (args.filename.startsWith('tech/learning/')) value = { content: '' };
-          else value = { content: 'Required fixture guidance' };
+          value = { content: args.filename.startsWith('tech/learning/') ? 'OBSOLETE_STARTUP_LESSON' : 'Required fixture guidance' };
         } else if (name === 'vault_list') value = { files: [] };
         else throw new Error('Unexpected fixture MCP operation');
         result = { content: [{ type: 'text', text: JSON.stringify(value) }] };
@@ -52,7 +34,7 @@ const server = http.createServer(async (req, res) => {
     }
     requests.push(body);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-    for (const [delta, finish] of [[{ role: 'assistant', content: 'LEARNING_INSPECTED' }, null], [{}, 'stop']]) {
+    for (const [delta, finish] of [[{ role: 'assistant', content: 'CONTEXT_CAPTURED' }, null], [{}, 'stop']]) {
       res.write(`data: ${JSON.stringify({ id: 'learning-proof', object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
     }
     res.end('data: [DONE]\n\n');
@@ -63,9 +45,8 @@ let session;
 try {
   process.env.PI_CODING_AGENT_DIR = dir;
   process.env.NEO_PROXY_API_KEY = 'synthetic';
+  process.env.MUNINN_MCP_TOKEN = 'synthetic-muninn';
   const endpoint = `http://127.0.0.1:${server.address().port}`;
-  assert.ok(dir.startsWith(os.tmpdir()));
-  assert.ok(endpoint.startsWith('http://127.0.0.1:'));
   await prepareRuntime({ agentDir: dir, env: { ...process.env, NEO_PROXY_URL: endpoint + '/v1' }, ompDir: path.join(dir, 'absent') });
   const settings = JSON.parse(await readFile(path.join(dir, 'settings.json'), 'utf8'));
   settings.extensions = settings.extensions.filter(filename => filename.endsWith('/muninn.ts'));
@@ -73,10 +54,9 @@ try {
   settings.packages = [];
   await writeFile(path.join(dir, 'settings.json'), JSON.stringify(settings));
   await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { muninn: { url: endpoint + '/mcp' } } }));
-  for (const note of [approvedNote, payload([{ status: 'candidate', text: candidate }])]) {
-    activeNote = note;
+  for (let run = 0; run < 2; run++) {
     const settingsManager = SettingsManager.create(repoDir, dir, { projectTrusted: true });
-    const resourceLoader = new DefaultResourceLoader({ cwd: repoDir, agentDir: dir, settingsManager, noSkills: true, noPromptTemplates: true });
+    const resourceLoader = new DefaultResourceLoader({ cwd: repoDir, agentDir: dir, settingsManager, noPromptTemplates: true });
     await resourceLoader.reload();
     const made = await createAgentSession({ cwd: repoDir, agentDir: dir, sessionManager: SessionManager.inMemory(), settingsManager, resourceLoader });
     session = made.session;
@@ -84,27 +64,32 @@ try {
     await session.bindExtensions({ mode: 'print' });
     await session.prompt('Respond briefly without tools.');
     const captured = JSON.stringify(requests.at(-1).messages);
-    assert.equal(captured.includes(approved), note === approvedNote);
-    assert.ok(!captured.includes(candidate));
+    assert.ok(captured.includes('Volundr procedural learning'));
+    assert.ok(captured.includes('verification-before-completion'));
     assert.ok(captured.includes('Required fixture guidance'));
-    // A second prompt in the same session must not repeat vault reads/injection.
+    assert.ok(!captured.includes('OBSOLETE_STARTUP_LESSON'));
+    const receipt = session.sessionManager.getEntries().find(entry => entry.type === 'custom' && entry.customType === 'skill-learning-startup');
+    assert.ok(receipt, 'durable startup learning receipt missing');
+    assert.equal(receipt.data.behaviorProven, false);
+    assert.equal(receipt.data.installed.length, 4);
+    assert.equal(receipt.data.missing.length, 0);
+    const audit = receipt.data.installed.find(item => item.name === 'improvement-loop-audit');
+    assert.ok(audit?.sha256?.length === 64);
     const count = reads.length;
     await session.prompt('Again, briefly.');
     assert.equal(reads.length, count);
-    if (note === approvedNote) {
-      const tool = session.getToolDefinition('memory_recall');
-      assert.ok(tool);
-      const recalled = await tool.execute('fixture-recall', { paths: [lifecycle.source] }, new AbortController().signal);
-      assert.ok(JSON.stringify(recalled).includes('ORIGINAL_LIFECYCLE_EVIDENCE'));
-    }
     session.dispose(); session = undefined;
   }
-  assert.ok(!reads.some(filename => filename.startsWith('dreams/')));
+  assert.ok(!reads.some(filename => filename.startsWith('tech/learning/') || filename.startsWith('dreams/')));
   assert.equal(requests.length, 4);
-  console.log(JSON.stringify({ freshSessions: 2, providerRequests: requests.length, approvedLessonInFirstSession: true, candidateAbsentBothSessions: true, oncePerSession: true, scratchLifecycle: 'distil → review → obligations → archive → startup → archived recall', scope: 'Actual before_agent_start hook and MCP transport; fixture model/vault only. No live guidance or cron.' }, null, 2));
+  console.log(JSON.stringify({ freshSessions: 2, providerRequests: 4, requiredGuidancePreserved: true,
+    installedSkillCataloguePresent: true, obsoleteSupplementReads: 0, oncePerSession: true,
+    scope: 'Actual startup hook, native resource loader and fixture MCP/provider; proves context delivery, not model compliance or live deployment.' }, null, 2));
 } finally {
   session?.dispose();
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
   await rm(dir, { recursive: true, force: true, maxRetries: 3 });
+  for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key];
+  Object.assign(process.env, previous);
 }
