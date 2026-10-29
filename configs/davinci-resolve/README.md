@@ -137,6 +137,17 @@ instances on this 18 GB Mac; each effect instance owns a model worker. Native
 installer verifies identifier/signature, refuses unmanaged changes, stages with
 rollback and retains `.corridorkey2-backup.*` without automatic expiry.
 
+### Dependency lock regeneration
+
+From the repository root on Apple Silicon macOS with `uv` installed, regenerate
+the fully hash-pinned lock after editing `requirements.in`:
+
+```sh
+uv pip compile configs/davinci-resolve/requirements.in --generate-hashes --output-file configs/davinci-resolve/requirements.txt
+```
+
+The setup helper installs this lock with `uv pip sync --require-hashes` into its private Python 3.12.11 runtime.
+
 ## Activation and old-menu migration
 
 Routine activation defers video installer steps while Resolve is running. It

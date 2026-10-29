@@ -152,3 +152,23 @@ func TestEmptyAllowlistRejected(t *testing.T) {
 		t.Fatal("empty allowlist accepted")
 	}
 }
+
+func TestServerSecurityConfiguration(t *testing.T) {
+	host, allowed := testSigner(t), testSigner(t)
+	server, err := newServer("127.0.0.1:0", host, []ssh.PublicKey{allowed.PublicKey()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.IdleTimeout != 15*time.Minute || server.MaxTimeout != time.Hour {
+		t.Fatal("session deadlines changed")
+	}
+	if len(server.HostSigners) != 1 || !bytes.Equal(server.HostSigners[0].PublicKey().Marshal(), host.PublicKey().Marshal()) {
+		t.Fatal("supplied host key not retained")
+	}
+	if server.PublicKeyHandler == nil || server.PasswordHandler != nil || server.KeyboardInteractiveHandler != nil {
+		t.Fatal("authentication must remain public-key only")
+	}
+	if len(server.ChannelHandlers) != 1 || server.ChannelHandlers["session"] == nil || len(server.RequestHandlers) != 0 || len(server.SubsystemHandlers) != 0 {
+		t.Fatal("only restricted session channels may be installed")
+	}
+}

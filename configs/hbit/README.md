@@ -4,7 +4,9 @@ Source for an event-driven SSH welcome menu on Gimle. **No website or public
 SSH ingress yet.** No timer-driven animation, shell, command execution, SFTP,
 forwarding, passwords or anonymous login. Only username `hbit` and allowlisted raw
 public keys are accepted. Idle connections expire after 15 minutes; all sessions
-after one hour. Uses Go 1.27+, Wish 1.4.7 and Wish's pinned Charm SSH dependency.
+after one hour. Source uses Go 1.27+, Charm SSH and `golang.org/x/crypto` v0.52.0;
+the unnecessary Wish wrapper and its dependency tree have been removed.
+These source changes do not update the existing container described below.
 An explicit session-request filter rejects agent-forwarding requests that the
 upstream session layer otherwise acknowledges.
 

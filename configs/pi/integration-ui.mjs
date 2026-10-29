@@ -16,7 +16,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 // key is synthetic and its only configured endpoint is the loopback server.
 const env = Object.fromEntries(['PATH','HOME','USER','SHELL','TMPDIR','LANG'].filter(key => process.env[key]).map(key => [key, process.env[key]]));
 Object.assign(env, { PI_CODING_AGENT_DIR: root, NEO_PROXY_API_KEY: 'synthetic-ui-only', PI_OFFLINE: '1', PI_TELEMETRY: '0', PI_ALLOW_BROWSER_COOKIES: '0', FEYNMAN_ALLOW_BROWSER_COOKIES: '0', TERM: 'xterm-256color', TERM_PROGRAM: 'ghostty' });
-const shellCommand = `export NEO_PROXY_URL=${JSON.stringify(`http://127.0.0.1:${server.address().port}/v1`)}; export NEO_PROXY_API_KEY=synthetic-ui-only; export HUGINN_OMP_AGENT_DIR=${JSON.stringify(path.join(root, 'absent'))}; pi --offline --no-mcp --no-session --no-context-files --no-skills --tui-mode regular`;
+const shellCommand = `export HUGINN_PI_SOURCE=${JSON.stringify(sourceDir)}; export NEO_PROXY_URL=${JSON.stringify(`http://127.0.0.1:${server.address().port}/v1`)}; export NEO_PROXY_API_KEY=synthetic-ui-only; export HUGINN_OMP_AGENT_DIR=${JSON.stringify(path.join(root, 'absent'))}; pi --offline --no-mcp --no-session --no-context-files --no-skills --tui-mode regular`;
 let child, pty;
 let raw = '';
 const terminal = new headless.Terminal({ cols: 110, rows: 40, allowProposedApi: true });

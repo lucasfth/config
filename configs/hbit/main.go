@@ -15,7 +15,6 @@ import (
 	"time"
 
 	charmssh "github.com/charmbracelet/ssh"
-	"github.com/charmbracelet/wish"
 	ssh "golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
@@ -24,10 +23,10 @@ func newServer(address string, host ssh.Signer, allowed []ssh.PublicKey) (*charm
 	if host == nil || len(allowed) == 0 {
 		return nil, errors.New("host key and nonempty public-key allowlist required")
 	}
-	server, err := wish.NewServer(
-		wish.WithAddress(address),
-		func(s *charmssh.Server) error { s.AddHostKey(host); return nil },
-		wish.WithPublicKeyAuth(func(ctx charmssh.Context, key charmssh.PublicKey) bool {
+	server := &charmssh.Server{
+		Addr:        address,
+		HostSigners: []charmssh.Signer{host},
+		PublicKeyHandler: func(ctx charmssh.Context, key charmssh.PublicKey) bool {
 			if ctx.User() != "hbit" {
 				return false
 			}
@@ -37,12 +36,9 @@ func newServer(address string, host ssh.Signer, allowed []ssh.PublicKey) (*charm
 				}
 			}
 			return false
-		}),
-		wish.WithIdleTimeout(15*time.Minute),
-		wish.WithMaxTimeout(time.Hour),
-	)
-	if err != nil {
-		return nil, err
+		},
+		IdleTimeout: 15 * time.Minute,
+		MaxTimeout:  time.Hour,
 	}
 	server.Handler = menu
 	server.SessionRequestCallback = func(s charmssh.Session, request string) bool {
@@ -55,8 +51,8 @@ func newServer(address string, host ssh.Signer, allowed []ssh.PublicKey) (*charm
 	return server, nil
 }
 
-// Wish's session layer acknowledges agent requests by default. Filter them before
-// they reach that layer; do not install any agent or forwarding handlers.
+// Filter agent requests before they reach Charm SSH's session layer, which otherwise
+// acknowledges them; forwarding and agent handlers stay disabled.
 type filteredChannel struct {
 	ssh.NewChannel
 	ctx context.Context
@@ -115,8 +111,12 @@ func menu(session charmssh.Session) {
 			return
 		}
 		message, quit := menuCommand(line)
-		if _, err := fmt.Fprint(terminal, message+"\r\n"); err != nil { return }
-		if quit { return }
+		if _, err := fmt.Fprint(terminal, message+"\r\n"); err != nil {
+			return
+		}
+		if quit {
+			return
+		}
 	}
 }
 

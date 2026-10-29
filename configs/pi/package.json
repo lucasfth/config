@@ -36,6 +36,8 @@
     "yaml": "2.9.0"
   },
   "overrides": {
+    "re2js": "2.8.7",
+    "undici": "8.12.2",
     "pi-omplike-advisor": {
       "@earendil-works/pi-coding-agent": "$@earendil-works/pi-coding-agent"
     },
