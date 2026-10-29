@@ -29,15 +29,20 @@ export async function getWorkingDirectoryLabel(cwd: string): Promise<string> {
   }
 }
 
-export function fitBoxBorder(left: string, right: string, width: number) {
+export function fitBoxBorder(left: string, right: string, width: number, [open, close] = ['╭', '╮']) {
   if (width <= 0) return '';
-  if (width === 1) return '╭';
-  if (width < 5) return `╭${'─'.repeat(width - 2)}╮`;
+  if (width === 1) return open;
+  if (width < 5) return `${open}${'─'.repeat(width - 2)}${close}`;
   const available = width - 4;
   const leftBudget = Math.min(visibleWidth(left), Math.floor(available / 2));
   const rightText = truncateToWidth(right, available - leftBudget, '…');
   const leftText = truncateToWidth(left, Math.max(0, available - visibleWidth(rightText)), '…');
-  return `╭ ${leftText}${'─'.repeat(Math.max(0, available - visibleWidth(leftText) - visibleWidth(rightText)))}${rightText} ╮`;
+  return `${open} ${leftText}${'─'.repeat(Math.max(0, available - visibleWidth(leftText) - visibleWidth(rightText)))}${rightText} ${close}`;
+}
+
+/** Prefixes a user message with a session-coloured dot without breaking leading Markdown blocks. */
+export function markUserMessage(markdown: string, dot: string) {
+  return /^(\s|#|>|[-*+|]|\d+[.)]|```|~~~)/.test(markdown) ? `${dot}\n\n${markdown}` : `${dot} ${markdown}`;
 }
 
 export type ComposerActivity = 'idle' | 'model' | 'tool' | 'waiting' | 'retry' | 'compaction' | 'error';
@@ -148,6 +153,12 @@ export default function presentationExtension(pi: ExtensionAPI) {
   pi.on('session_info_changed', () => render?.());
   pi.on('message_end', () => render?.());
   pi.on('session_shutdown', () => { stopDemo(); active = undefined; render = undefined; tools.clear(); promptDepth = 0; activity = 'idle'; });
+  pi.registerMarkdownTransformer((markdown, context) => {
+    if (context.messageType !== 'user' || !active) return markdown;
+    const theme = active.ui.theme;
+    const { base } = composerColors(active.sessionManager.getSessionId(), theme.appearance, 'idle');
+    return markUserMessage(markdown, theme.style('●', { fg: base }));
+  });
   pi.on('session_start', async (_event, ctx) => {
     stopDemo();
     if (ctx.mode !== 'tui') return;
@@ -219,6 +230,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
     });
     class ProfileEditor extends CustomEditor {
       private identityColumns = 0;
+      private titleColumns = 0;
       override setWorkingStatusIndicator(indicator: Parameters<CustomEditor['setWorkingStatusIndicator']>[0]) {
         super.setWorkingStatusIndicator(indicator);
         profileStatus = indicator;
@@ -232,11 +244,18 @@ export default function presentationExtension(pi: ExtensionAPI) {
         pi.events.emit('huginn:image-attachment', path);
       }
       protected override renderTopBorder(width: number, hiddenLines: number) {
+        if (width < 5) return fitBoxBorder('', '', width);
+        const title = pi.getSessionName()?.trim().toLocaleUpperCase();
+        const right = truncateToWidth(hiddenLines ? ` ↑${hiddenLines} ─` : '', width - 3, '');
+        const left = truncateToWidth(title ? `─ ${title} ` : '', width - 2 - visibleWidth(right), '… ');
+        this.titleColumns = visibleWidth(left);
+        return `╭${left}${'─'.repeat(Math.max(0, width - 2 - visibleWidth(left) - visibleWidth(right)))}${right}╮`;
+      }
+      protected override renderBottomBorder(width: number, hiddenLines: number) {
         const usage = active?.getContextUsage();
         const model = active?.model?.name || active?.model?.id || 'no model';
         const percent = usage?.percent == null ? '0%' : `${Math.round(usage.percent)}%`;
-        const title = pi.getSessionName();
-        const details = `${percent} · ${pi.getThinkingLevel()}${title ? ` · ${title}` : ''}${hiddenLines ? ` · ↑${hiddenLines}` : ''}`;
+        const details = `${percent} ctx · ${pi.getThinkingLevel()}${hiddenLines ? ` · ↓${hiddenLines}` : ''}`;
         const status = profileStatus
           ? profileStatus.kind === 'working'
             // The host colours this with the thinking level; the composer owns its visible colour.
@@ -245,14 +264,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
           : '◉';
         const label = ` ${status} ${model}  ›  ${location}${branch ? `  ⎇ ${branch}` : ''} `;
         this.identityColumns = Math.max(0, Math.min(width - 2, visibleWidth(`   ${status} ${model}`)));
-        return fitBoxBorder(label, ` ${details} `, width);
-      }
-      protected override renderBottomBorder(width: number, hiddenLines: number) {
-        if (width <= 0) return '';
-        if (width === 1) return '╰';
-        const label = hiddenLines ? ` ↓${hiddenLines} ` : '';
-        const text = truncateToWidth(label, Math.max(0, width - 2), '');
-        return `╰${'─'.repeat(Math.max(0, width - 2 - visibleWidth(text)))}${text}╯`;
+        return fitBoxBorder(label, ` ${details} `, width, ['╰', '╯']);
       }
       override render(width: number) {
         const lines = super.render(width);
@@ -267,7 +279,8 @@ export default function presentationExtension(pi: ExtensionAPI) {
           const across = Math.max(0, column - this.identityColumns) / Math.max(1, width - 1 - this.identityColumns);
           const amount = state === 'idle' ? 0 : (across + row / Math.max(1, bottom)) / 2;
           const color = amount === 0 ? base : amount === 1 ? target : mixColors(base, target, amount, 'srgb');
-          return theme.style(text, { fg: color });
+          // Only the session title is bold; the corner, dashes and scroll marker stay plain.
+          return theme.style(text, { fg: color, bold: row === 0 && column > 1 && column <= this.titleColumns && text !== ' ' });
         };
         for (let row = 0; row <= bottom; row++) {
           if (row === 0 || row === bottom) {

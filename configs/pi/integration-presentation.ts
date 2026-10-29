@@ -31,7 +31,7 @@ try {
  const title = topicTitle('Fix battery dispatch savings, recipient phone and Firebase-backed report images')!;
  const callbacks=new Map();let factory;let footer;
  // Focused renderer smoke supplies only the APIs consumed by presentation.
- presentation({registerToolRenderer(){},on:(name: string,callback: unknown)=>callbacks.set(name,callback),getThinkingLevel:()=> 'high',getSessionName:()=> title} as unknown as ExtensionAPI);
+ presentation({registerToolRenderer(){},registerMarkdownTransformer(){},on:(name: string,callback: unknown)=>callbacks.set(name,callback),getThinkingLevel:()=> 'high',getSessionName:()=> title} as unknown as ExtensionAPI);
  const {theme}=await import('./node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js');
  const terminal={columns:110,rows:42,start(){},stop(){},write(){},hideCursor(){},showCursor(){},clearLine(){},clearFromCursor(){},moveBy(){},setTitle(){}};
  const tui=new TuiMainScreen(terminal as unknown as Terminal);
@@ -40,8 +40,10 @@ try {
  const keys={matches:()=>false};const editor=factory(tui,{},keys);editor.setText('Please inspect the configuration');
  const editorRows=editor.render(110).map(stripTerminalSequences);assert.ok(editorRows.some(line=>line.includes('GPT-6.1 Sol')&&line.includes('ecoray-web (wt:3002)')));assert.deepEqual(footer.render(110),[]);
  const wideRows = editor.render(200).map(stripTerminalSequences);
- assert.ok(wideRows[0].includes(title), 'Long session title survives the real composer renderer');
- assert.ok(!wideRows[0].includes(dir), 'Worktree path is replaced by repo identity');
+ assert.ok(wideRows[0].includes(title.toLocaleUpperCase()), 'Long session title survives the real composer renderer');
+ const details = wideRows.find(line => line.startsWith('╰'))!;
+ assert.ok(details.includes('GPT-6.1 Sol') && details.includes('ecoray-web (wt:3002)') && details.includes('18% ctx · high'), 'Details live on the bottom edge');
+ assert.ok(!wideRows.join('\n').includes(dir), 'Worktree path is replaced by repo identity');
  assert.ok(wideRows.every(line => visibleWidth(line) <= 200));
  console.log(wideRows.join('\n'));
  let resolver;installToolFrames({registerToolRenderer(fn: unknown){resolver=fn}} as unknown as ExtensionAPI);

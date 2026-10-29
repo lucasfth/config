@@ -11,7 +11,7 @@ import { colorToHex, colorToRgb, mixColors, stripTerminalSequences, visibleWidth
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { WorkingStatusIndicator, RetryStatusIndicator, CompactionStatusIndicator } from '../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/status-indicator.js';
 import { theme } from '../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js';
-import presentation, { composerActivity, composerColors, fitBoxBorder, formatWorkingDirectory, getWorkingDirectoryLabel, headerLayout } from './presentation.ts';
+import presentation, { composerActivity, composerColors, fitBoxBorder, formatWorkingDirectory, getWorkingDirectoryLabel, headerLayout, markUserMessage } from './presentation.ts';
 
 test("box borders stay within narrow terminal widths", () => {
   for (let width = 0; width <= 12; width++) {
@@ -47,12 +47,13 @@ test('composer location uses the main repo name from subdirectories and linked w
     assert.equal(await location(worktree), 'ecoray-web (wt:3002)');
     assert.equal(await location(path.join(worktree, 'src')), 'ecoray-web (wt:3002)');
     const title = 'Fix battery dispatch savings, recipient phone and Firebase-backed report images';
-    const { border, ready } = createProfileEditor('dark', 'location-fixture', false, { cwd: worktree, title });
+    const { border, top, ready } = createProfileEditor('dark', 'location-fixture', false, { cwd: worktree, title });
     await ready;
     assert.match(border(180), /ecoray-web \(wt:3002\).*⎇ main/);
     assert.ok(!border(180).includes('▰'));
     assert.ok(!border(180).includes(dir));
-    assert.ok(border(180).includes(title));
+    assert.ok(top(180).includes(title.toLocaleUpperCase()), 'title owns the top edge');
+    assert.ok(!border(180).includes(title), 'details edge does not repeat the title');
     assert.equal(await location(dir), formatWorkingDirectory(dir));
     assert.equal(await location(path.join(dir, 'missing')), formatWorkingDirectory(path.join(dir, 'missing')));
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -73,11 +74,50 @@ test("grapheme-aware truncation handles emoji and combining sequences", () => {
   assert.ok(!line.includes("�"));
 });
 
+test('session title alone owns the bold top edge; details move to the bottom edge', async () => {
+  const { editor, top, border, ready } = createProfileEditor('dark', 'session-a', false, { title: 'Improve session visibility' });
+  await ready;
+  assert.match(top(), /^╭─ IMPROVE SESSION VISIBILITY ─+╮$/u);
+  assert.match(border(), /^╰\s+◉ Sol\s+›\s+\S*config\s+⎇ main ─+ 9% ctx · high\s+╯$/u);
+  const raw = editor.render(110);
+  const topRaw = raw.find(line => stripTerminalSequences(line).startsWith('╭'))!;
+  const bottomRaw = raw.find(line => stripTerminalSequences(line).startsWith('╰'))!;
+  assert.ok(topRaw.includes('\x1b[1m'), 'title is bold');
+  assert.ok(!bottomRaw.includes('\x1b[1m'), 'details are not bold');
+  for (let width = 1; width <= 120; width++) for (const line of editor.render(width)) assert.ok(visibleWidth(line) <= width);
+});
+
+test('untitled sessions draw a plain top edge', async () => {
+  const { top, ready } = createProfileEditor('dark', 'session-a', false, { title: '' });
+  await ready;
+  assert.match(top(), /^╭─+╮$/u);
+});
+
+test('long titles truncate with an ellipsis inside the top edge', async () => {
+  const { top, ready } = createProfileEditor('dark', 'session-a', false, { title: 'x'.repeat(300) });
+  await ready;
+  assert.match(top(40), /^╭─ X+… ?─*╮$/u);
+  assert.equal(visibleWidth(top(40)), 40);
+});
+
+test('user messages get a session-coloured dot; assistant messages are untouched', async () => {
+  const { transform, ready } = createProfileEditor('dark', 'session-a');
+  await ready;
+  const context = { isStreaming: false, availableWidth: 80 };
+  const dot = theme.style('●', { fg: composerColors('session-a', theme.appearance, 'idle').base });
+  assert.equal(transform('hello', { ...context, messageType: 'user' }), `${dot} hello`);
+  assert.equal(transform('hello', { ...context, messageType: 'assistant' }), 'hello');
+  assert.equal(markUserMessage('# Heading', '●'), '●\n\n# Heading', 'block syntax stays intact');
+  assert.equal(markUserMessage('- item', '●'), '●\n\n- item');
+  assert.equal(markUserMessage('```\ncode\n```', '●'), '●\n\n```\ncode\n```');
+});
+
 function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh = false, options: { cwd?: string; title?: string } = {}) {
   initTheme(appearance, false);
   const callbacks = new Map<string, Array<(event: unknown, ctx: ExtensionContext) => void>>();
   let factory: ((tui: TUI, theme: EditorTheme, keys: KeybindingsManager) => CustomEditor) | undefined;
   let header: { render(width: number): string[]; invalidate(): void } | undefined;
+  let transform: ((markdown: string, context: { messageType: string; isStreaming: boolean; availableWidth: number }) => string) | undefined;
   presentation({
     registerToolRenderer() {},
     on(name: string, callback: (event: unknown, ctx: ExtensionContext) => void) {
@@ -85,6 +125,7 @@ function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh
     },
     getThinkingLevel: () => 'high',
     getSessionName: () => options.title ?? 'Spinner check',
+    registerMarkdownTransformer(fn: typeof transform) { transform = fn; },
   } as unknown as ExtensionAPI);
   let renderRequests = 0;
   const terminal = { rows: 40, columns: 120 };
@@ -108,24 +149,25 @@ function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh
   const ready = emit('session_start');
   assert.ok(factory);
   const editor = factory(tui, {} as EditorTheme, { matches: () => false } as unknown as KeybindingsManager);
-  const border = (width = 110) => editor.render(width).map(stripTerminalSequences).find(line => line.startsWith('╭')) ?? '';
-  return { editor, border, tui, terminal, emit, ready, header: header!, renderRequests: () => renderRequests };
+  const top = (width = 110) => editor.render(width).map(stripTerminalSequences).find(line => line.startsWith('╭')) ?? '';
+  const border = (width = 110) => editor.render(width).map(stripTerminalSequences).find(line => line.startsWith('╰')) ?? '';
+  return { editor, top, border, tui, terminal, emit, ready, header: header!, transform: transform!, renderRequests: () => renderRequests };
 }
 
 test('native working spinner replaces the idle icon without a working suffix', () => {
   const { editor, border, tui } = createProfileEditor();
-  assert.match(border(), /╭\s+◉ Sol/);
+  assert.match(border(), /╰\s+◉ Sol/);
   const indicator = new WorkingStatusIndicator(tui, 'Working...', { frames: ['⠋'] }, text => text);
   try {
     editor.setWorkingStatusIndicator(indicator);
-    assert.match(border(), /╭\s+⠋ Sol/);
+    assert.match(border(), /╰\s+⠋ Sol/);
     assert.ok(!border().includes('◉'));
     assert.ok(!/working/i.test(border()));
     for (let width = 1; width <= 120; width++) {
       for (const line of editor.render(width)) assert.ok(visibleWidth(line) <= width);
     }
     editor.setWorkingStatusIndicator(undefined);
-    assert.match(border(), /╭\s+◉ Sol/);
+    assert.match(border(), /╰\s+◉ Sol/);
   } finally { indicator.dispose(); }
 });
 
@@ -283,7 +325,7 @@ test('light/dark diagonal corners and spinner stay exact while text and cursor s
       const rgb = (color: typeof base) => { const { r, g, b } = colorToRgb(color); return [r, g, b].map(Math.round); };
       const first = top.match(/\x1b\[38;2;(\d+);(\d+);(\d+)m/)!;
       assert.deepEqual(first.slice(1).map(Number), rgb(base));
-      assert.ok(top.includes(theme.style('⠋', { fg: base })), 'spinner cannot retain its host thinking colour');
+      assert.ok(bottom.includes(theme.style('⠋', { fg: mixColors(base, target, 0.5, 'srgb') })), 'spinner cannot retain its host thinking colour');
       assert.deepEqual(lastForeground(top), rgb(mixColors(base, target, 0.5, 'srgb')));
       assert.deepEqual(lastForeground(bottom), rgb(target));
       assert.deepEqual(rows.slice(1, -1).map(interior), before);

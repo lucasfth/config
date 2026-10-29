@@ -112,17 +112,18 @@ export default pi => {
       if (!frameData.includes('\x1b[?2026l')) return;
       if (submitted && submittedAt === undefined) submittedAt = samples.length;
       const screen = readScreen();
-      const topY = screen.findIndex(line => /^╭\s+[◉⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u.test(line));
-      const bottomY = screen.findIndex((line, y) => y > topY && /^╰/u.test(line));
+      // The status icon and model live on the composer's bottom edge; the top edge carries only the session title.
+      const bottomY = screen.findIndex(line => /^╰\s+[◉⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u.test(line));
+      const topY = bottomY < 0 ? -1 : screen.slice(0, bottomY).findLastIndex(line => line.startsWith('╭'));
       if (topY >= 0 && bottomY >= 0) {
-        const border = screen[topY];
+        const border = screen[bottomY];
         const frame = border.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u)?.[0];
         if (frame) frames.add(frame);
         const view = terminal.buffer.active;
         const top = view.getLine(view.viewportY + topY);
         const bottom = view.getLine(view.viewportY + bottomY);
         const icon = border.search(/[◉⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u);
-        const colors = { border: rgb(top, 0), spinner: rgb(top, icon), label: rgb(top, icon + 2),
+        const colors = { border: rgb(top, 0), spinner: rgb(bottom, icon), label: rgb(bottom, icon + 2),
           topRight: rgb(top, 114), bottomRight: rgb(bottom, 114) };
         // PTY chunks may split a repaint; compare only fully written composer corners.
         if (top?.getCell(114)?.getChars() !== '╮' || bottom?.getCell(114)?.getChars() !== '╯') return;
@@ -156,7 +157,7 @@ export default pi => {
   assert.equal(startup[artY + 1], '                    ⣀⣤⣶⣤⣄⣀');
   assert.equal(startup[artY + 12], '  ⠁⠔⠁');
   assert.equal(startup[artY + 14], ' '.repeat(33) + 'Huginn · Pi   /model · /switch');
-  assert.ok(startup.some(line => /^╭\s+◉/u.test(line)), 'composer remains visible below artwork and legend in a 30-row terminal');
+  assert.ok(startup.some(line => /^╰\s+◉/u.test(line)), 'composer remains visible below artwork and legend in a 30-row terminal');
   const identity = number(composerColors(sessionId, appearance, 'idle').base);
   const view = terminal.buffer.active;
   for (let y = artY; y < artY + 14; y++) {
@@ -171,7 +172,7 @@ export default pi => {
   assert.match(startup[legendY - 1], /^╰.*Activity type.*╯$/u);
   assert.equal(startup[legendY - 1].length, 115, 'sample spans the current terminal width');
   assert.equal(rgb(view.getLine(view.viewportY + legendY - 3), 0), identity);
-  const composerY = startup.findIndex(line => /^╭\s+◉/u.test(line));
+  const composerY = startup.findLastIndex(line => line.startsWith('╭'));
   assert.ok(composerY > legendY);
   const swatches = [];
   for (let y = legendY; y < composerY; y++) {
@@ -216,13 +217,14 @@ export default pi => {
     assert.ok(stateSamples.some(sample => sample.previewTarget === expected[state].target),
       `${appearance}: miniature border follows the ${state} endpoint too`);
     for (const { colors, border } of stateSamples) {
-      assert.deepEqual(colors, { border: expected[state].base, spinner: expected[state].base,
-        label: expected[state].base, topRight: expected[state].midpoint, bottomRight: expected[state].target });
+      // The bottom edge starts halfway along the vertical gradient, so its icon and model sit at the midpoint.
+      assert.deepEqual(colors, { border: expected[state].base, spinner: expected[state].midpoint,
+        label: expected[state].midpoint, topRight: expected[state].midpoint, bottomRight: expected[state].target });
       assert.ok(!border.includes('◉') && !border.includes('working'), 'No duplicate idle icon or working suffix');
     }
   }
   const settled = samples.at(-1);
-  assert.match(settled.border, /^╭\s+◉/u);
+  assert.match(settled.border, /^╰\s+◉/u);
   assert.ok(Object.values(settled.colors).every(color => color === expected.idle.base), 'Settled border is uniform session colour');
   assert.ok(samples.slice(submittedAt).every(sample => sample.previewTarget === null || sample.previewTarget === sample.colors.bottomRight),
     'after submitted input the sample follows real activity, never simulated colours');
