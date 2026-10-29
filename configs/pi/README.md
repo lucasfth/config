@@ -77,6 +77,10 @@ Private settings, sessions and generated provider/MCP configuration live in `~/.
 
 Each launch regenerates settings from this checkout, retaining saved role choices. Canonical skills are included once; project-provided skill names take precedence. Project skill scanning stops at this checkout's repository root, so an enclosing checkout cannot hide a nested worktree's canonical skills. The isolated checks regenerate temporary state, not the live profile.
 
+## Private fleet reporting
+
+[Native fleet setup and limits](fleet.md) documents the optional native Pi → portfolio reporter, `/fleet-name` explicit safe labels and `/fleet-status` local diagnostics. Reporting is disabled until a dedicated per-host private credential is configured and the receiver is separately provisioned. A pull plus next normal launch loads source, not production end-to-end activation; no live session reload/restart is automatic. Tests exercise actual SDK lifecycle → isolated HTTP receipt, not production DB/browser proof.
+
 ## Shared skills (Volundr)
 
 The root `volundr/` Git submodule pins the shared Huginn/Loki library. Initialize only this submodule from the config root:
