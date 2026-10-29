@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { fleetDefaults } from '../fleet-defaults.mjs';
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent';
 
 type FleetConfig = { endpoint: string; hostId: 'gimle' | 'macbook'; token: string };
@@ -8,6 +10,7 @@ type State = 'working' | 'idle' | 'blocked' | 'error' | 'done' | 'ended' | 'unkn
 export type FleetReport = {
   schemaVersion: 1; hostId: FleetConfig['hostId']; sessionId: string; label: string; state: State;
   observedAt: string; lastToolCompletedAt: string | null; startedAt: string; sequence: number;
+  workingSince: string | null; toolsInFlight: number;
 };
 type ConfigResult = { status: string; config?: FleetConfig };
 
@@ -16,7 +19,7 @@ export function safeFleetLabel(value: unknown): value is string {
     && /^[A-Za-z0-9 ._-]+$/.test(value);
 }
 
-export function loadFleetConfig(filename: string, allowTestLoopback = false): ConfigResult {
+export function loadFleetConfig(filename: string, allowTestLoopback = false, hostname = os.hostname()): ConfigResult {
   let fd: number | undefined;
   try {
     fd = openSync(filename, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -25,8 +28,12 @@ export function loadFleetConfig(filename: string, allowTestLoopback = false): Co
       return { status: 'disabled: fleet.json must be an owned private regular file (0600)' };
     }
     if (stat.size > 4096) return { status: 'disabled: invalid fleet.json' };
-    const value = JSON.parse(readFileSync(fd, 'utf8'));
-    if (!value || Object.keys(value).sort().join(',') !== 'endpoint,hostId,token'
+    const stored = JSON.parse(readFileSync(fd, 'utf8'));
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) throw new Error();
+    const keys = Object.keys(stored).sort().join(',');
+    const defaults = fleetDefaults(hostname);
+    const value = keys === 'token' && defaults ? { ...defaults, token: stored.token } : stored;
+    if ((keys !== 'endpoint,hostId,token' && !(keys === 'token' && defaults))
       || !['gimle', 'macbook'].includes(value.hostId) || typeof value.token !== 'string'
       || !/^[A-Za-z0-9_-]{32,256}$/.test(value.token) || typeof value.endpoint !== 'string') throw new Error();
     const url = new URL(value.endpoint);
@@ -57,15 +64,20 @@ export class FleetReporter {
     const now = new Date().toISOString();
     this.report = { schemaVersion: 1, hostId: config.hostId, sessionId,
       label: safeFleetLabel(label) ? label : `Pi session ${sessionId.slice(0, 8)}`, state: 'idle',
-      observedAt: now, startedAt: now, lastToolCompletedAt: null, sequence: 0 };
+      observedAt: now, startedAt: now, lastToolCompletedAt: null, sequence: 0, workingSince: null, toolsInFlight: 0 };
     this.heartbeat = setInterval(() => this.update({}), timing.heartbeatMs);
     this.heartbeat.unref();
     this.update({});
   }
 
-  update(change: { state?: State; label?: string; toolCompleted?: boolean }): void {
+  update(change: { state?: State; label?: string; toolCompleted?: boolean; toolsInFlight?: number }): void {
     if (this.closed) return;
-    if (change.state) this.report.state = change.state;
+    if (change.state) {
+      if (change.state === 'working') this.report.workingSince ??= this.timestamp();
+      else { this.report.workingSince = null; this.report.toolsInFlight = 0; }
+      this.report.state = change.state;
+    }
+    if (change.toolsInFlight !== undefined && this.report.state === 'working') this.report.toolsInFlight = Math.min(256, change.toolsInFlight);
     if (safeFleetLabel(change.label)) this.report.label = change.label;
     if (change.toolCompleted) this.report.lastToolCompletedAt = this.timestamp();
     this.dirty = true;
@@ -73,7 +85,7 @@ export class FleetReporter {
   }
 
   private timestamp(): string {
-    return new Date(Math.max(Date.now(), Date.parse(this.report.observedAt), Date.parse(this.report.lastToolCompletedAt ?? this.report.startedAt))).toISOString();
+    return new Date(Math.max(Date.now(), Date.parse(this.report.observedAt), Date.parse(this.report.lastToolCompletedAt ?? this.report.startedAt), Date.parse(this.report.workingSince ?? this.report.startedAt))).toISOString();
   }
 
   private schedule(): void {
@@ -117,6 +129,8 @@ export class FleetReporter {
     this.controller?.abort();
     await this.active;
     this.report.state = 'ended';
+    this.report.workingSince = null;
+    this.report.toolsInFlight = 0;
     // Best effort, bounded shutdown only; ordinary agent events never await network I/O.
     await this.send(250);
   }
@@ -129,6 +143,7 @@ export function createFleetExtension(options: FactoryOptions = {}) {
     let status = 'disabled: session not started';
     let runError = false;
     let runAborted = false;
+    const activeTools = new Set<string>();
     const notify = (ctx: ExtensionContext, message: string) => {
       if (ctx.hasUI) ctx.ui.notify(message, 'info');
       else console.log(message);
@@ -147,21 +162,31 @@ export function createFleetExtension(options: FactoryOptions = {}) {
     pi.on('session_start', async (_event, ctx) => {
       await reporter?.close();
       reporter = undefined;
+      activeTools.clear(); runError = false; runAborted = false;
       const loaded = loadFleetConfig(options.configPath ?? path.join(getAgentDir(), 'fleet.json'), options.allowTestLoopback);
       status = loaded.status;
       if (!loaded.config) return;
       reporter = new FleetReporter(loaded.config, ctx.sessionManager.getSessionId(), branchLabel(ctx), options.timing);
-      reporter.update({ state: ctx.isIdle() ? 'idle' : 'working' });
+      // Reloading a busy session cannot reconstruct its original work-start/tool IDs.
+      reporter.update({ state: ctx.isIdle() ? 'idle' : 'unknown' });
     });
     pi.on('session_tree', (_event, ctx) => { reporter?.update({ label: branchLabel(ctx) }); });
     pi.on('agent_start', () => { runError = false; runAborted = false; reporter?.update({ state: 'working' }); });
-    pi.on('tool_execution_end', () => { reporter?.update({ toolCompleted: true }); });
+    pi.on('tool_execution_start', event => {
+      activeTools.add(event.toolCallId);
+      reporter?.update({ toolsInFlight: activeTools.size });
+    });
+    pi.on('tool_execution_end', event => {
+      activeTools.delete(event.toolCallId);
+      reporter?.update({ toolCompleted: true, toolsInFlight: activeTools.size });
+    });
     pi.on('message_end', event => {
       if (event.message.role !== 'assistant') return;
       if (event.message.stopReason === 'error') runError = true;
       if (event.message.stopReason === 'aborted') runAborted = true;
     });
     pi.on('agent_settled', event => {
+      activeTools.clear();
       reporter?.update({ state: event.aborted || runAborted ? 'unknown' : runError ? 'error' : 'idle' });
     });
     pi.on('session_shutdown', async () => { await reporter?.close(); reporter = undefined; });

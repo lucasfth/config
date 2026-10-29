@@ -1,3 +1,4 @@
+import { installSessionTitles } from './extensions/session-title.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
@@ -39,7 +40,9 @@ async function nativeSession(root, configPath, sessionManager = SessionManager.i
   const settings = SettingsManager.inMemory({ packages: [], extensions: [], skills: [], prompts: [], retry, compaction: { enabled: false }, cacheWarming: 'off' });
   const loader = new DefaultResourceLoader({ cwd: root, agentDir: root, settingsManager: settings,
     noExtensions: true, noSkills: true, noThemes: true, noPromptTemplates: true, noContextFiles: true,
-    extensionFactories: [createFleetExtension({ configPath, allowTestLoopback: true, timing })],
+    extensionFactories: [installSessionTitles, createFleetExtension({ configPath, allowTestLoopback: true, timing }),
+      // Hold the actual SDK read start briefly so coalescing cannot hide start evidence.
+      pi => { pi.on('tool_execution_start', async () => { await sleep(30); }); }],
     systemPromptOverride: () => 'Synthetic lifecycle proof only.', appendSystemPromptOverride: () => [],
   });
   await loader.reload();
@@ -81,6 +84,12 @@ test('native SDK prompt/tool/settlement, explicit label, heartbeat, reload and s
     await session.prompt('PRIVATE_PROMPT_CANARY');
     await until(() => rx.rows.some(({ row }) => row.lastToolCompletedAt && row.state === 'idle'), 'actual completed tool and settled signal');
     assert.ok(rx.rows.some(({ row }) => row.state === 'working'));
+    assert.ok(rx.rows.some(({ row }) => row.state === 'working' && row.workingSince && row.toolsInFlight === 0), 'agent_start source timestamp');
+    assert.ok(rx.rows.some(({ row }) => row.state === 'working' && row.toolsInFlight === 1), 'actual read-tool start exported count only');
+    assert.equal(rx.rows.at(-1).row.workingSince, null);
+    assert.equal(rx.rows.at(-1).row.toolsInFlight, 0);
+    assert.equal(session.sessionManager.getSessionName(), 'PRIVATE_PROMPT_CANARY', 'local-only proof: auto-title is a prompt excerpt');
+    assert.ok(!JSON.stringify(rx.rows.map(x => x.row)).includes('PRIVATE_PROMPT_CANARY'), 'prompt-derived title never reaches wire');
     assert.equal(rx.rows.at(-1).row.label, 'Admin feature');
     const count = rx.rows.length;
     await until(() => rx.rows.length > count, 'heartbeat while idle');
@@ -101,7 +110,7 @@ test('native SDK prompt/tool/settlement, explicit label, heartbeat, reload and s
     const previous = new Map();
     for (const { row, authorization } of rx.rows) {
       assert.equal(authorization, `Bearer ${token}`);
-      assert.deepEqual(Object.keys(row).sort(), ['schemaVersion', 'hostId', 'sessionId', 'label', 'state', 'observedAt', 'lastToolCompletedAt', 'startedAt', 'sequence'].sort());
+      assert.deepEqual(Object.keys(row).sort(), ['schemaVersion', 'hostId', 'sessionId', 'label', 'state', 'observedAt', 'lastToolCompletedAt', 'startedAt', 'sequence', 'workingSince', 'toolsInFlight'].sort());
       assert.equal(row.schemaVersion, 1); assert.equal(row.hostId, 'gimle'); assert.equal(row.sessionId, expectedId);
       assert.equal(new Date(row.observedAt).toISOString(), row.observedAt);
       assert.ok(row.startedAt <= row.observedAt);
@@ -280,4 +289,49 @@ test('202/409/429/503 handling stays bounded and never queues retries without an
       assert.ok(!reporter.status.includes('PRIVATE_'));
     } finally { await reporter.close(); await rx.close(); }
   }
+});
+
+test('native tool-start evidence tracks overlapping and nested IDs without exporting content or session names', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fleet-tools-')); const rx = await receiver(); let session;
+  try {
+    const configPath = path.join(root, 'fleet.json');
+    await writeFile(configPath, JSON.stringify({ endpoint: rx.endpoint, hostId: 'gimle', token }), { mode: 0o600 });
+    ({ session } = await nativeSession(root, configPath));
+    await session.extensionRunner.emit({ type: 'agent_start' });
+    await session.extensionRunner.emit({ type: 'tool_execution_start', toolCallId: 'PRIVATE_A', toolName: 'PRIVATE_TOOL', args: { path: 'PRIVATE_PATH' } });
+    await session.extensionRunner.emit({ type: 'tool_execution_start', toolCallId: 'PRIVATE_B', parentToolCallId: 'PRIVATE_A', toolName: 'PRIVATE_TOOL', args: {} });
+    await until(() => rx.rows.some(({ row }) => row.toolsInFlight === 2), 'two native hook IDs in flight');
+    const since = rx.rows.at(-1).row.workingSince; assert.ok(since);
+    await session.extensionRunner.emit({ type: 'tool_execution_end', toolCallId: 'PRIVATE_A', toolName: 'PRIVATE_TOOL', result: 'PRIVATE_RESULT', isError: true });
+    await until(() => rx.rows.at(-1).row.toolsInFlight === 1, 'nested tool still pending');
+    assert.equal(rx.rows.at(-1).row.workingSince, since);
+    await session.extensionRunner.emit({ type: 'agent_settled', aborted: true });
+    await until(() => rx.rows.at(-1).row.state === 'unknown', 'cancel settles unknown');
+    assert.equal(rx.rows.at(-1).row.toolsInFlight, 0); assert.equal(rx.rows.at(-1).row.workingSince, null);
+    session.setSessionName('PRIVATE_RENAME_CANARY');
+    await sleep(120);
+    assert.ok(!JSON.stringify(rx.rows.map(x => x.row)).includes('PRIVATE_'));
+  } finally { await session?.extensionRunner.emit({ type: 'session_shutdown', reason: 'quit' }); session?.dispose(); await rx.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('actual SDK reload clears tool evidence; synthetic session_start fork/resume reasons reset evidence without duplicate timers', async () => {
+  const root=await mkdtemp(path.join(os.tmpdir(),'fleet-reload-'));const rx=await receiver();let session;
+  try {
+    const configPath=path.join(root,'fleet.json');await writeFile(configPath,JSON.stringify({endpoint:rx.endpoint,hostId:'gimle',token}),{mode:0o600});
+    ({session}=await nativeSession(root,configPath));await until(()=>rx.rows.length>0,'registered');
+    const first=rx.rows[0].row;
+    await session.extensionRunner.emit({type:'agent_start'});
+    await session.extensionRunner.emit({type:'tool_execution_start',toolCallId:'PRIVATE_RELOAD',toolName:'read',args:{}});
+    await until(()=>rx.rows.at(-1).row.toolsInFlight===1,'tool before reload');
+    await session.reload();
+    await until(()=>rx.rows.some(x=>x.row.startedAt>first.startedAt&&x.row.state==='idle'),'new idle reporter after actual reload');
+    let next=rx.rows.at(-1).row;assert.equal(next.workingSince,null);assert.equal(next.toolsInFlight,0);
+    assert.equal(rx.rows.filter(x=>x.row.startedAt===first.startedAt&&x.row.state==='ended').length,1);
+    for(const reason of ['fork','resume']){
+      const prior=rx.rows.at(-1).row;await session.extensionRunner.emit({type:'session_start',reason});
+      await until(()=>rx.rows.at(-1).row.startedAt>prior.startedAt&&rx.rows.at(-1).row.state==='idle',reason+' hook');
+      next=rx.rows.at(-1).row;assert.equal(next.workingSince,null);assert.equal(next.toolsInFlight,0);
+    }
+    await session.extensionRunner.emit({type:'session_shutdown',reason:'quit'});const n=rx.rows.length;await sleep(250);assert.equal(rx.rows.length,n,'no duplicate live heartbeat timers after replacement/shutdown');
+  } finally {await session?.extensionRunner.emit({type:'session_shutdown',reason:'quit'});session?.dispose();await rx.close();await rm(root,{recursive:true,force:true});}
 });

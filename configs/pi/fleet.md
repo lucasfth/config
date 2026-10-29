@@ -1,6 +1,6 @@
 # Native Pi fleet reporting
 
-Source only until the portfolio receiver, migration and dedicated credentials are provisioned with separate approval. Pulling config is **not** end-to-end activation. No Herdr, terminal sockets, OSC, SSH, finance service, Claude Code or Codex integration is involved.
+Private fleet lifecycle reporting. Pulling config is **not** activation: a host needs its existing dedicated credential and a compatible deployed portfolio receiver. This enrichment is a new source candidate; apply the portfolio activity migration and receiver before activating it. Existing wire-v1 reporters remain supported without a MacBook setup change. No Herdr, terminal sockets, OSC, SSH, finance service, Claude Code or Codex integration is involved.
 
 ## Update and launch
 
@@ -25,19 +25,14 @@ Native one-shot `pi -p` runs through the same wrapper and report independently. 
 
 The portfolio owner must first provision its migration and receiver environment separately. Dedicated high-entropy producer tokens map to `gimle` and `macbook`; use a **different** secret per host, never any existing application's token. Tokens grant report writes only, not reads or admin access. Prefer 64 random hexadecimal characters (32 random bytes); the local format accepts 32–256 base64url/hex characters. Share through your private secret-management route, never chat, Git, PR text, command arguments or shell history.
 
-Create the private file at `${PI_CODING_AGENT_DIR:-$HOME/.local/share/huginn-pi/agent}/fleet.json`, outside Git. This interactive command prompts for the already-provisioned secret without echoing it and refuses to overwrite an existing file. It does **not** provision a token or contact a server:
+On known managed hosts, all non-secret defaults are tracked in `fleet-defaults.mjs`: portfolio origin from `portfolio/app/layout.tsx`, hostnames from `nix/hosts/{gimle,lucas-macbook-pro}/default.nix`. Exact hostname `gimle` maps to gimle; `lucas-macbook-pro` maps to macbook (case-insensitive, optional `.local` suffix). Unknown hosts are disabled in token-only mode; no automatic host registration occurs. Existing complete `{endpoint,hostId,token}` files remain valid unchanged. Partial overrides or extra fields are rejected.
+
+Create token-only private `${PI_CODING_AGENT_DIR:-$HOME/.local/share/huginn-pi/agent}/fleet.json` outside Git using your already-provisioned host token. This interactive example refuses to overwrite a file and does not contact a server. Verify the hostname is one of the tracked mappings first:
 
 ```sh
 python3 - <<'PY'
-import getpass, json, os, pathlib, re, urllib.parse
+import getpass, json, os, pathlib, re
 root = pathlib.Path(os.environ.get('PI_CODING_AGENT_DIR', str(pathlib.Path.home() / '.local/share/huginn-pi/agent')))
-endpoint = input('Approved HTTPS portfolio origin (e.g. https://portfolio.example): ').strip()
-u = urllib.parse.urlsplit(endpoint)
-if u.scheme != 'https' or not u.netloc or u.username or u.password or u.path not in ('', '/') or u.query or u.fragment:
-    raise SystemExit('Require an HTTPS origin only')
-host = input('Host ID (gimle or macbook): ').strip()
-if host not in ('gimle', 'macbook'):
-    raise SystemExit('Unknown host')
 token = getpass.getpass('Dedicated token for this host: ')
 if not re.fullmatch(r'[A-Za-z0-9_-]{32,256}', token):
     raise SystemExit('Require 32–256 base64url/hex characters')
@@ -45,7 +40,7 @@ root.mkdir(parents=True, exist_ok=True, mode=0o700)
 filename = root / 'fleet.json'
 fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 with os.fdopen(fd, 'w') as f:
-    json.dump(dict(endpoint=endpoint.rstrip('/') + '/api/admin/fleet/report', hostId=host, token=token), f)
+    json.dump(dict(token=token), f)
     f.write('\n')
 print('Private fleet.json created. Launch normally when ready; no live request was sent.')
 PY
@@ -66,14 +61,15 @@ In the session:
 
 ## Observations and limits
 
-- `session_start`: register idle (or working if already busy); `agent_start`: working; `agent_settled`: unknown for abort (including cancellation during retry backoff), otherwise error for a terminal failed assistant response, otherwise idle. Successful automatic retries settle idle. Idle does **not** mean successful. No reliable native user-waiting signal is inferred as blocked; no automatic done/success claim.
-- `tool_execution_end`: timestamp of the completed envelope, including failed tools, not tool success. Tool name, arguments, outputs, exceptions and prompts are never sent.
+- `session_start`: idle, or unknown if reloaded while busy (original work start and pending IDs cannot be reconstructed). `agent_start`: working with source-event `workingSince`, retained through retry starts until settlement. `agent_settled`: unknown for abort (including backoff cancellation), otherwise terminal error or idle. Idle does **not** imply success. No reliable user-waiting signal is inferred as blocked.
+- Native `tool_execution_start/end` tracks distinct in-flight IDs locally (including concurrent/nested tools) and exports only bounded `toolsInFlight` (0–256; counts above 256 saturate). IDs, names, arguments and results never leave. Completed envelopes, even failures, update `lastToolCompletedAt`. Settle/reload/shutdown clears in-flight evidence. Responding means working with zero observed pending tools, not proof of text generation at that instant.
 - Default heartbeat: 30 seconds while alive. Events coalesce to the latest snapshot, at most one ordinary request per second and one in flight; 5-second timeout, no retry queue. A failed request is retried only by a later independent event/heartbeat. Short intermediate states may be coalesced away.
-- Source `observedAt`, process-instance `startedAt`, sequence and completed-tool timestamp travel in wire v1. Within an instance sequence increases; server enforces clock bounds and ordering. Reload/resume resets sequence under a fresh start time. Avoid simultaneous writers resuming the same native session; latest reporter instance wins server ordering. A clock moved behind a previously observed time is locally clamped; a receiver may reject it until clocks reconcile. Clocks must be synchronized.
+- Wire v1 keeps its nine base fields. New producers add a **paired optional** `workingSince`/`toolsInFlight`: when working, canonical timestamp between startedAt and observedAt and integer 0–256; otherwise null/0. Old Mac reporters omit both and remain valid. Unknown keys, one-sided pairs and inconsistent values are rejected. Source observedAt, process startedAt, increasing sequence and last-tool completion semantics remain unchanged. Reload/resume starts a new instance; do not simultaneously resume the same native session. Clocks are locally clamped and must remain synchronized.
 - Shutdown cancels in-flight work and makes one best-effort ended request with a 250 ms bound. Abrupt kills/network failures can omit ended; backend freshness must mark stale honestly. Heartbeats do not certify progress, and quiet/stale is not stalled.
 - Response/error bodies are discarded, redirects are rejected without credential forwarding, and diagnostics contain no endpoint/token/error body. Reporting events never await network work; only orderly teardown awaits its bounded final attempt.
 - Storage, retention, rate limiting, server receipt times, admin read authentication and stale/ended/unavailable/never-seen presentation belong to the portfolio receiver. There is no local-file production transport or fallback.
 - Receiver v1 policy: `observedAt` within 5 minutes old / 30 seconds future, `startedAt` no older than 366 days; 202 accepted, 409 stale/duplicate, 429 rate/capacity, 503 unavailable. No producer retry queues. Backend transaction owns the 240 attempts/minute per-host budget, 64 sessions/host, 24-hour ended and 7-day other retention, and separate latest host receipt. Per-session coalescing is not cross-instance or host-wide enforcement.
+- Automatic session-title extension currently uses a first-prompt excerpt. No automatic title, `/name`, session_info_changed name, path or prompt is exported. Title enrichment is blocked until a distinct approved generated-title source exists; operator label/hash remains the heading.
 
 ## Verification
 
@@ -86,4 +82,4 @@ node --import tsx --test fleet.test.mjs extensions/fleet.test.ts
 
 `fleet.test.mjs` uses actual native SDK session binding, prompts, read-tool execution, settlement, retry recovery/exhaustion/backoff cancellation, tree navigation, reload and shutdown, scripted in-memory model responses and an isolated loopback HTTP receiver. It checks exact wire keys, privacy canaries, heartbeat retention, sequence, explicit/default branch labels without reporter resets, error/abort/failed-tool envelopes, offline behavior, coalescing, timeout and redirect rejection. Timing is accelerated only through explicit test options. No external provider, production token, DB or browser is used. `extensions/fleet.test.ts` checks private configuration and the shared ASCII label predicate.
 
-Remaining end-to-end gate: this producer → the real portfolio POST implementation with isolated storage → authenticated UI reader. The config tests' receipt-only loopback server is not a database or UI and must not be described as that gate. Production migration, server environment, per-host provisioning, deployment and actual signed-in browser acceptance remain separate approvals/evidence.
+The config tests' receipt-only loopback server is not a database or UI. Cross-repository local qualification must run this producer → actual portfolio POST implementation → isolated PostgreSQL → admin-reader handler → rendered component; synthetic admin identity and static markup do not establish live auth or browser proof. Base trust/provisioning is already established; this enrichment's migration, receiver deployment, producer adoption and new signed-in UI acceptance remain separate approval/evidence gates. Existing full private host configs and old wire remain valid; no reprovisioning is required.

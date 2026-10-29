@@ -43,3 +43,18 @@ test('fleet labels use the shared trimmed 1–80 ASCII display alphabet', () => 
     assert.equal(safeFleetLabel(`A${char}Z`), /^[A-Za-z0-9 ._-]+$/.test(char), `alphabet code ${code}`);
   }
 });
+
+test('token-only private config uses tracked known-host defaults; legacy full config still wins', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'fleet-default-'));
+  const file = path.join(dir, 'fleet.json');
+  try {
+    writeFileSync(file, JSON.stringify({ token }), { mode: 0o600 });
+    assert.deepEqual(loadFleetConfig(file, false, 'gimle').config, { endpoint: 'https://lucashanson.dk/api/admin/fleet/report', hostId: 'gimle', token });
+    assert.equal(loadFleetConfig(file, false, 'lucas-macbook-pro.local').config?.hostId, 'macbook');
+    assert.equal(loadFleetConfig(file, false, 'unknown-host').config, undefined);
+    writeFileSync(file, JSON.stringify({ token, hostId: 'gimle' }));
+    assert.equal(loadFleetConfig(file, false, 'gimle').config, undefined, 'partial overrides rejected');
+    writeFileSync(file, JSON.stringify({ token, endpoint: 'https://wrong.invalid/api/admin/fleet/report' }));
+    assert.equal(loadFleetConfig(file, false, 'gimle').config, undefined, 'token-only endpoint override rejected');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
