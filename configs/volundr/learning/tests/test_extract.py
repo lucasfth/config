@@ -64,7 +64,8 @@ class LearningTests(unittest.TestCase):
             result = learning.distil(vault, state, broken, date(2026, 10, 29))
             self.assertEqual(len(calls), learning.MAX_NOTES)
             self.assertEqual(len(result['skipped']), 2)
-            self.assertEqual(len(result['errors']), learning.MAX_NOTES + 1)
+            self.assertEqual(len(result['errors']), learning.MAX_NOTES)
+            self.assertEqual(len(result['deferred']), 1)
             self.assertEqual(result['status'], 'partial-failure')
             self.assertFalse((vault / 'tech').exists())
 

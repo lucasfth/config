@@ -28,9 +28,11 @@ def run(config_path):
             boundary = (result.get('guidance_applied') is not False or
                         result.get('skills_changed') is not False or
                         'archive_result' in result or 'archive_plan' in result)
-            status = 'boundary-violation' if boundary else 'partial-failure' if result.get('errors') else 'complete'
+            status = ('boundary-violation' if boundary else 'partial-failure' if result.get('errors')
+                      else 'manual-review-required' if result.get('deferred') else 'complete')
             summary = {'state':status,'processed':len(result.get('processed',[])),
                 'skipped':len(result.get('skipped',[])), 'errors':len(result.get('errors',[])),
+                'deferred':len(result.get('deferred',[])),
                 'guidance_applied':False,'skills_changed':False}
             receipt = {'schema':1,'started':started,'finished':datetime.now(timezone.utc).isoformat(),
                        'status':status,'result':result}
@@ -42,7 +44,7 @@ def run(config_path):
         extract.save(extract.safe(state,name),json.dumps(receipt,indent=2)+'\n')
         extract.save(extract.safe(state,'last-run.json'),json.dumps({'receipt':name,'summary':summary})+'\n')
         print(json.dumps(summary))
-        return 0 if summary['state']=='complete' else 1
+        return 0 if summary['state'] in ('complete', 'manual-review-required') else 1
     except Exception as error:
         print(json.dumps({'state':'failed','error_type':type(error).__name__}))
         return 1

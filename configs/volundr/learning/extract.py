@@ -24,6 +24,27 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+class OversizedSource(ValueError):
+    """A deliberate review boundary, not a provider or extraction failure."""
+    def __init__(self, source):
+        super().__init__('Oversized source requires manual review; never truncate silently')
+        self.source = source
+
+
+def oversized_source(path, source):
+    # Hash every byte in bounded memory; never submit a prefix to the model.
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        before = os.fstat(handle.fileno())
+        for chunk in iter(lambda: handle.read(65536), b''):
+            digest.update(chunk)
+        after = os.fstat(handle.fileno())
+    signature = lambda stat: (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    if signature(before) != signature(after) or signature(after) != signature(path.stat()):
+        raise ValueError('Source changed while recording manual review')
+    return OversizedSource({**source, 'sha256': digest.hexdigest(), 'bytes': after.st_size})
+
+
 def session_path(relative):
     path = Path(relative)
     lowered = relative.casefold()
@@ -74,17 +95,21 @@ def read_source(vault, relative):
     if not session_path(relative):
         raise ValueError('Excluded non-session or sensitive project path')
     path = safe(vault, relative)
-    # Bound before decoding; do not load arbitrarily large sources into memory.
+    day = date.fromisoformat(path.name[:10])
+    source = {'path': relative, 'date': str(day), 'project': project}
+    # Bound before decoding and also bound the read if a file grows after stat.
     if path.stat().st_size > MAX_SOURCE * 4:
-        raise ValueError('Oversized source requires manual review; never truncate silently')
-    raw = path.read_bytes()
+        raise oversized_source(path, source)
+    with path.open('rb') as handle:
+        raw = handle.read(MAX_SOURCE * 4 + 1)
+    if len(raw) > MAX_SOURCE * 4:
+        raise oversized_source(path, source)
     text = raw.decode('utf-8')
     if len(text) > MAX_SOURCE:
-        raise ValueError('Oversized source requires manual review; never truncate silently')
+        raise oversized_source(path, source)
     if not re.search(r'(?im)^#{1,4} .*?(?:\bAAR\b|after.action review|corrections made)', text):
         raise ValueError('Not an AAR or legacy correction note')
-    day = date.fromisoformat(path.name[:10])
-    return {'path': relative, 'sha256': sha(raw), 'date': str(day), 'project': project}, text
+    return {**source, 'sha256': sha(raw)}, text
 
 
 def source_current(vault, source):
@@ -156,7 +181,32 @@ def distil(vault, state_dir, model, today=None):
     today = today or date.today()
     state = load_state(state_dir)
     known = {(r['source']['path'], r['source']['sha256']) for r in state['records'].values()}
-    processed, errors, skipped, pending = [], [], [], []
+    review_path = safe(state_dir, 'manual-review.json')
+    review = json.loads(review_path.read_text()) if review_path.exists() else {'schema': 1, 'records': {}}
+    if (not isinstance(review, dict) or type(review.get('schema')) is not int or
+            review['schema'] != 1 or not isinstance(review.get('records'), dict)):
+        raise ValueError('Unsupported manual-review queue schema')
+    for identifier, entry in review['records'].items():
+        if (not isinstance(entry, dict) or set(entry) != {
+                'id', 'source', 'status', 'reason', 'max_chars', 'max_bytes'}):
+            raise ValueError('Invalid manual-review record')
+        source = entry['source']
+        if (not isinstance(source, dict) or set(source) != {'path', 'date', 'project', 'sha256', 'bytes'} or
+                not all(isinstance(source[key], str) for key in ('path', 'date', 'project', 'sha256')) or
+                type(source['bytes']) is not int or source['bytes'] <= MAX_SOURCE or
+                not re.fullmatch(r'[0-9a-f]{64}', source['sha256'])):
+            raise ValueError('Invalid manual-review source')
+        relative = source['path']
+        path = safe(vault, relative)
+        if (not session_path(relative) or source['project'] != project_of(relative) or
+                source['date'] != str(date.fromisoformat(path.name[:10])) or
+                identifier != sha(json.dumps(source, sort_keys=True).encode()) or entry['id'] != identifier or
+                entry['status'] != 'manual-review-required' or entry['reason'] != 'oversized-source' or
+                type(entry['max_chars']) is not int or entry['max_chars'] != MAX_SOURCE or
+                type(entry['max_bytes']) is not int or entry['max_bytes'] != MAX_SOURCE * 4):
+            raise ValueError('Inconsistent manual-review record')
+    processed, errors, skipped, pending, deferred = [], [], [], [], []
+    review_changed = False
     for path in sorted((vault / 'projects').glob('*/*/**/*.md')):
         relative = path.relative_to(vault).as_posix()
         if '_archive' in path.relative_to(vault).parts:
@@ -166,11 +216,22 @@ def distil(vault, state_dir, model, today=None):
             if source['date'] > str(today) or (relative, source['sha256']) in known:
                 continue
             pending.append((source, text))
+        except OversizedSource as error:
+            identifier = sha(json.dumps(error.source, sort_keys=True).encode())
+            entry = {'id': identifier, 'source': error.source, 'status': 'manual-review-required',
+                     'reason': 'oversized-source', 'max_chars': MAX_SOURCE, 'max_bytes': MAX_SOURCE * 4}
+            if identifier not in review['records']:
+                review['records'][identifier] = entry
+                review_changed = True
+            deferred.append(entry)
         except (ValueError, UnicodeError, OSError) as error:
             row = {'source': relative, 'error': str(error)[:160]}
             classification = str(error) in ('Excluded non-session or sensitive project path',
                 'Not an AAR or legacy correction note', 'Expected projects/org/repo/branch/date.md')
             (skipped if classification else errors).append(row)
+    # Persist review work before provider calls; never mark it extracted in the ledger.
+    if review_changed:
+        save(review_path, json.dumps(review, indent=2) + '\n')
     # Seven newest sources and one oldest backlog item at the current budget.
     # Scan all bounded source files, but model attempts never exceed MAX_NOTES.
     pending.sort(key=lambda item: (item[0]['date'], item[0]['path']), reverse=True)
@@ -200,8 +261,8 @@ def distil(vault, state_dir, model, today=None):
             processed.append(record['id'])
         except (ValueError, UnicodeError, OSError) as error:
             errors.append({'source': source['path'], 'error': str(error)[:160]})
-    return {'processed': processed, 'errors': errors, 'skipped': skipped,
-            'status': 'partial-failure' if errors else 'complete',
+    return {'processed': processed, 'errors': errors, 'skipped': skipped, 'deferred': deferred,
+            'status': 'partial-failure' if errors else 'manual-review-required' if deferred else 'complete',
             'guidance_applied': False, 'skills_changed': False}
 
 
