@@ -40,7 +40,7 @@ try {
     assert.ok(thinking.content.some(p => p.type === 'text' && p.text.includes('56')), JSON.stringify(thinking));
     assert.equal(first.content.filter(p => p.type === 'thinking').length, 0);
     assert.ok(thinking.content.some(p => p.type === 'thinking'));
-    const runtime = await ModelRuntime.create({ agentDir });
+    const runtime = await ModelRuntime.create({ modelsPath: path.join(agentDir, 'models.json'), authPath: path.join(agentDir, 'auth.json') });
     const loaded = runtime.getModel(provider, model.id);
     assert.ok(loaded, 'Native model registry loads the generated definition');
     const { session } = await createAgentSession({ cwd: agentDir, agentDir, modelRuntime: runtime, model: loaded, thinkingLevel: 'off', noTools: true, sessionManager: SessionManager.inMemory() });

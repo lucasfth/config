@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Apply only the approved and regression-tested SOUL correction, preserving exact prior bytes."""
+import hashlib
+import importlib.util
+import os
+from pathlib import Path
+import socket
+
+assert socket.gethostname() == 'gimle' and os.getuid() == 501
+root = Path.home() / 'loki-data'
+assert root.is_mount()
+os.umask(0o077)
+source = Path(__file__).resolve().parents[1] / 'configs/loki/prompt_repair.py'
+spec = importlib.util.spec_from_file_location('repair', source)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+path = (Path.home() / '.hermes/SOUL.md').resolve()
+before = path.read_bytes()
+after = module.repair(before.decode()).encode()
+expected = (Path(__file__).resolve().parents[1] / 'loki-soul-candidate.md').read_bytes()
+assert after == expected, 'Candidate differs from approved regression-tested bytes'
+backups = root / 'gimle-qwen/prompt-backups'
+backups.mkdir(mode=0o700, exist_ok=True)
+digest = hashlib.sha256(before).hexdigest()
+backup = backups / (digest + '.md')
+backup.write_bytes(before)
+assert hashlib.sha256(backup.read_bytes()).hexdigest() == digest
+assert path.read_bytes() == before
+pending = path.with_name('SOUL.md.pending-hugi')
+pending.write_bytes(after)
+pending.chmod(0o600)
+os.replace(pending, path)
+assert path.read_bytes() == after
+print('SOUL corrected; prior SHA-256: ' + digest)

@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Install private Hugi client credentials and an existing-key SSH loopback forward."""
+import json
+import os
+from pathlib import Path
+import plistlib
+import socket
+import subprocess
+
+os.umask(0o077)
+root = Path.home() / '.local/share/gimle-qwen'
+root.mkdir(parents=True, mode=0o700, exist_ok=True)
+key = subprocess.check_output(['ssh', '-o', 'BatchMode=yes', 'gimle', 'cat "$HOME/loki-data/gimle-qwen/api-key"'])
+assert len(key.strip()) >= 32
+keyfile = root / 'api-key'
+keyfile.write_bytes(key)
+keyfile.chmod(0o600)
+(root / 'client.json').write_text(json.dumps({'baseUrl': 'http://127.0.0.1:18789/v1', 'keyFile': str(keyfile)}) + '\n')
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', 18789))
+plist = Path.home() / 'Library/LaunchAgents/dk.huginn.gimle-qwen-tunnel.plist'
+assert not plist.exists(), 'Inspect existing tunnel before replacing it'
+plist.parent.mkdir(parents=True, exist_ok=True)
+plist.write_bytes(plistlib.dumps({'Label': 'dk.huginn.gimle-qwen-tunnel',
+    'ProgramArguments': ['/usr/bin/ssh', '-NT', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
+        '-o', 'ExitOnForwardFailure=yes', '-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=3',
+        '-L', '127.0.0.1:18789:127.0.0.1:18789', 'gimle'],
+    'RunAtLoad': True, 'KeepAlive': True, 'ThrottleInterval': 30,
+    'StandardErrorPath': str(root / 'tunnel-error.log')}))
+subprocess.run(['launchctl', 'bootstrap', f'gui/{os.getuid()}', str(plist)], check=True)
+print('Private Gimle client configured; default model unchanged')

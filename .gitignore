@@ -7,6 +7,9 @@
 __pycache__/
 *.py[cod]
 
+# Firebase CLI runtime logs are local state.
+/firebase-debug.log*
+
 # Claude (deleted — blanket ignore if recreated)
 /.claude/
 # Nix build artifacts

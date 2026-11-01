@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""Explicitly prepare/start only the approved Gimle optional model LaunchAgent."""
+import argparse
+import os
+from pathlib import Path
+import plistlib
+import secrets
+import shutil
+import socket
+import subprocess
+
+p = argparse.ArgumentParser()
+p.add_argument('--activate', action='store_true')
+a = p.parse_args()
+assert socket.gethostname() == 'gimle' and os.getuid() == 501
+volume = Path.home() / 'loki-data'
+assert volume.is_mount() and not volume.is_symlink()
+root = volume / 'gimle-qwen'
+source = Path(__file__).resolve().parents[1] / 'configs/gimle-qwen'
+os.umask(0o077)
+root.mkdir(mode=0o700, exist_ok=True)
+for name in ['service.py', 'supervise.py', 'requirements.txt']:
+    target = root / 'source' / name
+    target.parent.mkdir(mode=0o700, exist_ok=True)
+    shutil.copyfile(source / name, target)
+python = Path.home() / '.nix-profile/bin/python3'
+if not (root / 'venv').exists():
+    subprocess.run(['uv', 'venv', '--python', str(python), str(root / 'venv')], check=True)
+subprocess.run(['uv', 'pip', 'install', '--python', str(root / 'venv/bin/python'), '-r', str(root / 'source/requirements.txt')], check=True)
+model = root / 'model'
+if not model.exists():
+    # Reuse already-qualified immutable snapshot; no duplicate 8GB download.
+    qualified = volume / 'benchmarks/qwen9b-20261030/model-6bit'
+    assert qualified.is_dir()
+    shutil.copytree(qualified, model, copy_function=os.link, ignore=shutil.ignore_patterns('.cache'))
+key = root / 'api-key'
+if not key.exists():
+    key.write_text(secrets.token_urlsafe(48) + '\n')
+    key.chmod(0o600)
+(root / 'hf-cache/hub').mkdir(mode=0o700, parents=True, exist_ok=True)
+plist = Path.home() / 'Library/LaunchAgents/dk.gimle.qwen.plist'
+configuration = {'Label': 'dk.gimle.qwen',
+    'ProgramArguments': [str(root / 'venv/bin/python'), str(root / 'source/supervise.py')],
+    'EnvironmentVariables': {'HOME': str(Path.home()), 'GIMLE_QWEN_ROOT': str(root)},
+    'WorkingDirectory': str(Path.home()), 'RunAtLoad': True, 'KeepAlive': False,
+    'ThrottleInterval': 60, 'StandardOutPath': str(Path.home() / 'Library/Logs/gimle-qwen.log'),
+    'StandardErrorPath': str(Path.home() / 'Library/Logs/gimle-qwen-error.log')}
+assert not plist.exists(), 'Existing LaunchAgent: inspect before replacement'
+plist.parent.mkdir(parents=True, exist_ok=True)
+plist.write_bytes(plistlib.dumps(configuration))
+if a.activate:
+    subprocess.run(['launchctl', 'bootstrap', 'gui/501', str(plist)], check=True)
+print('Gimle model prepared' + (' and LaunchAgent bootstrapped' if a.activate else '; not activated'))

@@ -175,3 +175,18 @@ test('native preparation ignores malformed legacy files and preserves private ca
     await assert.rejects(prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: '' }, ompDir: legacy }), /NEO_PROXY_URL/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('optional Gimle provider uses private loopback access without changing roles', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-gimle-'));
+  try {
+    const env = { NEO_PROXY_URL: 'https://proxy.invalid', GIMLE_QWEN_BASE_URL: 'http://127.0.0.1:18789/v1', GIMLE_QWEN_KEY_FILE: '/private/gimle-key' };
+    const { roles } = await prepareRuntime({ agentDir: dir, env });
+    const { providers } = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
+    assert.equal(providers.gimle.baseUrl, env.GIMLE_QWEN_BASE_URL);
+    assert.equal(providers.gimle.models[0].id, 'qwen3.5-9b-6bit');
+    assert.equal(providers.gimle.models[0].contextWindow, 139264);
+    assert.equal(providers.gimle.apiKey, '!cat /private/gimle-key');
+    assert.notEqual(roles.default.provider, 'gimle');
+    await assert.rejects(prepareRuntime({ agentDir: dir, env: { ...env, GIMLE_QWEN_BASE_URL: 'http://public.invalid/v1' } }), /loopback/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

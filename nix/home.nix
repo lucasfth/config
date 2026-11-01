@@ -10,10 +10,17 @@
 #   - desktop     (Openbox, tint2, picom — Linux only)
 #   - services    (GPU inference services — freyr only)
 #   - dotfiles.nix (symlink management for btop, aerospace, etc.)
-
-{ config, pkgs, lib, flakeDir, username, hostname, homeDirectory, stateVersion, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  flakeDir,
+  username,
+  hostname,
+  homeDirectory,
+  stateVersion,
+  ...
+}: {
   imports = [
     ./common/packages
     ./common/shell
@@ -24,6 +31,7 @@
     ./common/desktop
     ./common/ssh.nix
     ./common/dotfiles.nix
+    ./common/gimle-qwen.nix
     # ./common/services/gpu-services.nix  # DEPRECATED — superseded by tmux (see nix/hosts/freyr/gpu-services.md)
   ];
 
@@ -35,10 +43,12 @@
 
   # ── Fix ~/.nix-profile link (nix-darwin: new nix CLI vs home-manager mismatch) ──
   home.activation.linkNixProfile = lib.hm.dag.entryAfter ["linkGeneration"] (
-    if pkgs.stdenv.isDarwin then ''
+    if pkgs.stdenv.isDarwin
+    then ''
       rm -f "$HOME/.nix-profile"
       ln -sf ${config.home.path} "$HOME/.nix-profile"
-    '' else ""
+    ''
+    else ""
   );
 
   programs.home-manager.enable = true;

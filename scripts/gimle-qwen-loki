@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Add/update only Gimle optional provider fields, preserving Loki defaults/comments."""
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+import socket
+
+import yaml
+
+assert socket.gethostname() == 'gimle' and os.getuid() == 501
+os.umask(0o077)
+home = Path.home()
+root = home / 'loki-data/gimle-qwen'
+assert (home / 'loki-data').is_mount()
+path = (home / '.hermes/config.yaml').resolve()
+before = path.read_bytes()
+original = yaml.safe_load(before)
+entry = {'name': 'gimle-qwen', 'base_url': 'http://127.0.0.1:18789/v1',
+         'api_key': (root / 'api-key').read_text().strip(), 'context_length': 139264,
+         'models': ['qwen3.5-9b-6bit'], 'api_mode': 'chat_completions', 'model': 'qwen3.5-9b-6bit'}
+text = before.decode()
+existing = original.get('custom_providers', [])
+if existing:
+    assert len(existing) == 1 and existing[0]['name'] == entry['name'], 'Inspect unrelated custom list before editing'
+    start = text.index('custom_providers:\n')
+    # Our previously generated list is the final top-level block.
+    assert yaml.safe_load(text[start:]) == {'custom_providers': existing}
+    text = text[:start] + yaml.safe_dump({'custom_providers': [entry]}, sort_keys=False)
+else:
+    assert 'custom_providers:' not in text
+    text = text.rstrip() + '\n\n' + yaml.safe_dump({'custom_providers': [entry]}, sort_keys=False)
+limits = {'request_timeout_seconds': 1200, 'stale_timeout_seconds': 1100}
+# The picker treats providers entries as complete endpoints, not just timeout overrides.
+# A timeout-only entry shadows the same named legacy custom provider.
+provider = {**entry, **limits}
+addition = yaml.safe_dump({'gimle-qwen': provider}, sort_keys=False)
+addition = ''.join('  ' + line if line.strip() else line for line in addition.splitlines(keepends=True))
+if 'gimle-qwen' in original.get('providers', {}):
+    pattern = r'(?m)^  gimle-qwen:\n(?:[ \t]{4}[^\n]*\n|\n)*'
+    text, count = re.subn(pattern, lambda match: addition, text, count=1)
+    assert count == 1, 'Inspect unexpected providers layout before editing'
+elif 'providers:\n' in text:
+    assert text.count('\nproviders:\n') == 1
+    text = text.replace('\nproviders:\n', '\nproviders:\n' + addition, 1)
+else:
+    text += '\nproviders:\n' + addition
+parsed = yaml.safe_load(text)
+compare = dict(parsed)
+compare.pop('custom_providers')
+expected = dict(original)
+expected.pop('custom_providers', None)
+expected['providers'] = {**original.get('providers', {}), 'gimle-qwen': provider}
+assert compare == expected and parsed['model'] == original['model']
+backup = root / ('loki-config-before-' + hashlib.sha256(before).hexdigest() + '.yaml')
+backup.write_bytes(before)
+assert backup.read_bytes() == before and path.read_bytes() == before
+pending = path.with_name('config.yaml.gimle-pending')
+pending.write_text(text)
+pending.chmod(0o600)
+os.replace(pending, path)
+print(json.dumps({'provider': entry['name'], 'default_unchanged': True, 'backup_sha256': hashlib.sha256(before).hexdigest()}))

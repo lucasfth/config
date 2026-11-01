@@ -175,6 +175,20 @@ export async function prepareRuntime({ agentDir, env = process.env }) {
       api: 'openai-completions', apiKey: 'local',
       models: [...(providers.mimer?.models ?? []).filter(model => model.id !== qwen.id), qwen] };
   }
+  const gimlePrivate = await jsonFile(path.join(os.homedir(), '.local/share/gimle-qwen/client.json'));
+  const gimleEndpoint = env.GIMLE_QWEN_BASE_URL || gimlePrivate.baseUrl;
+  if (gimleEndpoint) {
+    const url = new URL(gimleEndpoint);
+    if (url.protocol !== 'http:' || !['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname) || url.username || url.password) {
+      throw new Error('Gimle requires an authenticated loopback SSH endpoint.');
+    }
+    const keyFile = env.GIMLE_QWEN_KEY_FILE || gimlePrivate.keyFile;
+    if (!keyFile || !/^\/[A-Za-z0-9_./-]+$/.test(keyFile)) throw new Error('GIMLE_QWEN_KEY_FILE must be an absolute shell-safe path.');
+    providers.gimle = { baseUrl: url.href.replace(/\/$/, ''), api: 'openai-completions', apiKey: `!cat ${keyFile}`,
+      models: [{ id: 'qwen3.5-9b-6bit', name: 'Gimle Qwen3.5 9B (6-bit MLX)', reasoning: false, input: ['text'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 139264, maxTokens: 4096,
+        compat: { supportsStore: false, supportsDeveloperRole: false, supportsReasoningEffort: false, maxTokensField: 'max_tokens' } }] };
+  }
   await privateJson(path.join(agentDir, 'models.json'), { ...configuredModels, providers });
   const sourceMcp = await jsonFile(path.join(sourceDir, 'mcp.json'));
   const existingMcp = await jsonFile(path.join(agentDir, 'mcp.json'));
