@@ -16,6 +16,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 // key is synthetic and its only configured endpoint is the loopback server.
 const env = Object.fromEntries(['PATH','HOME','USER','SHELL','TMPDIR','LANG'].filter(key => process.env[key]).map(key => [key, process.env[key]]));
 Object.assign(env, { PI_CODING_AGENT_DIR: root, NEO_PROXY_API_KEY: 'synthetic-ui-only', PI_OFFLINE: '1', PI_TELEMETRY: '0', PI_ALLOW_BROWSER_COOKIES: '0', FEYNMAN_ALLOW_BROWSER_COOKIES: '0', TERM: 'xterm-256color', TERM_PROGRAM: 'ghostty' });
+Object.assign(env, { GIMLE_QWEN_BASE_URL: `http://127.0.0.1:${server.address().port}/v1`, GIMLE_QWEN_KEY_FILE: path.join(root, 'gimle-key') });
 const shellCommand = `export HUGINN_PI_SOURCE=${JSON.stringify(sourceDir)}; export NEO_PROXY_URL=${JSON.stringify(`http://127.0.0.1:${server.address().port}/v1`)}; export NEO_PROXY_API_KEY=synthetic-ui-only; export HUGINN_OMP_AGENT_DIR=${JSON.stringify(path.join(root, 'absent'))}; pi --offline --no-mcp --no-session --no-context-files --no-skills --tui-mode regular`;
 let child, pty;
 let raw = '';
@@ -46,9 +47,11 @@ const capturePicker = async label => {
   await writeFile(`/tmp/pi-switch-${label}-proof.ansi`, raw);
 };
 try {
+  await writeFile(env.GIMLE_QWEN_KEY_FILE, 'synthetic-ui-only', { mode: 0o600 });
   await prepareRuntime({ agentDir: root, env: { ...env, NEO_PROXY_URL: `http://127.0.0.1:${server.address().port}/v1` }, ompDir: path.join(root, 'absent') });
   const configuredModels = JSON.parse(await readFile(path.join(root, 'models.json'), 'utf8'));
-  assert.deepEqual(Object.keys(configuredModels.providers), ['neo-proxy']);
+  assert.deepEqual(Object.keys(configuredModels.providers), ['neo-proxy', 'gimle']);
+  assert.equal(configuredModels.providers.gimle.baseUrl, env.GIMLE_QWEN_BASE_URL);
   assert.equal(new URL(configuredModels.providers['neo-proxy'].baseUrl).hostname, '127.0.0.1');
   await writeFile(path.join(root, 'mcp.json'), JSON.stringify({ mcpServers: {} }));
   const settings = JSON.parse(await readFile(path.join(root, 'settings.json'), 'utf8'));

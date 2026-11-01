@@ -31,9 +31,12 @@ try {
   process.env.PI_CODING_AGENT_DIR = root;
   process.env.NEO_PROXY_API_KEY = 'synthetic-local-only';
   const endpoint = `http://127.0.0.1:${server.address().port}/v1`;
-  await prepareRuntime({ agentDir: root, env: { ...process.env, NEO_PROXY_URL: endpoint, ECORAY_MIMER_IP: '' }, ompDir: path.join(root, 'absent') });
+  const gimleKey = path.join(root, 'gimle-key');
+  await writeFile(gimleKey, 'synthetic-local-only', { mode: 0o600 });
+  await prepareRuntime({ agentDir: root, env: { ...process.env, NEO_PROXY_URL: endpoint, ECORAY_MIMER_IP: '', GIMLE_QWEN_BASE_URL: endpoint, GIMLE_QWEN_KEY_FILE: gimleKey }, ompDir: path.join(root, 'absent') });
   const configuredModels = JSON.parse(await readFile(path.join(root, 'models.json'), 'utf8'));
-  assert.deepEqual(Object.keys(configuredModels.providers), ['neo-proxy']);
+  assert.deepEqual(Object.keys(configuredModels.providers), ['neo-proxy', 'gimle']);
+  assert.equal(configuredModels.providers.gimle.baseUrl, endpoint);
   assert.equal(new URL(configuredModels.providers['neo-proxy'].baseUrl).hostname, '127.0.0.1');
   await writeFile(path.join(root, 'mcp.json'), JSON.stringify({ mcpServers: {} }));
   const settings = JSON.parse(await readFile(path.join(root, 'settings.json'), 'utf8'));
