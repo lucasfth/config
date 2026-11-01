@@ -209,6 +209,21 @@ Zsh profiles share the Mac's `Ctrl+R`, `Ctrl+X c`, `Ctrl+X Ctrl+E` and
 `--apply` changes remote interactive configuration and needs deployment approval.
 Herdr configuration reload is separate; existing panes are never replaced.
 
+## Resolve user OFX (macOS)
+
+| Command | Does |
+| --- | --- |
+| `install-asciify-ofx status` | Verify the exact pinned user Asciify bundle and signer; offline, no changes |
+| `install-asciify-ofx install [--archive /path/to/release.zip]` | Checksum/signature/notarization-verified user-only install; quit Resolve first |
+| `install-asciify-ofx uninstall` | Remove only an exact unmodified pinned bundle; quit Resolve first |
+| `resolve-user-ofx --print-command` | Preview launch argv without starting or changing Resolve |
+| `resolve-user-ofx` | Opt-in fresh launch with user, existing and system OFX paths; refuses a running instance |
+
+Home Manager declares these commands for Gimle and the MacBook; installation
+awaits approved activation. Before then run `python3 scripts/<command>` from the
+chosen checkout. No global environment or automatic plugin installation. See
+[Asciify setup and verification limits](configs/davinci-resolve/README.md#asciify-ofx--opt-in-user-install).
+
 ## Tools
 
 | Command | Does |

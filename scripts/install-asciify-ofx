@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Pinned, user-only Asciify OFX install/status/uninstall. No sudo or Resolve edits."""
+import argparse
+import hashlib
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import urllib.request
+import zipfile
+
+VERSION = '1.0.6'
+URL = f'https://github.com/stoatworks-labs/asciify/releases/download/v{VERSION}/asciify-ofx-macos-universal.zip'
+SHA256 = '52f811715e0dcbc0991c004496697c4986a275dd067550f3fa8d9d0c039ae2d1'
+BUNDLE = 'Asciify.ofx.bundle'
+# Relative paths, permissions, directory entries and file hashes of the pinned ZIP.
+# Allows offline status/removal and exact-match adoption of the initial manual install.
+TREE_SHA256 = '0bd6eea0ac95113e0c55e571680adf41a56045886ef0964e2f61e4d8b5514f02'
+REQUIREMENT = '=anchor apple generic and identifier "com.stoatworks.asciify.ofx" and certificate leaf[subject.OU] = "3G7USP8N73"'
+
+
+def digest(path):
+    result = hashlib.sha256()
+    if path.is_symlink() or not path.is_dir():
+        raise ValueError('Refusing a symlink or non-directory bundle')
+    for item in sorted(path.rglob('*')):
+        if item.is_symlink() or not (item.is_file() or item.is_dir()):
+            raise ValueError('Refusing symlinks or special files in bundle')
+        result.update(item.relative_to(path).as_posix().encode() + b'\0')
+        result.update(str(stat.S_IMODE(item.stat().st_mode)).encode() + b'\0')
+        result.update(b'd' if item.is_dir() else hashlib.sha256(item.read_bytes()).digest())
+    return result.hexdigest()
+
+
+def verify(path):
+    if digest(path) != TREE_SHA256:
+        raise ValueError('Refusing a different or modified Asciify bundle; expected pinned 1.0.6')
+    subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', '-R', REQUIREMENT, str(path)], check=True)
+
+
+def require_closed():
+    status = subprocess.run(['/usr/bin/pgrep', '-x', 'Resolve'], stdout=subprocess.DEVNULL).returncode
+    if status != 1:
+        raise RuntimeError('Quit Resolve manually before changing Asciify (or process check failed)')
+
+
+def plugin_dir():
+    home = Path.home()
+    if not home.is_absolute():
+        raise ValueError('HOME must be absolute')
+    path = home
+    for part in ('Library', 'OFX', 'Plugins'):
+        path /= part
+        if path.is_symlink():
+            raise ValueError(f'Refusing redirected user plugin directory: {path}')
+    return path
+
+
+def unpack(archive, destination):
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != SHA256:
+        raise ValueError('Asciify archive checksum mismatch')
+    # The checksum is the trust boundary. Extract only the expected bundle; no
+    # traversal, links, AppleDouble entries or scripts from arbitrary archives.
+    with zipfile.ZipFile(archive) as source:
+        for info in source.infolist():
+            parts = Path(info.filename).parts
+            mode = info.external_attr >> 16
+            if not parts or parts[0] != BUNDLE or '..' in parts or stat.S_ISLNK(mode):
+                raise ValueError(f'Unexpected ZIP entry: {info.filename}')
+            target = destination.joinpath(*parts)
+            if info.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.read(info))
+            target.chmod(stat.S_IMODE(mode))
+    verify(destination / BUNDLE)
+    subprocess.run(['/usr/bin/xcrun', 'stapler', 'validate', str(destination / BUNDLE)], check=True)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['install', 'status', 'uninstall'])
+    parser.add_argument('--archive', type=Path, help='install from this local ZIP, with the same pinned checksum (no network)')
+    args = parser.parse_args(argv)
+    if args.archive and args.action != 'install':
+        parser.error('--archive is only valid for install')
+    plugins = plugin_dir()
+    target = plugins / BUNDLE
+    if args.action == 'status':
+        if not target.exists() and not target.is_symlink():
+            print(f'Asciify absent: {target}')
+            return 1
+        verify(target)
+        print(f'Asciify {VERSION}: exact pinned bundle, signature verified: {target}')
+        return 0
+    if args.action == 'uninstall' and not target.exists() and not target.is_symlink():
+        print('Asciify already absent; nothing changed.')
+        return 0
+    if target.exists() or target.is_symlink():
+        verify(target)
+        if args.action == 'install':
+            print(f'Asciify {VERSION} already installed; nothing changed.')
+            return 0
+    require_closed()
+    # Validate/download away from HOME first; a bad archive never creates a
+    # plugin directory. No archive is fetched for status/uninstall/repeat install.
+    with tempfile.TemporaryDirectory(prefix='asciify-source.') as tmp:
+        source = Path(tmp)
+        if args.action == 'install':
+            archive = args.archive
+            if archive is None:
+                archive = source / 'release.zip'
+                with urllib.request.urlopen(URL, timeout=60) as response, archive.open('wb') as output:
+                    shutil.copyfileobj(response, output)
+            unpack(archive, source)
+        plugins.mkdir(parents=True, exist_ok=True)
+        lock = plugins / '.asciify-install.lock'
+        lock.mkdir()  # Refuse overlapping operations; never remove another lock.
+        try:
+            require_closed()
+            if args.action == 'install':
+                if target.exists() or target.is_symlink():
+                    raise ValueError('Asciify appeared during installation; refusing replacement')
+                with tempfile.TemporaryDirectory(prefix='.asciify-stage.', dir=plugins) as stage:
+                    staged = Path(stage) / BUNDLE
+                    subprocess.run(['/usr/bin/ditto', str(source / BUNDLE), str(staged)], check=True)
+                    verify(staged)
+                    os.rename(staged, target)
+                print(f'Installed Asciify {VERSION}: {target}. Use resolve-user-ofx on the next fresh launch.')
+            else:
+                verify(target)
+                # Rename out of discovery before removal. On cleanup failure the
+                # exact bundle remains in this reported private trash directory.
+                trash = Path(tempfile.mkdtemp(prefix='.asciify-remove.', dir=plugins))
+                try:
+                    os.rename(target, trash / BUNDLE)
+                    shutil.rmtree(trash)
+                except OSError:
+                    print(f'Removal incomplete; inspect {trash}', file=sys.stderr)
+                    raise
+                print(f'Removed only {target}')
+        finally:
+            lock.rmdir()
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError, zipfile.BadZipFile) as error:
+        sys.exit(str(error))

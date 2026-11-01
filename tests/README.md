@@ -10,6 +10,12 @@ macOS-specific tools, or temporary local services/mocks.
 - `gyroflow-install.py` checks isolated first/repeat installs, upgrades without
   old store sources, backups, signature/running/unmanaged refusal and rollback
   after marker failure. It mocks macOS tools, never touches the live plugin path.
+- `asciify-ofx.py` checks checksum/unmanaged/symlink/running refusal and launch
+  environment/argv policy. Add `--archive /path/to/asciify-ofx-macos-universal-v1.0.6.zip`
+  on macOS for real offline checksum, signature, notarization, staging, repeat
+  install, modified-bundle refusal, failure cleanup and uninstall checks in a
+  temporary HOME (process guard mocked only for those isolated fixtures).
+  It never launches Resolve; mock launch assertions are not host-discovery proof.
 - `resolve-studio.py` checks Studio/free metadata and downgrade refusal.
   `resolve-activation.py` evaluates both real Darwin module branches and tests
   Resolve-open deferral versus closed installation with isolated command stubs.

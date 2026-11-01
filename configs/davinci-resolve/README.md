@@ -39,6 +39,84 @@ options include Blackmagic's optional components; no custom component selection
 is managed. `installer = null` leaves the app untouched. System-generation
 rollback does not downgrade Apple's installed PKG.
 
+## Asciify OFX — opt-in user install
+
+**1.0.6**, MIT upstream: [stoatworks-labs/asciify](https://github.com/stoatworks-labs/asciify).
+Artifact: [macOS universal ZIP](https://github.com/stoatworks-labs/asciify/releases/download/v1.0.6/asciify-ofx-macos-universal.zip).
+SHA-256: `52f811715e0dcbc0991c004496697c4986a275dd067550f3fa8d9d0c039ae2d1`.
+Signed by **ALLAN SARGEANT**, team `3G7USP8N73`, bundle identifier
+`com.stoatworks.asciify.ofx`; the pinned ZIP has a valid stapled notarization ticket.
+No licence key, paid pack, standalone app, or GLYPH install is needed.
+
+From this checkout (Python 3, macOS `codesign`, `xcrun stapler`, `ditto` required):
+
+```sh
+python3 scripts/install-asciify-ofx status
+
+# Quit Resolve manually first. Downloads only this pinned release:
+python3 scripts/install-asciify-ofx install
+
+# Or install offline from the exact same archive:
+python3 scripts/install-asciify-ofx install --archive /path/to/asciify-ofx-macos-universal-v1.0.6.zip
+
+# Inspect without launching, even while Resolve is running:
+python3 scripts/resolve-user-ofx --print-command
+
+# Only after manually quitting Resolve:
+python3 scripts/resolve-user-ofx
+
+# Optional removal, also with Resolve closed:
+python3 scripts/install-asciify-ofx uninstall
+```
+
+Only `~/Library/OFX/Plugins/Asciify.ofx.bundle` is managed. Installation checks
+the archive checksum, exact bundle contents/permissions, Apple signature and
+signer, then validates the stapled ticket before staging with `ditto`. Status
+and uninstall need no archive/network and verify exact pinned contents and
+signature. Status exits 1 for absent; modified/different bundles fail without
+mutation. Exact existing installs are no-ops, including the initial manual
+install. Different versions are never overwritten or removed automatically;
+review them separately. No sudo, system OFX writes, cache deletion, quarantine
+removal, app-bundle edits or project modifications. A stale `.asciify-install.lock`
+must be inspected manually after an interrupted operation.
+
+### Persistent opt-in launch path
+
+Resolve **21.1.1.10** on Gimle discovered the user plugin only after an explicit
+`OFX_PLUGIN_PATH` launch. `resolve-user-ofx` uses macOS `open -a … --env` for
+**that app launch only**, prepending the user directory, preserving nonempty
+existing path entries in order, deduplicating them, and retaining the standard
+`/Library/OFX/Plugins` directory explicitly. No global `launchctl setenv` or shell
+export, replacement app, login service, or forced second instance. Regular
+Finder/Dock launches are unchanged and may still miss this user plugin. The
+launcher refuses while Resolve is running because an existing process cannot
+receive a new launch environment. macOS `open` must support `--env`.
+
+Home Manager declares `install-asciify-ofx` and `resolve-user-ofx` in
+`~/.local/bin` for Gimle and the MacBook via `nix/common/dotfiles.nix`. It deploys
+commands **only** after an approved activation; no activation hook downloads or
+installs Asciify or launches Resolve. Until then use the explicit checkout paths
+above. This source integration does not activate Nix or modify another checkout.
+
+### Host evidence and remaining check
+
+The preceding manual test registered Fusion ID **`ofx.com.stoatworks.asciify`**
+(not raw `com.stoatworks.asciify`). In Fusion, search **Asciify** and connect
+`MediaIn → Asciify → MediaOut`; scripting uses the `ofx.` ID. A 120-frame
+1920×1080, 30 fps ProRes 422 export showed ASCII with no visible watermark:
+`/Users/gimle/loki-data/live/hermes/cache/scratch/asciify-test/verified-render/asciify-resolve-proof.mov`.
+That is prior render evidence supplied with this task, not a new render or a
+fresh-launch test of this launcher. Installer tests use temporary HOME and the
+real pinned archive; the running-instance refusal and preview can be exercised
+safely. **Fresh-launch persistence of this wrapper remains unverified** until
+Lucas quits Resolve normally, starts through the wrapper, confirms Asciify
+discovery and verifies existing system effects still load. No automatic restart.
+
+The experimental `Fusion/Plugins/Asciify.ofx.bundle` is not a managed install
+destination. Do not delete a copy unless it exactly matches the test bundle and
+its redundancy is established; preserve the user OFX bundle. GLYPH is separate:
+this setup neither installs nor removes it (including any system copy).
+
 ## Gyroflow OFX
 
 Pinned **2.1.1** from `gyroflow/gyroflow-plugins` (the old `gyroflow-ofx` repository
@@ -166,6 +244,8 @@ the already-verified standalone plugin installation.
 
 ```sh
 python3 tests/gyroflow-install.py
+python3 tests/asciify-ofx.py
+python3 tests/asciify-ofx.py --archive /path/to/asciify-ofx-macos-universal-v1.0.6.zip
 python3 tests/resolve-studio.py
 python3 tests/resolve-activation.py
 python3 tests/sioyek-install.py

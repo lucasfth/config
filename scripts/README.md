@@ -27,6 +27,10 @@ not all share the same deployment or activation behavior.
   invokes these on activation. `install-resolve-studio` validates a supplied
   Studio PKG; only `--install` runs Apple's installer. See the
   [Resolve guide](../configs/davinci-resolve/README.md) before running them.
+- `install-asciify-ofx install|status|uninstall` manages only the pinned signed
+  user Asciify bundle; `--archive` permits offline installation. `resolve-user-ofx`
+  is an opt-in fresh-launch wrapper preserving existing and system OFX paths.
+  Neither command is run on activation. See the [Resolve guide](../configs/davinci-resolve/README.md#asciify-ofx--opt-in-user-install).
 - `setup-corridorkey-resolve --accept-model-license` creates the separate pinned
   Apple Silicon inference runtime. It refuses to overwrite an existing runtime;
   it does not deploy the menu or implicitly accept the licence on rebuild.

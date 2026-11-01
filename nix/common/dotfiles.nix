@@ -68,6 +68,13 @@ in {
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/configs/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast/scripts/invert-scroll.applescript";
       ".local/bin/sigyn-screen".source = "${flakeDir.outPath}/scripts/sigyn-screen";
+      # Commands only: plugin installation and fresh Resolve launch stay opt-in.
+      ".local/bin/install-asciify-ofx".source = pkgs.writeShellScript "install-asciify-ofx" ''
+        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/install-asciify-ofx" "$@"
+      '';
+      ".local/bin/resolve-user-ofx".source = pkgs.writeShellScript "resolve-user-ofx" ''
+        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/resolve-user-ofx" "$@"
+      '';
       ".local/bin/muninn-refresh".source = pkgs.writeShellScript "muninn-refresh" ''
         exec ${pkgs.python3}/bin/python3 "${config.home.homeDirectory}/config/scripts/muninn-refresh.py" "$@"
       '';
