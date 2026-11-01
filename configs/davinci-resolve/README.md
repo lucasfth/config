@@ -98,19 +98,33 @@ commands **only** after an approved activation; no activation hook downloads or
 installs Asciify or launches Resolve. Until then use the explicit checkout paths
 above. This source integration does not activate Nix or modify another checkout.
 
-### Host evidence and remaining check
+### Verified host evidence
 
-The preceding manual test registered Fusion ID **`ofx.com.stoatworks.asciify`**
-(not raw `com.stoatworks.asciify`). In Fusion, search **Asciify** and connect
-`MediaIn → Asciify → MediaOut`; scripting uses the `ofx.` ID. A 120-frame
-1920×1080, 30 fps ProRes 422 export showed ASCII with no visible watermark:
+Resolve **21.1.1.10** on Gimle registered Fusion ID
+**`ofx.com.stoatworks.asciify`** (not raw `com.stoatworks.asciify`). In Fusion,
+search **Asciify** and connect `MediaIn → Asciify → MediaOut`; scripting uses
+the `ofx.` ID. The initial manual render remains at
 `/Users/gimle/loki-data/live/hermes/cache/scratch/asciify-test/verified-render/asciify-resolve-proof.mov`.
-That is prior render evidence supplied with this task, not a new render or a
-fresh-launch test of this launcher. Installer tests use temporary HOME and the
-real pinned archive; the running-instance refusal and preview can be exercised
-safely. **Fresh-launch persistence of this wrapper remains unverified** until
-Lucas quits Resolve normally, starts through the wrapper, confirms Asciify
-discovery and verifies existing system effects still load. No automatic restart.
+
+**Fresh wrapper launch verified 2026-11-01, after removal of the redundant
+Fusion test copy:** the parent verification saved and quit Resolve normally
+(`SaveProject` and `Quit` both true), then ran this checkout's
+`scripts/resolve-user-ofx` (exit 0). Resolve launched as PID **50141**, replacing
+prior PID **30656**. Project `asciify-verify-20261101` loaded, and its current
+Fusion graph retained `Asciify1` with ID `ofx.com.stoatworks.asciify`.
+
+Fresh render job `dc62caa3-6d11-423d-a9b7-8d9cede77eb7` completed **100% in
+4561 ms**. Permanent movie:
+`/Users/gimle/Movies/Asciify-Resolve-Verification/asciify-fresh-launch-proof.mov`.
+The parent's ffprobe check confirmed **ProRes, 1920×1080, 30 fps, 120 frames**;
+visual inspection of
+`/Users/gimle/Movies/Asciify-Resolve-Verification/fresh-proof.png` confirmed ASCII
+glyphs with no obvious watermark. This records the parent's actual fresh-launch
+and render verification, not another render by the documentation worker.
+Installer tests previously passed **14/14** with the real pinned archive and
+temporary HOME. Nix command wrappers were built and exercised but **not activated
+or pushed**. Finder/Dock launches remain unchanged; this does not establish
+ordinary-launch discovery or fresh validation of every other system effect.
 
 The experimental `Fusion/Plugins/Asciify.ofx.bundle` is not a managed install
 destination. Do not delete a copy unless it exactly matches the test bundle and
