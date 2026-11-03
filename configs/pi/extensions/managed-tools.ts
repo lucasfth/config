@@ -16,8 +16,9 @@ export default async function managedTools(pi: ExtensionAPI): Promise<void> {
   const api = new Proxy(pi, {
     get(target, property) {
       if (property === 'registerTool') return (tool: ToolDefinition) => {
-        if (!DIRECT_TOOLS.has(tool.name)) deferredNames.add(tool.name);
-        target.registerTool({ ...tool, exposure: DIRECT_TOOLS.has(tool.name) ? 'direct' : 'deferred' });
+        const exposure = tool.exposure === 'model-only' ? 'model-only' : DIRECT_TOOLS.has(tool.name) ? 'direct' : 'deferred';
+        if (exposure === 'deferred') deferredNames.add(tool.name);
+        target.registerTool({ ...tool, exposure });
       };
       if (property === 'setActiveTools') return (names: string[]) => target.setActiveTools(names.filter(name => !deferredNames.has(name)));
       const value: unknown = Reflect.get(target, property, target);

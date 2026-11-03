@@ -30,9 +30,9 @@ test('interactive shell launches an isolated managed profile without changing li
   try {
     const output = await new Promise((resolve, reject) => {
       // Reassert isolation after interactive startup, which may source user environment files.
-      const command = 'export PI_CODING_AGENT_DIR="$1"; unset HERDR_ENV HERDR_SOCKET_PATH HERDR_PANE_ID HERDR_BIN_PATH; whence -w pi pi-native; pi --version; pi-native --version; whence -p pi';
-      const child = spawn('zsh', ['-lic', command, 'pi-entrypoint-test', agentDir], {
-        cwd: path.resolve(sourceDir, '../..'), env, stdio: ['ignore', 'pipe', 'pipe'],
+      const command = 'export PI_CODING_AGENT_DIR="$1"; export HUGINN_PI_SOURCE="$2"; unset HERDR_ENV HERDR_SOCKET_PATH HERDR_PANE_ID HERDR_BIN_PATH; whence -w pi pi-native; pi --version; pi-native --version; whence -p pi';
+      const child = spawn('zsh', ['-lic', command, 'pi-entrypoint-test', agentDir, sourceDir], {
+        cwd: path.resolve(sourceDir, '../..'), env: { ...env, HUGINN_PI_SOURCE: sourceDir }, stdio: ['ignore', 'pipe', 'pipe'],
       });
       let text = '', error = '';
       child.stdout.on('data', chunk => { text += chunk; });
