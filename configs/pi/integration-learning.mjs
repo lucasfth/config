@@ -1,5 +1,6 @@
 // Actual startup hook, installed skill loader and MCP transport; fixture provider.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import http from 'node:http';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -70,11 +71,19 @@ try {
     assert.ok(!captured.includes('OBSOLETE_STARTUP_LESSON'));
     const receipt = session.sessionManager.getEntries().find(entry => entry.type === 'custom' && entry.customType === 'skill-learning-startup');
     assert.ok(receipt, 'durable startup learning receipt missing');
+    assert.equal(receipt.data.schema, 2);
+    assert.equal(receipt.data.catalogue, 'available');
     assert.equal(receipt.data.behaviorProven, false);
-    assert.equal(receipt.data.installed.length, 4);
-    assert.equal(receipt.data.missing.length, 0);
-    const audit = receipt.data.installed.find(item => item.name === 'improvement-loop-audit');
-    assert.ok(audit?.sha256?.length === 64);
+    const owners = ['knowledge-maintenance', 'improvement-loop-audit', 'writing-skills', 'volundr-shared-skills'];
+    const catalogue = resourceLoader.getSkills().skills;
+    const expected = await Promise.all(owners.map(async name => {
+      const skill = catalogue.find(item => item.name === name);
+      assert.ok(skill, `native loader catalogue is missing ${name}`);
+      return { name, sha256: createHash('sha256').update(await readFile(skill.filePath)).digest('hex') };
+    }));
+    assert.deepEqual(receipt.data.installed, expected);
+    assert.deepEqual(receipt.data.notListed, []);
+    assert.deepEqual(receipt.data.unreadable, []);
     const count = reads.length;
     await session.prompt('Again, briefly.');
     assert.equal(reads.length, count);
@@ -83,7 +92,7 @@ try {
   assert.ok(!reads.some(filename => filename.startsWith('tech/learning/') || filename.startsWith('dreams/')));
   assert.equal(requests.length, 4);
   console.log(JSON.stringify({ freshSessions: 2, providerRequests: 4, requiredGuidancePreserved: true,
-    installedSkillCataloguePresent: true, obsoleteSupplementReads: 0, oncePerSession: true,
+    installedSkillCataloguePresent: true, receiptMatchesNativeCatalogue: true, obsoleteSupplementReads: 0, oncePerSession: true,
     scope: 'Actual startup hook, native resource loader and fixture MCP/provider; proves context delivery, not model compliance or live deployment.' }, null, 2));
 } finally {
   session?.dispose();

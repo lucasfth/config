@@ -43,7 +43,7 @@ test('native loader uses pinned active Volundr skills once, with documented loca
       }
     }
     assert.ok(byName.has('pi-subagents'));
-    assert.ok(byName.has('interactive-shell'));
+    assert.ok(byName.has('pi-interactive-shell'));
   } finally { await rm(agentDir, { recursive: true, force: true }); }
 });
 

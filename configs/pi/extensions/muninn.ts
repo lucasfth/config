@@ -186,18 +186,24 @@ export function createMemoryRecall(client: VaultClient): (paths: string[], maxCh
   };
 }
 
-export function skillLearningReceipt(skills: ReadonlyArray<{ name: string; filePath: string }>) {
+export function skillLearningReceipt(skills: ReadonlyArray<{ name: string; filePath: string }> | undefined) {
   const owners = ["knowledge-maintenance", "improvement-loop-audit", "writing-skills", "volundr-shared-skills"];
+  const catalogue = skills === undefined ? "unavailable" : "available";
   const installed: Array<{ name: string; sha256: string }> = [];
-  const missing: string[] = [];
+  const notListed: string[] = [];
+  const unreadable: string[] = [];
   for (const name of owners) {
+    if (skills === undefined) break;
     const skill = skills.find(item => item.name === name);
+    if (!skill) {
+      notListed.push(name);
+      continue;
+    }
     try {
-      if (!skill) throw new Error("not installed");
       installed.push({ name, sha256: createHash("sha256").update(readFileSync(skill.filePath)).digest("hex") });
-    } catch { missing.push(name); }
+    } catch { unreadable.push(name); }
   }
-  return { schema: 1, route: "volundr-skills", installed, missing, behaviorProven: false };
+  return { schema: 2, route: "volundr-skills", catalogue, installed, notListed, unreadable, behaviorProven: false };
 }
 
 export default async function muninnExtension(pi: ExtensionAPI): Promise<void> {
@@ -208,10 +214,10 @@ export default async function muninnExtension(pi: ExtensionAPI): Promise<void> {
     const sessionId = ctx.sessionManager.getSessionId();
     if (injectedSessions[sessionId]) return;
     const context = await buildSessionContext(detectProject(ctx.cwd), new McpVaultClient());
-    const receipt = skillLearningReceipt(_event.systemPromptOptions.skills ?? []);
+    const receipt = skillLearningReceipt(_event.systemPromptOptions.skills);
     pi.appendEntry("skill-learning-startup", receipt);
     const content = context + "\n\n---\n\n## Procedural learning availability\n\n" +
-      JSON.stringify(receipt) + "\nThis is an installed-payload receipt, not proof of reading or behavior.";
+      JSON.stringify(receipt) + "\nThis describes the supplied skill catalogue and readable payloads, not proof of reading or behavior.";
     injectedSessions[sessionId] = true;
     return { message: { customType: "muninn-context", content, display: false } };
   });

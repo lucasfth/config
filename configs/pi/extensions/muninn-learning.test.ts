@@ -56,17 +56,53 @@ test("startup omits retired generated correction blocks without hiding curated r
   assert.match(await createMemoryRecall(client)(["tech/030-Coding-Style.md"]), /LEGACY_NOISE/);
 });
 
-test("learning owner receipt binds loaded payload and distinguishes missing skills", () => {
+test("learning owner receipt binds readable payload and distinguishes unlisted skills", () => {
   const root = mkdtempSync(join(tmpdir(), "learning-receipt-"));
   try {
     const file = join(root, "SKILL.md");
     writeFileSync(file, "# Candidate fixture\n");
     const first = skillLearningReceipt([{ name: "improvement-loop-audit", filePath: file }]);
+    assert.equal(first.schema, 2);
+    assert.equal(first.catalogue, "available");
     assert.equal(first.installed[0].sha256.length, 64);
-    assert.ok(first.missing.includes("knowledge-maintenance"));
+    assert.ok(first.notListed.includes("knowledge-maintenance"));
+    assert.deepEqual(first.unreadable, []);
     writeFileSync(file, "# Changed fixture\n");
     const second = skillLearningReceipt([{ name: "improvement-loop-audit", filePath: file }]);
     assert.notEqual(first.installed[0].sha256, second.installed[0].sha256);
     assert.equal(second.behaviorProven, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("an unavailable catalogue is unknown, not evidence of unlisted skills", () => {
+  const receipt = skillLearningReceipt(undefined);
+  assert.equal(receipt.catalogue, "unavailable");
+  assert.deepEqual(receipt.installed, []);
+  assert.deepEqual(receipt.notListed, []);
+  assert.deepEqual(receipt.unreadable, []);
+  assert.equal(receipt.behaviorProven, false);
+});
+
+test("an available empty catalogue reports all owners as not listed", () => {
+  const receipt = skillLearningReceipt([]);
+  assert.equal(receipt.catalogue, "available");
+  assert.deepEqual(receipt.notListed, [
+    "knowledge-maintenance", "improvement-loop-audit", "writing-skills", "volundr-shared-skills",
+  ]);
+  assert.deepEqual(receipt.unreadable, []);
+});
+
+test("listed unreadable skills are not reported as unlisted", () => {
+  const root = mkdtempSync(join(tmpdir(), "learning-unreadable-"));
+  try {
+    const receipt = skillLearningReceipt([
+      { name: "knowledge-maintenance", filePath: join(root, "absent.md") },
+      { name: "writing-skills", filePath: root },
+    ]);
+    assert.equal(receipt.catalogue, "available");
+    assert.deepEqual(receipt.installed, []);
+    assert.deepEqual(receipt.unreadable, ["knowledge-maintenance", "writing-skills"]);
+    assert.deepEqual(receipt.notListed, ["improvement-loop-audit", "volundr-shared-skills"]);
+    assert.equal(JSON.stringify(receipt).includes(root), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
