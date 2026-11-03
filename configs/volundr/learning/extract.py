@@ -187,8 +187,9 @@ def distil(vault, state_dir, model, today=None):
             review['schema'] != 1 or not isinstance(review.get('records'), dict)):
         raise ValueError('Unsupported manual-review queue schema')
     for identifier, entry in review['records'].items():
-        if (not isinstance(entry, dict) or set(entry) != {
-                'id', 'source', 'status', 'reason', 'max_chars', 'max_bytes'}):
+        required = {'id', 'source', 'status', 'reason', 'max_chars', 'max_bytes'}
+        optional = {'record_ids', 'manifest', 'classification'}
+        if (not isinstance(entry, dict) or not required.issubset(entry) or set(entry) - required - optional):
             raise ValueError('Invalid manual-review record')
         source = entry['source']
         if (not isinstance(source, dict) or set(source) != {'path', 'date', 'project', 'sha256', 'bytes'} or
@@ -201,7 +202,7 @@ def distil(vault, state_dir, model, today=None):
         if (not session_path(relative) or source['project'] != project_of(relative) or
                 source['date'] != str(date.fromisoformat(path.name[:10])) or
                 identifier != sha(json.dumps(source, sort_keys=True).encode()) or entry['id'] != identifier or
-                entry['status'] != 'manual-review-required' or entry['reason'] != 'oversized-source' or
+                entry['status'] not in ('manual-review-required', 'extracted', 'skipped-non-aar') or entry['reason'] != 'oversized-source' or
                 type(entry['max_chars']) is not int or entry['max_chars'] != MAX_SOURCE or
                 type(entry['max_bytes']) is not int or entry['max_bytes'] != MAX_SOURCE * 4):
             raise ValueError('Inconsistent manual-review record')
@@ -310,7 +311,36 @@ def nightly(config_path):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if config.get('provider_env'):
             load_provider_env(Path(config['provider_env']))
-        return distil(vault, state_dir, dream_model(Path(config['dream_script'])))
+        model = dream_model(Path(config['dream_script']))
+        if config.get('chunked_enabled') is not True:
+            return distil(vault, state_dir, model)
+        from .chunked import drain
+        chunks = drain(vault, state_dir, model, budget=config.get('chunk_call_budget', 8))
+        result = distil(vault, state_dir, model)
+        review_path = safe(state_dir, 'manual-review.json')
+        review = json.loads(review_path.read_text()) if review_path.exists() else {'schema': 1, 'records': {}}
+        ledger = load_state(state_dir)['records']
+        for entry in review['records'].values():
+            matches = [r for r in ledger.values() if r['source']['path'] == entry['source']['path']
+                       and r['source']['sha256'] == entry['source']['sha256']]
+            if not matches: continue
+            manifests = {r.get('extraction', {}).get('manifest') for r in matches}
+            if len(manifests) != 1 or None in manifests: continue
+            manifest = json.loads(safe(state_dir, next(iter(manifests))).read_text())
+            ids = sorted(r['id'] for r in matches)
+            if manifest.get('status') == 'complete' and sorted(manifest.get('record_ids', [])) == ids:
+                entry.update(status='extracted', record_ids=ids)
+        if review_path.exists(): save(review_path, json.dumps(review, indent=2)+'\n')
+        closed = {(r['source']['path'], r['source']['sha256'])
+                  for r in review['records'].values() if r.get('status') in ('extracted', 'skipped-non-aar')}
+        result['deferred'] = [entry for entry in result['deferred']
+            if (entry['source']['path'], entry['source']['sha256']) not in closed]
+        result['processed'] = chunks['processed'] + result['processed']
+        result['errors'].extend(chunks['errors'])
+        result['chunked'] = chunks
+        result['status'] = ('partial-failure' if result['errors'] else
+                            'manual-review-required' if result['deferred'] else 'complete')
+        return result
 
 
 if __name__ == '__main__':
