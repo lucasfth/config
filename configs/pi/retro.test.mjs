@@ -15,12 +15,19 @@ test('/retro loads a single explicit-only Huginn skill and preserves prompt sett
   try {
     const customPrompt = path.join(agentDir, 'custom.md');
     await writeFile(customPrompt, 'A retained user prompt.\n');
-    await writeFile(path.join(agentDir, 'settings.json'), JSON.stringify({ prompts: [customPrompt] }));
+    const managedNames = ['aar', 'retro', 'done', 'review', 'full-send', 'full-stop'];
+    const stalePrompts = managedNames.map(name => path.join(agentDir, 'config-candidate/configs/pi/prompts', `${name}.md`));
+    const customReview = path.join(agentDir, 'review.md');
+    await writeFile(customReview, 'A custom prompt with a managed command name.\n');
+    await writeFile(path.join(agentDir, 'settings.json'), JSON.stringify({ prompts: [customPrompt, customReview, ...stalePrompts] }));
     const options = { agentDir, env: { NEO_PROXY_URL: 'https://proxy.invalid/v1' }, ompDir: path.join(agentDir, 'absent') };
     await prepareRuntime(options);
     const { settings } = await prepareRuntime(options);
     assert.ok(settings.prompts.includes(customPrompt));
     assert.equal(settings.prompts.filter(p => p === path.join(sourceDir, 'prompts/retro.md')).length, 1);
+    assert.ok(settings.prompts.includes(customReview));
+    assert.equal(settings.prompts.length, managedNames.length + 2);
+    assert.ok(stalePrompts.every(p => !settings.prompts.includes(p)));
     const loader = new DefaultResourceLoader({
       cwd: agentDir, agentDir,
       settingsManager: SettingsManager.create(agentDir, agentDir, { projectTrusted: true }),
@@ -34,7 +41,8 @@ test('/retro loads a single explicit-only Huginn skill and preserves prompt sett
     assert.equal(matches[0].disableModelInvocation, true);
     assert.doesNotMatch(formatSkillsForPrompt(skills), /<name>huginn-retro<\/name>/);
     const { prompts, diagnostics: promptDiagnostics } = loader.getPrompts();
-    assert.deepEqual(promptDiagnostics, []);
+    // A genuine custom /review is retained, even though it collides by command name.
+    assert.deepEqual(promptDiagnostics.map(d => d.type), ['collision']);
     assert.equal(prompts.filter(p => p.name === 'retro').length, 1);
     for (const [command, focus] of [
       ['/retro', 'the current task or session'],

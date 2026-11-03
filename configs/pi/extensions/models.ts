@@ -4,6 +4,7 @@ import path from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { pickModelOverlay } from './model-picker.ts';
+import { applySubagentRoles, subagentRoles } from '../subagent-roles.mjs';
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 type ThinkingLevel = (typeof THINKING_LEVELS)[number];
@@ -138,22 +139,16 @@ async function persistRole(api: ModelCommandApi, roleName: string, model: ModelC
     settings.defaultModel = model.id;
     settings.defaultThinkingLevel = role.thinkingLevel;
   }
-  if (roleName === 'task') {
+  const updatesSubagents = Object.values(subagentRoles).includes(roleName);
+  if (updatesSubagents) {
     const subagents = settings.subagents && typeof settings.subagents === 'object' ? settings.subagents as JsonObject : {};
-    const overrides = subagents.agentOverrides && typeof subagents.agentOverrides === 'object' ? subagents.agentOverrides as JsonObject : {};
-    subagents.defaultModel = `${role.provider}/${role.modelId}`;
-    for (const agent of ['task', 'scout', 'reviewer', 'security-reviewer', 'sonic']) {
-      const previous = overrides[agent] && typeof overrides[agent] === 'object' ? overrides[agent] as JsonObject : {};
-      overrides[agent] = { ...previous, model: subagents.defaultModel, thinking: role.thinkingLevel };
-    }
-    subagents.agentOverrides = overrides;
-    settings.subagents = subagents;
+    settings.subagents = applySubagentRoles(subagents, { [roleName]: role });
   }
   if (roleName === 'summary') {
     const prune = settings.contextPrune && typeof settings.contextPrune === 'object' ? settings.contextPrune as JsonObject : {};
     settings.contextPrune = { ...prune, summarizerModel: `${role.provider}/${role.modelId}`, summarizerThinking: role.thinkingLevel };
   }
-  if (roleName === 'default' || roleName === 'task' || roleName === 'summary') await writeJsonAtomically(files.settings, settings);
+  if (roleName === 'default' || updatesSubagents || roleName === 'summary') await writeJsonAtomically(files.settings, settings);
   api.notify(`Saved ${roleName} → ${formatModel(model, role.thinkingLevel)}${roleName === 'default' ? ' (future sessions)' : roleName === 'summary' ? ' (pruner applies on restart)' : ''}.`, 'info');
 }
 async function chooseModel(api: ModelCommandApi, title: string, includeRoles: boolean): Promise<string | undefined> {

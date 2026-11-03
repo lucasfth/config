@@ -65,6 +65,8 @@ pi update
 
 The managed profile pins upstream Pi and its selected packages in `package.json`/`package-lock.json`. `pi update` updates the four native host packages together to one exact registry release, applies the tracked compatibility patches, then runs typecheck, tests and retained integration checks. If those checks fail, the previous manifests and locked dependencies are restored; failed restoration is reported explicitly. It does not run the global Homebrew updater.
 
+`pi update --check` reports the selected checkout and each host package's pinned, installed and latest versions. A source pull or an update in a staging checkout does not synchronize this checkout's `node_modules`. A mismatch requires `pi update` from the managed launcher. Finish other Pi sessions using that installation before replacing dependencies; an already-running process keeps loaded code and may load other modules later. After a successful update, start Pi again to load the new version.
+
 The npm cache is `~/.cache/huginn-pi/npm`, not the root-owned shard in `~/.npm`. No sudo, recursive permission changes, `--force`, or global package replacement is needed. To install the profile's dependencies from scratch:
 
 ```sh
@@ -76,6 +78,8 @@ npm run setup
 Private settings, sessions and generated provider/MCP configuration live in `~/.local/share/huginn-pi/agent`; `PI_CODING_AGENT_DIR` overrides that location. These are not source files. Neo endpoint/key must be available to the launching shell. Optional Codex roles require native Pi login; OAuth refresh ownership is not copied from OMP. Mimer/TypeSafe roles require their own route/credentials.
 
 Each launch regenerates settings from this checkout, retaining saved role choices. Canonical skills are included once; project-provided skill names take precedence. Project skill scanning stops at this checkout's repository root, so an enclosing checkout cannot hide a nested worktree's canonical skills. The isolated checks regenerate temporary state, not the live profile.
+
+The six managed prompt paths also follow the launching checkout: stale paths from other config checkouts are replaced, while unrelated custom templates are retained. Launch again to regenerate saved paths; no staging-directory deletion is needed.
 
 ### Native model and MCP ownership
 
@@ -146,7 +150,9 @@ Existing sessions need a new profile launch (`pi --continue` to resume); launch 
 - User messages have a distinct dark block (light-theme equivalent included), while assistant replies retain the terminal background. Skill messages stay compact; tool panels include call/output borders and native diff/image/expansion rendering. Generated light/dark profile palettes follow terminal appearance. MCP errors remain visible.
 - `/switch` opens searchable session-only selection anchored at the bottom of the terminal, with a one-row margin; filtering keeps its lower edge fixed. Direct `/switch neo-proxy/gpt-6-luna:low` changes this session only.
 - `/model` and `/models` configure saved roles/defaults, model and thinking level without changing the current session. A narrow tracked host patch lets the extension own `/model`; there is no editor-input rewrite.
-- Task/scout/reviewer/security-reviewer/sonic use the task role. `/plan <request>` uses the plan role for one turn; `/commit <context>` uses the dedicated commit role to propose a message, never to create a commit. Both restore the prior session model/thinking after settling. Continuous advisor remains separate.
+- Subagent defaults follow saved `/model` roles: task/scout/reviewer/security-reviewer → `task`; sonic/smol → `smol`; vision → `vision`; designer → `designer`; tiny → `tiny`; slow → `slow`. Model and thinking settings share one mapping in `subagent-roles.mjs`, applied at normal startup and immediately after role assignment for the next independent launch. Existing/resumed runs retain their launch configuration. `/switch` does not change these defaults.
+- Normal subagent calls omit `model`; an explicit `model: "provider/model[:thinking]"` still wins, including per-task/per-step workflow overrides. `model: "inherit"` explicitly selects the parent model. Overrides do not rewrite saved roles. Model failures are reported; this routing adds no silent fallback or provider switch. Trusted project overrides remain supported by pi-subagents.
+- `/plan <request>` uses the plan role for one turn; `/commit <context>` uses the dedicated commit role to propose a message, never to create a commit. Both restore the prior session model/thinking after settling. Continuous advisor remains separate. Load the changed routing with a normal profile launch (no Nix activation); existing processes need a fresh launch to regenerate settings/instructions. Subsequent `/model` changes apply to the next independent child without restarting.
 - The commit role is a requested profile addition; OMP's checked configuration declares default/plan/task, not a dedicated commit role.
 - Input/tool images, SVG rasterization, numeric-table charts, native Mermaid and LaTeX retain their own terminal rendering paths.
 - On macOS, **⌘V** pastes clipboard images as compact `[img1]`, `[img2]` composer tokens; Ctrl+V remains available. Backspace/Delete treats each attachment as one item, and undo restores its image mapping. Only explicitly registered images are loaded by the input hook; ordinary `[img1]` text stays literal. A tracked Pi-TUI patch keeps image state separate from large text pastes. A zero-width internal discriminator is stripped from terminal output and expanded to the image path before submission; the provider receives actual image content, not just a path. Existing sessions need a fresh profile launch to load the generated keybindings and hook.

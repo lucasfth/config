@@ -39,3 +39,31 @@ test('failed update verification restores original pins and does not report succ
     assert.doesNotMatch(output.join(''),/verification succeeded/);
   } finally { await rm(root,{recursive:true,force:true}); }
 });
+
+test('update check reports the selected checkout and installed version without changing dependencies', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pi-update-check-'));
+  try {
+    const bin = path.join(root, 'bin');
+    await mkdir(bin);
+    const manifest = JSON.stringify({ dependencies: Object.fromEntries(names.map(name => [name, '1.5.0'])) });
+    const lock = '{"lockfileVersion":3}';
+    await writeFile(path.join(root, 'package.json'), manifest);
+    await writeFile(path.join(root, 'package-lock.json'), lock);
+    for (const name of names) {
+      const dir = path.join(root, 'node_modules', name);
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'package.json'), JSON.stringify({ version: '1.4.0' }));
+    }
+    await writeFile(path.join(bin, 'npm'), `#!${process.execPath}\nif (process.argv[2] !== 'view') process.exit(9); console.log('1.5.0');\n`);
+    await chmod(path.join(bin, 'npm'), 0o755);
+    const output = [];
+    const result = await updateProfile({ sourceDir: root, cacheDir: path.join(root, 'cache'), args: ['--check'],
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, stdout: text => output.push(text), stderr: text => output.push(text) });
+    assert.equal(result.code, 0);
+    assert.ok(output.join('').includes(`Profile: ${root}`));
+    for (const name of names) assert.ok(output.join('').includes(`${name}: pinned 1.5.0, installed 1.4.0, latest 1.5.0`));
+    assert.match(output.join(''), /installed dependencies do not match.*pi update/i);
+    assert.equal(await readFile(path.join(root, 'package.json'), 'utf8'), manifest);
+    assert.equal(await readFile(path.join(root, 'package-lock.json'), 'utf8'), lock);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

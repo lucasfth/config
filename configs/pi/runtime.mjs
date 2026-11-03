@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
+import { applySubagentRoles } from './subagent-roles.mjs';
 
 export const sourceDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoDir = path.resolve(sourceDir, '../..');
@@ -119,6 +120,9 @@ export async function prepareRuntime({ agentDir, env = process.env }) {
   const packageNames = ['pi-subagents', 'pi-intercom', 'pi-interactive-shell', 'pi-lsp-adapter', 'pi-web-access', 'pi-hashline-edit', 'pi-btw', 'pi-condense'];
   const packages = packageNames.map(name => ({ source: path.join(moduleDir, name), extensions: [], skills: name === 'pi-subagents' || name === 'pi-interactive-shell' ? undefined : [], prompts: [] }));
   const personalExtensions = ['context-policy.ts', 'compaction-policy.ts', 'hashline-host.ts', 'managed-tools.ts', 'user-shell.ts', 'eval.ts', 'code-intelligence.ts', 'code-search.ts', 'source-outline.ts', 'cache-report.ts', 'models.ts', 'muninn.ts', 'workflow.ts', 'visuals.ts', 'gimle.ts', 'history.ts', 'advisor.ts', 'image-attachments.ts', 'presentation.ts', 'herdr-presentation.ts', 'workers.ts', 'fleet.ts'];
+  const promptNames = ['aar', 'retro', 'done', 'review', 'full-send', 'full-stop'];
+  // Managed prompt paths follow this checkout; retain unrelated user templates.
+  const customPrompts = (previous.prompts ?? []).filter(file => !promptNames.some(name => file.endsWith(`${path.sep}configs${path.sep}pi${path.sep}prompts${path.sep}${name}.md`)));
   const settings = {
     ...sourceSettings, ...previous,
     defaultProvider: roles.default.provider, defaultModel: roles.default.modelId, defaultThinkingLevel: roles.default.thinkingLevel,
@@ -133,19 +137,12 @@ export async function prepareRuntime({ agentDir, env = process.env }) {
     packages,
     extensions: personalExtensions.map(name => path.join(sourceDir, 'extensions', name)),
     skills: canonicalSkillPaths(),
-    prompts: [...new Set([...(sourceSettings.prompts ?? []), ...(previous.prompts ?? []), ...['aar', 'retro', 'done', 'review', 'full-send', 'full-stop'].map(name => path.join(sourceDir, `prompts/${name}.md`))])],
-    subagents: {
+    prompts: [...new Set([...(sourceSettings.prompts ?? []), ...customPrompts, ...promptNames.map(name => path.join(sourceDir, `prompts/${name}.md`))])],
+    subagents: applySubagentRoles({
       ...sourceSettings.subagents, ...previous.subagents,
       agentScanDirs: [path.join(sourceDir, 'agents')],
       defaultExtensions: [path.join(sourceDir, 'extensions/hashline-host.ts'), path.join(sourceDir, 'extensions/code-intelligence.ts'), path.join(sourceDir, 'extensions/fleet.ts')],
-      agentOverrides: {
-        ...previous.subagents?.agentOverrides,
-        ...Object.fromEntries(['task', 'scout', 'reviewer', 'security-reviewer', 'sonic'].map(name => [name, {
-          ...previous.subagents?.agentOverrides?.[name],
-          model: `${roles.task.provider}/${roles.task.modelId}`, thinking: roles.task.thinkingLevel,
-        }])),
-      },
-    },
+    }, roles),
   };
   await privateJson(path.join(agentDir, 'settings.json'), settings);
   await privateJson(path.join(agentDir, 'roles.json'), roles);

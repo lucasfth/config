@@ -1,8 +1,6 @@
 ---
 name: task
 description: Implement a scoped coding or operational task with explicit acceptance criteria.
-model: neo-proxy/gpt-6-luna
-thinking: medium
 inheritProjectContext: true
 inheritGlobalContext: true
 inheritSkills: true

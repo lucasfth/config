@@ -35,6 +35,12 @@ export async function updateProfile({ sourceDir, cacheDir, args = [], env = proc
     originalManifest = await readFile(manifestPath, 'utf8');
     originalLock = await readFile(lockPath, 'utf8');
     const manifest = JSON.parse(originalManifest);
+    stdout(`Profile: ${sourceDir}\n`);
+    const installed = {};
+    for (const name of hostPackages) {
+      try { installed[name] = JSON.parse(await readFile(path.join(sourceDir, 'node_modules', name, 'package.json'), 'utf8')).version; }
+      catch (error) { if (error.code !== 'ENOENT') throw error; installed[name] = 'missing'; }
+    }
     const versions = {};
     // Inspect the complete synchronized host release before changing any pins.
     await Promise.all(hostPackages.map(async name => {
@@ -42,9 +48,10 @@ export async function updateProfile({ sourceDir, cacheDir, args = [], env = proc
       versions[name] = result.stdout.trim();
     }));
     const plan = resolveHostUpdate(manifest.dependencies, versions);
-    for (const name of hostPackages) stdout(`${name}: current ${manifest.dependencies[name]}, latest ${versions[name]}\n`);
+    for (const name of hostPackages) stdout(`${name}: pinned ${manifest.dependencies[name]}, installed ${installed[name]}, latest ${versions[name]}\n`);
+    if (hostPackages.some(name => installed[name] !== manifest.dependencies[name])) stdout('Installed dependencies do not match the profile pins; run pi update to synchronize and verify this checkout.\n');
     if (args[0] === '--check') return { code: 0 };
-    stdout(plan.changed ? `Updating native Pi to ${plan.version}; previous pins will be restored if verification fails.\n` : `Native Pi ${plan.version} is current; checking the locked installation.\n`);
+    stdout(plan.changed ? `Updating native Pi to ${plan.version}; previous pins will be restored if verification fails.\n` : `Native Pi pins are current at ${plan.version}; synchronizing and verifying the locked installation.\n`);
     attempted = true;
     await run(plan.changed ? ['install', '--save-exact', '--ignore-scripts', '--no-audit', '--no-fund', ...plan.install] : ['ci', '--ignore-scripts', '--no-audit', '--no-fund']);
     for (const command of [['run', 'setup'], ['run', 'typecheck'], ['test'], ['run', 'verify:integration']]) await run(command);
