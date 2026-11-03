@@ -54,6 +54,11 @@ try {
       await new Promise(resolve => setTimeout(resolve, 300));
       pi.events.emit('herdr:blocked', { active: false });
     }});
+    pi.registerCommand('herdr-title-probe', { handler: async () => {
+      pi.setSessionName('Sidebar identity probe');
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile(${JSON.stringify(path.join(dir, 'renamed'))}, 'ready');
+    }});
   };`);
   const settings = JSON.parse(await readFile(path.join(dir, 'settings.json'), 'utf8'));
   Object.assign(settings, { extensions: [probe], skills: [], packages: [], retry: { enabled: false } });
@@ -75,6 +80,8 @@ try {
   assert.equal(await readFile(path.join(dir, 'started'), 'utf8'), 'ready');
   assert.equal(reports.length, 0);
   await writeFile(path.join(dir, 'extensions/herdr-agent-state.ts'), hook);
+  settings.extensions.push(path.join(sourceDir, 'extensions/herdr-presentation.ts'));
+  await writeFile(path.join(dir, 'settings.json'), JSON.stringify(settings));
   pty.write('/reload\r');
   await waitFor(() => states().includes('idle'));
   pty.write('/herdr-probe\r');
@@ -82,6 +89,17 @@ try {
   // An unavailable loopback provider exercises real start/error settlement without a model service.
   pty.write('Herdr lifecycle probe\r');
   await waitFor(() => states().includes('working') && states().at(-1) === 'idle');
+  await waitFor(() => reports.some(report => report.method === 'pane.report_metadata'
+    && report.params.display_agent === 'huginn' && report.params.tokens.agent_profile === 'huginn'));
+  pty.write('/herdr-title-probe\r');
+  for (let i = 0; i < 150; i++) {
+    if (await readFile(path.join(dir, 'renamed'), 'utf8').catch(() => '') === 'ready') break;
+    await delay(100);
+  }
+  assert.equal(await readFile(path.join(dir, 'renamed'), 'utf8'), 'ready');
+  pty.write('Herdr renamed title probe\r');
+  await waitFor(() => reports.some(report => report.method === 'pane.report_metadata'
+    && report.params.title === 'Sidebar identity probe'));
   assert.ok(reports.some(report => report.method === 'pane.report_agent_session' && path.isAbsolute(report.params.agent_session_path)));
   assert.ok(reports.every(report => report.params.agent === 'pi' && report.params.pane_id === 'w1:p1'));
   const exit = new Promise(resolve => pty.onExit(resolve));
@@ -90,7 +108,10 @@ try {
   const result = await exit;
   clearTimeout(timer);
   assert.equal(result.exitCode, 0);
-  console.log(JSON.stringify({ states: states(), sessionRef: true, realHerdrHook: true, exitCode: result.exitCode }));
+  assert.ok(reports.some(report => report.method === 'pane.report_metadata'
+    && report.params.clear_display_agent && report.params.tokens.agent_profile === null));
+  console.log(JSON.stringify({ states: states(), sessionRef: true, realHerdrHook: true,
+    huginnIdentity: true, renamedTitle: true, cleanup: true, exitCode: result.exitCode }));
 } finally {
   if (pty?.exitCode === null) pty.kill();
   await new Promise(resolve => server.close(resolve));

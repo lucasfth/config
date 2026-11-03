@@ -13,7 +13,7 @@ import urllib.request
 
 REPO = Path(__file__).resolve().parent.parent
 SHELL_FILES = ("setup.sh", "fleet.zsh", "fleet.bash", "minimal.zsh", "identity.zsh", "identity.bash",
-               "keybindings.zsh", "keybindings.bash")
+               "keybindings.zsh", "keybindings.bash", "commands.sh", "current.sh")
 HOSTS = {
     "neo": ("darwin-arm64", "zsh"),
     "mini": ("darwin-arm64", "zsh"),
@@ -28,9 +28,41 @@ HOSTS = {
 }
 
 
+def stage_canonical_shell(root, cache=None):
+    """Render canonical Nix shell content locally; remotes do not need Nix."""
+    for name in ("aliases", "env"):
+        expression = f'(import {REPO / "nix/common/shell" / (name + ".nix")} {{ config = {{}}; pkgs = {{}}; lib = {{}}; }}).content'
+        result = subprocess.run(["nix", "eval", "--impure", "--raw", "--expr", expression],
+                                check=True, capture_output=True, text=True)
+        (root / (name + ".sh")).write_text(result.stdout)
+    (root / "interactive.zsh").write_bytes((REPO / "nix/common/shell/interactive.zsh").read_bytes())
+    # Use the same pinned OMZ git plugin as the deployed Zsh profile, not a
+    # second handwritten alias list. Bash receives its compatible aliases.
+    manifest = json.loads((REPO / "shell/tools.json").read_text())
+    plugin = root / "plugins/oh-my-zsh"
+    cache = cache or Path.home() / ".cache/huginn-shell"
+    cache.mkdir(parents=True, exist_ok=True)
+    unpack_plugin(download(manifest["plugins"]["oh-my-zsh"], cache), plugin)
+    script = 'compdef() { :; }; source "$1/lib/git.zsh"; source "$1/plugins/git/git.plugin.zsh"; for name in ${(ok)aliases}; do printf "%s\\0%s\\0" "$name" "$aliases[$name]"; done'
+    result = subprocess.run(["zsh", "-f", "-c", script, "zsh", str(plugin)], check=True, capture_output=True)
+    fields = result.stdout.decode().split("\0")
+    compatible = []
+    for name, value in zip(fields[::2], fields[1::2]):
+        if name == "current_branch" or "noglob " in value or "&!" in value:
+            continue
+        if any(helper in value for helper in ("ggu", "work_in_progress")):
+            continue
+        compatible.append("alias " + shlex.quote(name + "=" + value))
+    (root / "git-aliases.sh").write_text("# Generated from the pinned OMZ git plugin.\n" + "\n".join(compatible) + "\n")
+    for relative in ("lazygit/config.yml",):
+        target = root / "configs" / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((REPO / "configs" / relative).read_bytes())
+
+
 def ssh(host, command, *, data=None, timeout=60):
     result = subprocess.run(
-        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host, command],
+        ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=8", host, command],
         input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout,
     )
     if result.returncode:
@@ -112,6 +144,7 @@ def main():
             root = Path(temporary)
             for name in SHELL_FILES:
                 (root / name).write_bytes((REPO / "shell" / name).read_bytes())
+            stage_canonical_shell(root, args.cache)
             for name in ("starship.toml", "starship-ssh.toml"):
                 (root / name).write_bytes((REPO / "configs/starship" / name).read_bytes())
             (root / "bin").mkdir()

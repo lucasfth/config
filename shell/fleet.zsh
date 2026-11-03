@@ -79,21 +79,8 @@ alias gcm='git commit -m' gd='git diff' gds='git diff --staged'
 alias gaa='git add -A' gl='git pull' gup='git pull --rebase'
 alias gp='git push' glog='git log --oneline --graph --decorate --all'
 
-# Open source files in VS Code when present, otherwise fall back to Vim/vi.
-typeset _huginn_code_editor=$_huginn_editor
-command -v code >/dev/null 2>&1 && _huginn_code_editor=code
-if command -v code >/dev/null 2>&1 || command -v vim >/dev/null 2>&1 || command -v vi >/dev/null 2>&1; then
-  alias -s vue=$_huginn_code_editor ts=$_huginn_code_editor tsx=$_huginn_code_editor
-  alias -s js=$_huginn_code_editor jsx=$_huginn_code_editor nix=$_huginn_code_editor
-  alias -s json=$_huginn_code_editor py=$_huginn_code_editor sh=$_huginn_code_editor
-  alias -s zsh=$_huginn_code_editor go=$_huginn_code_editor rs=$_huginn_code_editor
-  alias -s yaml=$_huginn_editor yml=$_huginn_editor toml=$_huginn_editor
-fi
-if command -v bat >/dev/null 2>&1; then
-  alias -s md=bat txt=bat log=bat
-elif command -v vim >/dev/null 2>&1 || command -v vi >/dev/null 2>&1; then
-  alias -s md=$_huginn_editor txt=$_huginn_editor log=$_huginn_editor
-fi
+# Commands and suffix aliases come from the current canonical Nix profile.
+source "$_huginn_root/current.sh"
 
 # Initialize optional tools only when the original startup files did not.
 if command -v direnv >/dev/null 2>&1 && (( ! $+functions[_direnv_hook] )); then

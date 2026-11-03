@@ -481,13 +481,15 @@ Plato and Loki retain Bash; Sigyn uses a dependency-free minimal Zsh profile.
 Every updated SSH shell shows its stable alias on the right in teal. The
 managed launcher also shows it without SSH environment variables, including new
 Herdr panes. Existing panes keep their current shells. Plain SSH retains the
-account's existing shell and host-specific startup, with additive identity and
-portable keybinding hooks (`shell/keybindings.zsh` and `shell/keybindings.bash`).
-`Ctrl+X Ctrl+L` clears screen/scrollback without executing or losing the pending
-command in both Zsh and Bash. Zsh also shares `Ctrl+X c` / `Ctrl+X Ctrl+E`
-(Vim buffer editor) and `Ctrl+X g c` (insert a Git commit template) with the Mac.
-The hooks preserve the host's editing mode and prompt; the full plugin/alias
-profile still requires the managed launcher when preserving an existing `.zshrc`.
+account's existing shell and host-specific startup, with additive identity, current
+commands and keybindings. `deploy-shell.py` evaluates the Nix aliases/env locally
+and ships `interactive.zsh` plus shared `shell/commands.sh`; remotes need no Nix.
+The pinned OMZ Git plugin supplies the Zsh aliases; Bash receives compatible
+aliases generated from that plugin, not a second abbreviated list. SSH shortcuts
+share names; connection definitions and authentication remain separate.
+`Ctrl+X Ctrl+L` clears screen/scrollback without executing or losing pending input.
+Zsh also shares `Ctrl+X c` / `Ctrl+X Ctrl+E` (Vim buffer editor) and `Ctrl+X g c`
+(Git commit template). Full prompt/completion plugins use the managed launcher.
 If `.zshrc` is absent, the Zsh installer creates a guarded startup file loading
 the full shared profile. VPS2’s separately approved login-shell change uses
 `/usr/bin/zsh`; the installer itself never runs `chsh`.
@@ -519,11 +521,25 @@ checks without package installs. SEP and Windows timed out and remain unchanged.
 Zsh was installed through each Ubuntu host's own APT repositories; VPS1 also needed
 an explicitly approved `/tmp` permission repair to standard 1777 before APT worked.
 
-Freyr and Mimer's primary `.zshrc` symlinks were explicitly approved for replacement
-with regular identity-hook copies; `/nix/store` targets remain untouched. A future
-Home Manager activation can conflict with these files: preserve the hook/copy and
-restore managed ownership deliberately before activating, rather than overwriting
-either side silently. This rollout did not activate their Nix configurations.
+The 2026-11-03 rollout verified current commands/keybindings in ordinary SSH and
+managed shells on all ten reachable hosts. Shared Herdr settings were synchronized
+on nine hosts; seven running servers reloaded with pane IDs preserved, while
+Ecoray3D/Plato stayed stopped. Freyr retains its generated `.zshrc` symlink via
+`.zshrc_local`; Mimer retains its previously installed regular startup copy.
+No Nix activation was performed. Private per-file backups preserve rollback.
+
+`python3 scripts/deploy-herdr.py <host> --apply` synchronizes shared settings and
+reloads only an already-running server. It refuses unknown keys for explicit
+preservation review. `python3 scripts/deploy-ssh-fleet.py <host> --apply` adds missing
+host/user/port definitions from the local resolved inventory, without keys, auth
+state or first-use trust bypass. Successful `ssh -G` is not authentication proof.
+
+Mini/VPS1 have version-matched Herdr Pi hooks. The shared `pi` wrapper preserves
+their installed providers and installs a missing hook when launched inside Herdr.
+VPS1's exact Company-Brain-Pi session was preserved and resumed in workspace
+`Pi · VPS1`; its session file was unchanged. Pi outside a Herdr pane does not gain
+Herdr progress reporting. Isolated native TUI tests exercised idle/blocked/working
+and settled state on both hosts without model billing or user-history writes.
 
 ### Syntax Highlight
 

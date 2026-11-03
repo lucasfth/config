@@ -2,6 +2,94 @@
 
 This directory contains the managed Herdr configuration. The configured prefix is `Ctrl+B`.
 
+## Machine-grouped Agents view (source/build verified 2026-11-03)
+
+The patched client uses compact default agent rows: **product icon, one space,
+session title, right-aligned status**. Huginn has the Nerd Font raven (`U+EDEA`);
+plain Pi uses `π`, Claude Code `✳`, Codex the Nerd Font OpenAI-style glyph
+(`U+EFAE`), OMP the compact `OMP` wordmark, and unknown agents a terminal glyph.
+These are terminal approximations, not official full-colour logos. Identity
+comes from the agent application/profile, never its model/provider or title.
+Custom configured agent token layouts retain their existing rendering.
+
+Grouped mode adds a separator for each machine with visible agents, derived
+from connected endpoint identities/labels. Future machines appear automatically;
+duplicate names remain separate groups and empty groups are omitted. Priority
+mode and configured agent views retain their existing ordering. Machine headers
+are not selectable agents; keyboard numbering, pointer targets and scroll reveal
+continue to use endpoint-qualified pane IDs. Collapsed mode stays compact.
+
+| Reported state | Icon/title treatment | Label |
+| --- | --- | --- |
+| Working | Blue icon, bright title | working |
+| Blocked, explicit input request | Amber icon/title, bold title | input |
+| Blocked otherwise | Amber icon/title, bold title | blocked |
+| Done | Green icon, quieter title | done |
+| Idle | Muted icon/title | idle |
+| Unknown | Muted icon, dim row | unknown |
+| Stale endpoint | Muted icon, dim row; overrides cached state | stale |
+
+Selection keeps its independent background highlight. Status labels disappear
+only when there is insufficient width for a title plus the label; truncation is
+terminal-cell-aware. Idle is not inferred to mean done. The stock Pi hook reports
+idle after a settled turn, so that remains idle rather than claiming task success.
+
+`configs/pi/extensions/herdr-presentation.ts` reports the managed Huginn profile
+marker and sanitized session name using the existing `pane.report_metadata` API,
+guarded to Pi and the stock `herdr:pi` hook. It does not change canonical agent
+identity or replace the stock state authority. Actual `ask_user` executions
+publish explicit input evidence and feed the stock blocked-state event. Updates
+occur on lifecycle events and a 30-second heartbeat; metadata expires after
+90 seconds if publication stops and is cleared on graceful shutdown. `/name`
+changes appear on the next lifecycle update or heartbeat. RPC/headless sessions
+do not publish pane identity. Titles stay on this existing Herdr socket path,
+not the separate fleet reporting service.
+
+Verification: the build helper applied both canonical patches to a fresh pinned
+0.9.5 source tree, passed **190 integration tests, 352 client-shell tests (2
+ignored), and 5 snapshot/consumer tests**, then built the release executable.
+The consumer test exercises real API dispatch, state/session anchoring, snapshot
+projection, rendering and cleanup. Renderer cases cover arbitrary and duplicate
+machine labels, product identities, all status styles, stale precedence, focus,
+Unicode/narrow widths and navigation regression fixtures. Pi typecheck and all
+**184 tests** passed. `npm run verify:herdr` ran interactive Pi with the real
+installed hook against a fixture socket and verified identity, renamed title,
+blocked/working/idle transitions and cleanup.
+
+Follow-up duplicate-icon fix: live snapshots showed unnamed Pi sessions falling
+back to terminal titles such as `π - partner`. Compact rows now strip that exact
+automatic prefix from the Pi terminal-title fallback only, including Hugi.
+Explicit session titles/names and other agent products are unchanged. The new
+regression test failed on the original fallback and passed after correction.
+The previous build was installed with Lucas's approval; this follow-up build
+has not yet been installed or verified in the running terminal.
+
+Build artifact: `~/.cache/huginn/herdr-client/target/release/herdr`, SHA-256
+`5a0c22d5d6644b4cc4d43613a434066b8a9af35dae0f16728942efc9000a1d09`.
+The first build attempt timed out during compilation; a complete build-only
+rerun exited successfully. Existing upstream `fetch_update` deprecation warnings
+remain. `just`, Cargo nextest and rustfmt are unavailable in the current toolchain;
+the helper's Cargo tests/build, Pi typecheck and whitespace checks were run.
+
+The broad ignored render-profile command completed six profiles but failed the
+unrelated native-file graphics profile because working CoW image-source retention
+was unavailable (`source profile requires working CoW retention, not decoded
+fallback`). The exact pipeline profile passed at fixed 120×40 geometry with
+1, 15 and 50 panes. In one run background-workspace client composition medians
+were 179/196/196 µs respectively (15 versus 1: +17 µs, 1.09×); these are supporting
+within-build measurements, **not** a baseline-versus-change speed claim.
+Receipts remain under `~/.cache/huginn/herdr-client/agents-view.3Lkz6f/` and
+`~/.cache/huginn/herdr-client/agents-view-build.log`.
+
+**Not installed or adopted in live sessions by this change.** Existing client
+executables and running Pi extensions keep their loaded code. Installing the
+built client, detaching/reattaching it, reloading existing Pi sessions, and remote
+rollout remain separate adoption steps requiring approval. New managed Pi
+launches from this source include the presentation extension; old sessions
+without its explicit marker retain the basic Pi icon. No Herdr server restart,
+handoff or protocol change is required. Actual font appearance and acceptance
+in Lucas's running terminal are still unverified.
+
 ## Agent-only navigation in Ghostty
 
 Requires Ghostty 1.3+ and the matching `../ghostty/config` source.

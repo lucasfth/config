@@ -4,6 +4,7 @@
 if [[ -r ${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.bash ]]; then
     source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.bash"
 fi
+[[ ! -r ${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/current.sh ]] || source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/current.sh"
 # Older repo prompts already own the right-hand label; the exported label above
 # updates their identity without stacking another cursor-saving prefix.
 if declare -F __huginn_prompt >/dev/null || declare -F __huginn_ssh_identity >/dev/null; then

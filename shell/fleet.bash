@@ -13,6 +13,7 @@ alias g='git' gst='git status' gco='git checkout' gbr='git branch'
 alias gcm='git commit -m' gd='git diff' gds='git diff --staged'
 alias gaa='git add -A' gl='git pull' gup='git pull --rebase'
 alias gp='git push' glog='git log --oneline --graph --decorate --all'
+source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/current.sh"
 
 # Append history across sessions and retain the Mac's ignore/dedupe behavior.
 shopt -s histappend checkwinsize

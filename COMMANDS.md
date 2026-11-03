@@ -201,13 +201,17 @@ Host resolution (user, IP, port) is handled by `~/.ssh/config`, generated from `
 Remote `~/.local/bin/huginn-shell` opens the aligned interactive profile. From this
 Mac use `ssh -t <host> '~/.local/bin/huginn-shell'`. The teal right-hand label uses
 the stable SSH alias (`neo`, `vps1`, etc.), including Herdr panes without SSH vars.
-Plain SSH retains the account's existing shell and adds only its identity hook.
+Plain SSH preserves the existing shell/startup and adds current shared commands and keybindings.
 Zsh profiles share the Mac's `Ctrl+R`, `Ctrl+X c`, `Ctrl+X Ctrl+E` and
 `Ctrl+X Ctrl+L` bindings. Plato/Loki remain Bash; Sigyn has minimal Zsh.
 
 `python3 ~/config/scripts/deploy-shell.py <host>` previews missing user-local tools;
 `--apply` changes remote interactive configuration and needs deployment approval.
-Herdr configuration reload is separate; existing panes are never replaced.
+`python3 ~/config/scripts/deploy-herdr.py <host> --apply` synchronizes shared Herdr
+settings and reloads running servers without replacing panes or starting stopped servers.
+`python3 ~/config/scripts/deploy-ssh-fleet.py <host> --apply` adds missing SSH
+connection definitions only; it neither copies keys nor establishes authentication.
+The shell deployment requires local Nix/Zsh to render canonical content; remotes do not.
 
 ## Resolve user OFX (macOS)
 

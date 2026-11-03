@@ -23,6 +23,8 @@ writeFileSync(target + '.env', process.env.HERDR_PANE_ID);
       HERDR_ENV: '1', HERDR_SOCKET_PATH: path.join(dir, 'herdr.sock'), HERDR_PANE_ID: 'w1:p1' };
     const prepare = () => prepareRuntime({ agentDir, env, ompDir: path.join(dir, 'absent') });
     await prepare();
+    const settings = JSON.parse(await readFile(path.join(agentDir, 'settings.json'), 'utf8'));
+    assert.ok(settings.extensions.some(file => file.endsWith('/herdr-presentation.ts')));
     const hook = path.join(agentDir, 'extensions/herdr-agent-state.ts');
     assert.equal(await readFile(hook, 'utf8'), '// installed by Herdr\n');
     assert.equal(await readFile(hook + '.env', 'utf8'), 'w1:p1');

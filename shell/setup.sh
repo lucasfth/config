@@ -111,6 +111,13 @@ append_identity() {
   [ -r "$identity" ] || return 0
   replacing_link=0
   if [ -L "$startup" ]; then
+    # Nix owns generated startup. Use its existing reloadable customization hook.
+    if [ "$shell_name" = zsh ] && grep -q '\.zshrc_local' "$startup"; then
+      startup="$home/.zshrc_local"
+      [ ! -L "$startup" ] || { printf 'Skipping managed customization symlink: %s\n' "$startup"; return 0; }
+      append_identity "$shell_name" "$startup"
+      return
+    fi
     case "$host:$startup" in
       freyr:"$home/.zshrc"|mimer:"$home/.zshrc") replacing_link=1 ;;
       *) printf 'Skipping unapproved startup symlink: %s\n' "$startup"; return 0 ;;

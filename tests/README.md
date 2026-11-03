@@ -56,7 +56,9 @@ macOS-specific tools, or temporary local services/mocks.
 - `herdr-host-summary.sh` checks summary ownership plus isolated concurrent collector starts, stop/restart, per-socket locks and unrelated-PID safety. It launches only its own temporary collectors, not a Herdr server or GUI client.
 - `fleet-shell.py` exercises isolated installation, repeated preservation,
   private backups, approved/unapproved startup symlinks, actual launchers and
-  plain-SSH identity, including minimal installation without awk or gzip.
+  plain-SSH identity, canonical commands/OMZ alias parity and reloadable Nix startup
+  hooks, including minimal installation without awk or gzip. Local Nix, Zsh and
+  the checksum-pinned OMZ archive/cache are required; remotes need no Nix.
   Run with `python3 tests/fleet-shell.py`; it never touches a live remote host.
 - `nix-recovery-config.sh` and `setup-efficiency.sh` inspect evaluated Nix
   configuration and activation settings.

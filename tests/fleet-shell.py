@@ -30,6 +30,8 @@ class FleetShellInstallerTests(unittest.TestCase):
         self.payload.mkdir(parents=True)
         for name in DEPLOY.SHELL_FILES:
             shutil.copy2(SOURCE_ROOT / "shell" / name, self.payload / name)
+        if hasattr(DEPLOY, "stage_canonical_shell"):
+            DEPLOY.stage_canonical_shell(self.payload)
         self.bin = self.base / "bin"
         self.bin.mkdir()
         for executable in ("bash", "zsh"):
@@ -48,6 +50,30 @@ class FleetShellInstallerTests(unittest.TestCase):
         else:
             self.assertNotEqual(result.returncode, 0)
         return result
+
+    def test_current_commands_load_in_plain_ssh_and_managed_shell(self):
+        for profile in ("zsh", "bash", "minimal-zsh"):
+            if profile != "bash" and not shutil.which("zsh"):
+                continue
+            (self.home / ".zshrc").write_text("# host startup\n")
+            (self.home / ".bashrc").write_text("# host startup\n")
+            pi = self.home / ".local/bin/pi"
+            pi.parent.mkdir(parents=True, exist_ok=True)
+            pi.write_text("#!/bin/sh\nprintf 'existing-pi:%s\\n' \"$*\"\n")
+            pi.chmod(0o700)
+            self.run_setup("--host", "neo", "--profile", profile)
+            plain = [shutil.which("bash"), "--rcfile", str(self.home / ".bashrc")] if profile == "bash" else [shutil.which("zsh")]
+            for argv in ([str(self.home / ".local/bin/huginn-shell")], plain):
+                with self.subTest(profile=profile, argv=argv):
+                    result = subprocess.run([*argv, "-ic",
+                        'alias vps1; alias minid; alias gup; alias gcm; alias gcb; type pi-native; pi-native --version'],
+                        env={**self.env, "PATH": f"{pi.parent}:{self.env['PATH']}"}, text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("ssh vps1", result.stdout)
+                    self.assertIn("existing-pi:--version", result.stdout)
+                    self.assertIn("git pull --rebase", result.stdout)
+                    self.assertIn('git checkout -b', result.stdout)
+                    self.assertIn('git checkout $(git_main_branch)', result.stdout)
 
     def test_dry_run_does_not_create_files(self):
         self.run_setup("--host", "neo", "--profile", "bash", "--dry-run")
@@ -75,6 +101,19 @@ class FleetShellInstallerTests(unittest.TestCase):
         self.assertEqual(updated.count("default_shell ="), 1)
         self.assertIn('default_shell = "' + str(self.home / ".local/bin/huginn-shell") + '"', updated)
         self.assertEqual(first.count(b"BEGIN HUGINN SHELL IDENTITY bash"), 1)
+
+    def test_nix_startup_uses_reloadable_hook_without_replacing_generated_link(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        target = self.base / "store-zshrc"
+        original = 'source "$HOME/.zshrc_local"\n'
+        target.write_text(original)
+        startup = self.home / ".zshrc"
+        startup.symlink_to(target)
+        self.run_setup("--host", "freyr", "--profile", "zsh")
+        self.assertTrue(startup.is_symlink())
+        self.assertEqual(target.read_text(), original)
+        self.assertIn('identity.zsh', (self.home / '.zshrc_local').read_text())
 
     def test_store_style_herdr_symlink_is_replaced_without_modifying_target(self):
         self.config.parent.mkdir(parents=True)

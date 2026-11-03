@@ -7,19 +7,8 @@ if [[ -z ${SSH_CONNECTION-} && -z ${SSH_TTY-} &&
   export STARSHIP_CONFIG="$HOME/config/configs/starship/starship.toml"
 fi
 
-# Select the tracked config explicitly; macOS otherwise uses Application Support.
-alias lg='lazygit --use-config-file "$HOME/config/configs/lazygit/config.yml"'
-
-# Functions keep Pi recognizable to zsh-syntax-highlighting, which does not
-# reliably classify the quoted alias-expanded script path as a command.
-unalias pi pi-native 2>/dev/null || true
-pi() {
-  "$HOME/config/scripts/pi-native" "$@"
-}
-
-function pi-native {
-  pi "$@"
-}
+# Nix and remote shells consume the same command definitions.
+source "${HUGINN_SHELL_ROOT:-${${(%):-%x}:A:h:h:h:h}/shell}/commands.sh"
 
 # Preserve Pi's CLI completion when its completion function is already loaded.
 if (( $+functions[compdef] && $+functions[_pi] )); then
@@ -42,6 +31,7 @@ fi
 
 # Select by OS, not whether darwin-rebuild happens to be on PATH.
 # Resolve the managed macOS executable at invocation time, including sudo calls.
+if [[ -z ${HUGINN_SHELL_ROOT-} || -f $HOME/config/flake.nix ]]; then
 _config-rebuild() {
   if [[ $OSTYPE == darwin* ]]; then
     sudo /nix/var/nix/profiles/system/sw/bin/darwin-rebuild "$@"
@@ -76,29 +66,28 @@ nix-rollback() {
   fi
 }
 
-# SSH hosts are generated from nix_secrets by nix/common/ssh.nix.
-# Clear retired names when reloading an existing shell.
-unalias post-sales se1 se2 sem se1lv semd se3 vps1lv 2>/dev/null || true
-alias loki='ssh loki' sigyn='ssh sigyn' ssh-windows='ssh windows'
-alias vps1='ssh vps1' vps2='ssh vps2'
-alias mimer='ssh mimer' freyr='ssh freyr' gimle='ssh gimle' mini='ssh mini' neo='ssh neo'
-alias ecoray3d='ssh ecoray3d' sep='ssh sep' plato='ssh plato'
-alias minid='ssh -t mini "cd lucasfth/ecoray-web && git checkout development && git pull && exec \$SHELL --login"'
+fi
 
 # Open files by suffix without depending on EDITOR or VISUAL.
-alias -s vue=code ts=code tsx=code js=code jsx=code nix=code json=code
-alias -s py=code sh=code zsh=code go=code rs=code
-alias -s yaml=vim yml=vim toml=vim
-alias -s md=bat txt=bat log=bat
+typeset _huginn_editor=vi _huginn_code_editor=vi _huginn_text_reader=vi
+command -v vim >/dev/null 2>&1 && _huginn_editor=vim
+_huginn_code_editor=$_huginn_editor
+command -v code >/dev/null 2>&1 && _huginn_code_editor=code
+_huginn_text_reader=$_huginn_editor
+command -v bat >/dev/null 2>&1 && _huginn_text_reader=bat
+alias -s vue=$_huginn_code_editor ts=$_huginn_code_editor tsx=$_huginn_code_editor
+alias -s js=$_huginn_code_editor jsx=$_huginn_code_editor nix=$_huginn_code_editor json=$_huginn_code_editor
+alias -s py=$_huginn_code_editor sh=$_huginn_code_editor zsh=$_huginn_code_editor go=$_huginn_code_editor rs=$_huginn_code_editor
+alias -s yaml=$_huginn_editor yml=$_huginn_editor toml=$_huginn_editor
+alias -s md=$_huginn_text_reader txt=$_huginn_text_reader log=$_huginn_text_reader
 
-# pbcopy reads stdin, not a filename argument.
-copy-public-key() {
-  pbcopy < "$1"
-}
-alias -s pub=copy-public-key
+if command -v pbcopy >/dev/null 2>&1; then
+  copy-public-key() { pbcopy < "$1"; }
+  alias -s pub=copy-public-key
+fi
 
 # Resolve relative to this file, including when loaded through ~/.zshrc_local.
-source "${${(%):-%x}:A:h:h:h:h}/shell/keybindings.zsh"
+source "${HUGINN_SHELL_ROOT:-${${(%):-%x}:A:h:h:h:h}/shell}/keybindings.zsh"
 autoload -Uz zmv
 
 if command -v pbcopy >/dev/null 2>&1; then

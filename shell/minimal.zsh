@@ -21,6 +21,7 @@ bindkey -e
 source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.zsh"
 bindkey -M emacs '^P' history-beginning-search-backward
 bindkey -M emacs '^N' history-beginning-search-forward
+source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/current.sh"
 
 # Show Git branches using Zsh's built-in vcs_info when Git is available.
 if command -v git >/dev/null 2>&1; then

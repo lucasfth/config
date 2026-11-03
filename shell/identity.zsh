@@ -4,6 +4,7 @@
 if [[ -r ${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.zsh ]]; then
   source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/keybindings.zsh"
 fi
+[[ ! -r ${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/current.sh ]] || source "${HUGINN_SHELL_ROOT:-$HOME/.local/share/huginn-shell}/current.sh"
 _huginn_ssh_identity() {
   local previous_status=$?
   local label="%F{#94e2d5}${HUGINN_HOST_LABEL:-${HOST%%.*}}%f"

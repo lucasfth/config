@@ -55,7 +55,7 @@ export CC
 CC=$(xcrun --find clang)
 export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER="$CC"
 export CARGO_TARGET_DIR="$cache/target"
-(cd "$checkout" && cargo test --locked -p herdr --bin herdr integration:: -- --test-threads=1 && cargo test --locked -p herdr --bin herdr client::shell::tests && cargo build --locked --release -p herdr --bin herdr)
+(cd "$checkout" && cargo test --locked -p herdr --bin herdr integration:: -- --test-threads=1 && cargo test --locked -p herdr --bin herdr client::shell::tests && cargo test --locked -p herdr --bin herdr server::client_shell::tests && cargo build --locked --release -p herdr --bin herdr)
 built="$CARGO_TARGET_DIR/release/herdr"
 [[ $("$built" --version) == "herdr $HERDR_VERSION" ]]
 if "$install"; then

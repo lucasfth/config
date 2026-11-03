@@ -15,6 +15,259 @@ index 874fe56..f820a3f 100644
  A token entry can also be an inline style table:
  
  ```toml
+diff --git a/src/client/shell/agent_sidebar.rs b/src/client/shell/agent_sidebar.rs
+index e43ab8c..29eb5fb 100644
+--- a/src/client/shell/agent_sidebar.rs
++++ b/src/client/shell/agent_sidebar.rs
+@@ -15,6 +15,19 @@ pub(super) struct AgentRow {
+     pub(super) status: crate::api::schema::AgentStatus,
+     pub(super) focused: bool,
+     pub(super) rows: Vec<Vec<crate::ui::ResolvedToken>>,
++    pub(super) icon: &'static str,
++    pub(super) title: String,
++    pub(super) status_label: String,
++    pub(super) compact: bool,
++    pub(super) stale: bool,
++    pub(super) machine_header: Option<String>,
++}
++
++impl AgentRow {
++    pub(super) fn height(&self) -> usize {
++        (if self.compact { 1 } else { self.rows.len().max(1) })
++            + usize::from(self.machine_header.is_some())
++    }
+ }
+ 
+ pub(super) fn ordered_agent_pane_ids(
+@@ -53,6 +66,7 @@ pub(super) fn render_agent_panel(
+     buffer: &mut Buffer,
+     area: Rect,
+     snapshot: &ClientShellSnapshot,
++    machine: &str,
+     config: &ClientShellConfig,
+     agent_scroll: &mut usize,
+     hits: &mut ShellHitMap,
+@@ -67,7 +81,14 @@ pub(super) fn render_agent_panel(
+         return;
+     }
+ 
+-    let rows = agent_rows(snapshot, config, None);
++    let mut rows = agent_rows(snapshot, config, None);
++    if config.agent_panel_sort == crate::config::AgentPanelSortConfig::Spaces
++        && snapshot.agent_view_label.is_none()
++    {
++        if let Some(first) = rows.first_mut() {
++            first.machine_header = Some(machine.to_owned());
++        }
++    }
+     render_agent_list(
+         buffer,
+         area,
+@@ -79,10 +100,11 @@ pub(super) fn render_agent_panel(
+         config,
+         agent_scroll,
+         hits,
+-        |row| row.rows.len(),
++        AgentRow::height,
+         |buffer, rect, row, hits| {
+-            hits.agents.push((rect, row.pane_id.clone()));
+-            render_agent_row(buffer, rect, row, config);
++            let content = render_machine_header(buffer, rect, row, config);
++            hits.agents.push((content, row.pane_id.clone()));
++            render_agent_row(buffer, content, row, config);
+         },
+     );
+ }
+@@ -310,11 +332,47 @@ pub(super) fn agent_row(
+         },
+         state_text,
+     );
++    use crate::config::AgentSidebarToken;
++    let layout = config.agents.rows_for_agent(canonical_agent);
++    let compact = layout.len() == 2
++        && layout[0] == [AgentSidebarToken::StateIcon, AgentSidebarToken::Machine,
++            AgentSidebarToken::Workspace, AgentSidebarToken::Tab]
++        && layout[1] == [AgentSidebarToken::Agent];
++    // Pi decorates its terminal title, not its session name, with this prefix.
++    let terminal_title = agent.terminal_title_stripped.as_deref().map(|title| {
++        if canonical_agent == Some(crate::detect::Agent::Pi) {
++            title.strip_prefix("π - ").unwrap_or(title)
++        } else {
++            title
++        }
++    });
++    let title = [
++        agent.title.as_deref(),
++        agent.name.as_deref(),
++        pane.and_then(|pane| pane.label.as_deref()),
++        terminal_title,
++        tab_label,
++    ].into_iter().flatten().find(|value| !value.trim().is_empty())
++        .unwrap_or(&workspace.label).to_owned();
++    let icon = product_icon(agent.agent.as_deref(), agent.display_agent.as_deref(), &tokens);
++    let status_label = if agent.agent_status == crate::api::schema::AgentStatus::Blocked
++        && tokens.get("needs_input").is_some_and(|value| value == "true")
++    {
++        "input"
++    } else {
++        status_text(agent.agent_status)
++    }.to_owned();
+     Some(AgentRow {
+         pane_id: agent.pane_id.clone(),
+         status: agent.agent_status,
+         focused: agent.focused,
+         rows,
++        icon,
++        title,
++        status_label,
++        compact,
++        stale: false,
++        machine_header: None,
+     })
+ }
+ 
+@@ -324,6 +382,10 @@ pub(super) fn render_agent_row(
+     row: &AgentRow,
+     config: &ClientShellConfig,
+ ) {
++    if row.compact {
++        render_product_row(buffer, rect, row, config);
++        return;
++    }
+     let palette = &config.palette;
+     let row_style = if row.focused {
+         Style::default().bg(palette.active_row_bg)
+@@ -391,6 +453,75 @@ fn sidebar_status_text(status: crate::api::schema::AgentStatus) -> &'static str
+         AgentStatus::Blocked => "blocked",
+         AgentStatus::Done => "done",
+         AgentStatus::Working => "working",
+-        AgentStatus::Idle | AgentStatus::Unknown => "idle",
++        AgentStatus::Idle => "idle",
++        AgentStatus::Unknown => "unknown",
++    }
++}
++
++fn product_icon(agent: Option<&str>, display_agent: Option<&str>, tokens: &HashMap<String, String>) -> &'static str {
++    if agent == Some("pi") && display_agent == Some("huginn")
++        && tokens.get("agent_profile").is_some_and(|value| value == "huginn") {
++        return "\u{edea}";
++    }
++    match agent.and_then(crate::detect::parse_agent_label) {
++        Some(crate::detect::Agent::Claude) => "✳",
++        Some(crate::detect::Agent::Codex) => "\u{efae}",
++        Some(crate::detect::Agent::Omp) => "OMP",
++        Some(crate::detect::Agent::Pi) => "π",
++        _ => "\u{f120}",
++    }
++}
++
++pub(super) fn render_machine_header(
++    buffer: &mut Buffer, rect: Rect, row: &AgentRow, config: &ClientShellConfig,
++) -> Rect {
++    let Some(machine) = row.machine_header.as_deref().filter(|_| rect.height > 1) else {
++        return rect;
++    };
++    let title = crate::ui::truncate_end(machine, rect.width.saturating_sub(5) as usize);
++    let prefix = format!(" ── {title} ");
++    let line = format!("{prefix}{}", "─".repeat((rect.width as usize).saturating_sub(display_width(&prefix))));
++    Paragraph::new(line).style(Style::default().fg(config.palette.overlay0))
++        .render(Rect::new(rect.x, rect.y, rect.width, 1), buffer);
++    Rect::new(rect.x, rect.y + 1, rect.width, rect.height - 1)
++}
++
++fn render_product_row(buffer: &mut Buffer, rect: Rect, row: &AgentRow, config: &ClientShellConfig) {
++    use crate::api::schema::AgentStatus;
++    use ratatui::text::Span;
++    if rect.is_empty() { return; }
++    let palette = &config.palette;
++    let color = if row.stale { palette.overlay0 } else { match row.status {
++        AgentStatus::Working => palette.blue,
++        AgentStatus::Blocked => palette.yellow,
++        AgentStatus::Done => palette.green,
++        AgentStatus::Idle | AgentStatus::Unknown => palette.overlay0,
++    }};
++    let mut icon_style = Style::default().fg(color);
++    let mut title_style = Style::default().fg(if row.stale { palette.overlay0 } else { match row.status {
++        AgentStatus::Blocked => palette.yellow,
++        AgentStatus::Working => palette.text,
++        _ => palette.subtext0,
++    }});
++    if row.stale || row.status == AgentStatus::Unknown {
++        icon_style = icon_style.add_modifier(Modifier::DIM);
++        title_style = title_style.add_modifier(Modifier::DIM);
++    } else if row.status == AgentStatus::Blocked {
++        title_style = title_style.add_modifier(Modifier::BOLD);
++    }
++    let prefix = format!(" {} ", row.icon);
++    let label = if row.stale { "stale" } else { &row.status_label };
++    let width = rect.width as usize;
++    let available = width.saturating_sub(display_width(&prefix));
++    // Keep the icon and its explicit separating space even at narrow widths.
++    let show_status = available >= display_width(label) + 2;
++    let title_width = available.saturating_sub(if show_status { display_width(label) + 1 } else { 0 });
++    let title = crate::ui::truncate_end(&row.title, title_width);
++    let mut spans = vec![Span::styled(prefix, icon_style), Span::styled(title.clone(), title_style)];
++    if show_status {
++        spans.push(Span::raw(" ".repeat(available.saturating_sub(display_width(&title) + display_width(label)))));
++        spans.push(Span::styled(label.to_owned(), icon_style));
+     }
++    let style = if row.focused { Style::default().bg(palette.active_row_bg) } else { Style::default() };
++    Paragraph::new(Line::from(spans)).style(style).render(Rect::new(rect.x, rect.y, rect.width, 1), buffer);
+ }
+diff --git a/src/client/shell/endpoint_agents.rs b/src/client/shell/endpoint_agents.rs
+index b56b41f..af87e55 100644
+--- a/src/client/shell/endpoint_agents.rs
++++ b/src/client/shell/endpoint_agents.rs
+@@ -70,10 +70,11 @@ pub(super) fn render_expanded(
+         config,
+         agent_scroll,
+         hits,
+-        |row| row.agent.rows.len(),
++        |row| row.agent.height(),
+         |buffer, rect, row, hits| {
++            let rect = super::agent_sidebar::render_machine_header(buffer, rect, &row.agent, config);
+             super::agent_sidebar::render_agent_row(buffer, rect, &row.agent, config);
+-            if row.stale {
++            if row.stale && !row.agent.compact {
+                 buffer.set_style(
+                     rect,
+                     Style::default()
+@@ -106,7 +107,7 @@ impl ClientShellState {
+         };
+         let heights = rows
+             .iter()
+-            .map(|row| row.agent.rows.len().max(1).min(u16::MAX as usize) as u16)
++            .map(|row| row.agent.height().min(u16::MAX as usize) as u16)
+             .collect::<Vec<_>>();
+         let mut gaps = vec![self.config.agents.row_gap; rows.len()];
+         if let Some(last) = gaps.last_mut() {
+@@ -156,6 +157,14 @@ fn agent_rows(
+         .flatten()
+         .collect::<HashMap<_, _>>();
+ 
++    let grouped = config.agent_panel_sort == crate::config::AgentPanelSortConfig::Spaces
++        && endpoints.iter()
++            .find(|endpoint| &endpoint.endpoint_id == active_endpoint_id)
++            .is_some_and(|endpoint| {
++                endpoint.snapshot.as_deref().is_some_and(|snapshot| snapshot.agent_view_label.is_none())
++                    && !matches!(ClientShellState::endpoint_agent_view(endpoint), Some(Ok(Some(_))))
++            });
++    let mut previous_endpoint = None;
+     super::aggregate_navigation::aggregate_agent_rows(
+         endpoints,
+         active_endpoint_id,
+@@ -166,6 +175,11 @@ fn agent_rows(
+         let key = (row.endpoint.endpoint_id.clone(), row.agent.pane_id.clone());
+         let mut agent = rendered_rows.remove(&key)?;
+         agent.focused &= row.endpoint.endpoint_id == active_endpoint_id;
++        agent.stale = row.endpoint.stale();
++        if grouped && previous_endpoint.as_ref() != Some(row.endpoint.endpoint_id) {
++            agent.machine_header = Some(row.endpoint.label.to_owned());
++        }
++        previous_endpoint = Some(row.endpoint.endpoint_id.clone());
+         Some(EndpointAgentRow {
+             endpoint_id: row.endpoint.endpoint_id.clone(),
+             machine_label: row.endpoint.label.to_owned(),
 diff --git a/src/client/shell/endpoint_sidebar.rs b/src/client/shell/endpoint_sidebar.rs
 index 9698248..43d3413 100644
 --- a/src/client/shell/endpoint_sidebar.rs
@@ -37,7 +290,7 @@ index 9698248..43d3413 100644
                      entry.index,
                      collapsed_groups,
 diff --git a/src/client/shell/sidebar.rs b/src/client/shell/sidebar.rs
-index 46c3a1a..107566f 100644
+index 46c3a1a..22f22b7 100644
 --- a/src/client/shell/sidebar.rs
 +++ b/src/client/shell/sidebar.rs
 @@ -321,6 +321,7 @@ pub(crate) fn render_sidebar(
@@ -57,7 +310,16 @@ index 46c3a1a..107566f 100644
              snapshot,
              entry.index,
              state.collapsed_groups,
-@@ -689,6 +690,12 @@ pub(in crate::client::shell) fn workspace_rows(
+@@ -434,6 +435,8 @@ pub(crate) fn render_sidebar(
+         buffer,
+         detail_area,
+         snapshot,
++        state.endpoints.iter().find(|endpoint| &endpoint.endpoint_id == state.active_endpoint_id)
++            .map_or("Local", |endpoint| endpoint.label.as_str()),
+         config,
+         state.agent_scroll,
+         hits,
+@@ -689,6 +692,12 @@ pub(in crate::client::shell) fn workspace_rows(
      )
  }
  
@@ -70,7 +332,7 @@ index 46c3a1a..107566f 100644
  pub(in crate::client::shell) fn render_workspace_rows(
      buffer: &mut Buffer,
      area: Rect,
-@@ -702,6 +709,7 @@ pub(in crate::client::shell) fn render_workspace_rows(
+@@ -702,6 +711,7 @@ pub(in crate::client::shell) fn render_workspace_rows(
      dragged: bool,
      palette: &Palette,
  ) {
@@ -78,7 +340,7 @@ index 46c3a1a..107566f 100644
      for (row_index, row) in rows.iter().enumerate() {
          let y = area.y + row_index as u16;
          if y >= area.bottom() {
-@@ -709,13 +717,13 @@ pub(in crate::client::shell) fn render_workspace_rows(
+@@ -709,13 +719,13 @@ pub(in crate::client::shell) fn render_workspace_rows(
          }
          let mut x = area.x;
          if entry.indented {
@@ -94,7 +356,7 @@ index 46c3a1a..107566f 100644
                  "        "
              } else {
                  "   │    "
-@@ -728,7 +736,7 @@ pub(in crate::client::shell) fn render_workspace_rows(
+@@ -728,7 +738,7 @@ pub(in crate::client::shell) fn render_workspace_rows(
                  prefix,
                  Style::default().fg(palette.overlay0),
              );
@@ -104,7 +366,7 @@ index 46c3a1a..107566f 100644
          } else {
              x = x.saturating_add(3);
 diff --git a/src/client/shell/tests/agents_worktrees_notifications.rs b/src/client/shell/tests/agents_worktrees_notifications.rs
-index df09f46..b6447bd 100644
+index df09f46..05b398d 100644
 --- a/src/client/shell/tests/agents_worktrees_notifications.rs
 +++ b/src/client/shell/tests/agents_worktrees_notifications.rs
 @@ -1,5 +1,80 @@
@@ -188,8 +450,17 @@ index df09f46..b6447bd 100644
  #[test]
  fn mouse_hits_use_stable_workspace_tab_and_pane_ids() {
      let config = ClientShellConfig::from_config(&Config::default());
+@@ -819,7 +894,7 @@ fn muted_agent_sidebar_rows_do_not_stack_terminal_faint() {
+     let row = state.hits.agents.first().expect("agent row hit").0;
+     let buffer = frame.to_ratatui_buffer().expect("agent sidebar buffer");
+ 
+-    for (label, needle) in [("tab", "second"), ("agent", "reviewer"), ("separator", "·")] {
++    for (label, needle) in [("icon", "π"), ("agent", "reviewer"), ("status", "working")] {
+         let (x, y) = cell_symbol_position(&frame, row, needle);
+         let cell = buffer.cell((x, y)).expect("muted sidebar cell");
+         assert!(
 diff --git a/src/client/shell/tests/endpoints.rs b/src/client/shell/tests/endpoints.rs
-index c0a7e52..fa950b8 100644
+index c0a7e52..79a5dab 100644
 --- a/src/client/shell/tests/endpoints.rs
 +++ b/src/client/shell/tests/endpoints.rs
 @@ -73,6 +73,112 @@ fn state_with_remote() -> (ClientShellState, ClientEndpointId) {
@@ -305,3 +576,353 @@ index c0a7e52..fa950b8 100644
  #[test]
  fn workspace_navigation_waits_for_the_target_presentation_fence() {
      use crate::client::endpoint::{EndpointNegotiation, EndpointRegistry};
+@@ -359,7 +465,7 @@ fn sidebar_toggle_remains_clickable_with_overflowing_agents() {
+                 state.set_endpoint_catalog(&[]);
+             }
+             state.agent_scroll = if scroll_to_bottom { usize::MAX } else { 0 };
+-            let frame = state.compose(100, 28).expect("overflowing agent panel");
++            let frame = state.compose(100, 20).expect("overflowing agent panel");
+             assert!(!state.hits.agent_scrollbar.is_empty());
+             let scroll = state.agent_scroll;
+ 
+@@ -381,7 +487,7 @@ fn sidebar_toggle_remains_clickable_with_overflowing_agents() {
+             assert_eq!(state.agent_scroll, scroll);
+             assert!(state.chrome_drag.is_none());
+ 
+-            state.compose(100, 28).expect("collapsed sidebar");
++            state.compose(100, 20).expect("collapsed sidebar");
+             let toggle = state.hits.sidebar_toggle;
+             let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                 kind: MouseEventKind::Down(MouseButton::Left),
+@@ -2839,3 +2945,266 @@ fn navigator_foreign_workspace_heading_keeps_the_workspace_target() {
+         }] if activated == &endpoint_id && workspace_id == "ws_1"
+     ));
+ }
++
++#[test]
++fn product_agent_rows_show_identity_title_and_status() {
++    let (mut state, remote) = state_with_remote();
++    let mut projected = snapshot();
++    let mut hugi = agent("fallback", AgentStatus::Working, 1);
++    hugi.title = Some("Review sidebar".into());
++    hugi.tokens = vec![("agent_profile".into(), "huginn".into())];
++    hugi.display_agent = Some("huginn".into());
++    projected.agents = vec![hugi];
++    state.set_snapshot(Box::new(projected));
++    let mut other = snapshot();
++    other.boot_id = "remote-boot".into();
++    other.agents = vec![agent("Plain Pi", AgentStatus::Blocked, 1)];
++    state.set_endpoint_snapshot(&remote, Box::new(other));
++    let frame = state.compose(120, 50).unwrap();
++    let buffer = frame.to_ratatui_buffer().unwrap();
++    let (rect, _, _) = state.hits.endpoint_agents.iter().find(|(_, id, _)| id.is_local()).unwrap();
++    let text: String = (rect.x..rect.right()).map(|x| buffer[(x, rect.y)].symbol()).collect();
++    assert!(text.contains("\u{edea} Review sidebar"), "{text}");
++    assert!(text.ends_with("working"), "{text}");
++    assert_eq!(buffer[(rect.x + 1, rect.y)].fg, state.config.palette.blue);
++    assert_eq!(buffer[(rect.x + 1, rect.y)].bg, state.config.palette.active_row_bg);
++    let (rect, _, _) = state.hits.endpoint_agents.iter().find(|(_, id, _)| id == &remote).unwrap();
++    let text: String = (rect.x..rect.right()).map(|x| buffer[(x, rect.y)].symbol()).collect();
++    assert!(text.contains("π Plain Pi"), "{text}");
++    assert!(text.ends_with("blocked"), "{text}");
++}
++
++#[test]
++fn grouped_agents_discover_arbitrary_machines_and_do_not_select_headers() {
++    let (mut state, remote) = state_with_remote();
++    let mut third = remote_profile();
++    third.id = ProfileId::parse("abcdef0123456789abcdef0123456789").unwrap();
++    third.label = "New machine".into();
++    let third_id = ClientEndpointId::Ssh(third.id.clone());
++    state.set_endpoint_catalog(&[remote_profile(), third]);
++    state.set_endpoint_status(&third_id, ClientEndpointStatus::Online);
++    for (id, name) in [(ClientEndpointId::Local, "Local task"), (remote.clone(), "Build task"), (third_id.clone(), "New task")] {
++        let mut projected = snapshot();
++        projected.agents = vec![agent(name, AgentStatus::Idle, 1)];
++        state.set_endpoint_snapshot(&id, Box::new(projected));
++    }
++    let frame = state.compose(120, 60).unwrap();
++    let buffer = frame.to_ratatui_buffer().unwrap();
++    let body = state.hits.agent_body;
++    let text: String = (body.y..body.bottom()).flat_map(|y| {
++        (body.x..body.right()).map(move |x| (x, y))
++    }).map(|pos| buffer[pos].symbol()).collect();
++    for label in ["── Local ", "── Build ", "── New machine "] {
++        assert!(text.contains(label), "missing {label}: {text}");
++    }
++    assert_eq!(state.hits.endpoint_agents.len(), 3);
++    for (rect, _, _) in &state.hits.endpoint_agents {
++        let header_y = rect.y - 1;
++        assert!(!state.hits.endpoint_agents.iter().any(|(hit, _, _)| hit.contains((rect.x, header_y).into())));
++    }
++    let targets = super::super::aggregate_navigation::online_agent_targets(
++        &state.endpoints, &state.active_endpoint_id, state.config.agent_panel_sort,
++    );
++    assert_eq!(targets.len(), 3);
++    assert_eq!(targets[2].endpoint_id, third_id);
++}
++
++#[test]
++fn product_icons_follow_application_and_confirmed_profile_not_model_or_title() {
++    let config = ClientShellConfig::from_config(&Config::default());
++    for (kind, display, profile, expected) in [
++        ("pi", Some("huginn"), Some("huginn"), "\u{edea}"),
++        ("pi", None, Some("huginn"), "π"), // expired/hidden profile presentation
++        ("pi", None, None, "π"),
++        ("claude-code", None, None, "✳"),
++        ("codex", None, None, "\u{efae}"),
++        ("omp", None, None, "OMP"),
++        ("unknown-product", None, None, "\u{f120}"),
++        ("claude", Some("huginn"), Some("huginn"), "✳"),
++    ] {
++        let mut projected = snapshot();
++        let mut entry = agent("Huginn title is not identity", AgentStatus::Idle, 1);
++        entry.agent = Some(kind.into());
++        entry.display_agent = display.map(str::to_owned);
++        entry.tokens = vec![("model".into(), "codex".into())];
++        if let Some(profile) = profile { entry.tokens.push(("agent_profile".into(), profile.into())); }
++        projected.agents = vec![entry];
++        let row = super::super::agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
++        assert_eq!(row.icon, expected, "{kind} {display:?} {profile:?}");
++        let rect = Rect::new(0, 0, 50, 1);
++        let mut buffer = Buffer::empty(rect);
++        super::super::agent_sidebar::render_agent_row(&mut buffer, rect, &row, &config);
++        let text: String = (0..50).map(|x| buffer[(x, 0)].symbol()).collect();
++        assert!(text.starts_with(&format!(" {expected} Huginn title")), "{text}");
++    }
++}
++
++#[test]
++fn product_status_styles_labels_stale_focus_and_narrow_unicode_rendering() {
++    let config = ClientShellConfig::from_config(&Config::default());
++    for (status, input, stale, label, color, dim) in [
++        (AgentStatus::Working, false, false, "working", config.palette.blue, false),
++        (AgentStatus::Blocked, true, false, "input", config.palette.yellow, false),
++        (AgentStatus::Blocked, false, false, "blocked", config.palette.yellow, false),
++        (AgentStatus::Done, false, false, "done", config.palette.green, false),
++        (AgentStatus::Idle, false, false, "idle", config.palette.overlay0, false),
++        (AgentStatus::Unknown, false, false, "unknown", config.palette.overlay0, true),
++        (AgentStatus::Working, false, true, "stale", config.palette.overlay0, true),
++        (AgentStatus::Blocked, true, true, "stale", config.palette.overlay0, true),
++    ] {
++        let mut projected = snapshot();
++        let mut entry = agent("fallback", status, 1);
++        entry.title = Some("審査 e\u{301} very long session title".into());
++        entry.tokens = vec![("needs_input".into(), input.to_string())];
++        projected.agents = vec![entry];
++        let mut row = super::super::agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
++        row.stale = stale;
++        for focused in [false, true] {
++            row.focused = focused;
++            for width in [1, 2, 3, 4, 12, 26, 60] {
++                let rect = Rect::new(0, 0, width, 1);
++                let mut buffer = Buffer::empty(rect);
++                super::super::agent_sidebar::render_agent_row(&mut buffer, rect, &row, &config);
++                let text: String = (0..width).map(|x| buffer[(x, 0)].symbol()).collect();
++                if width >= 12 { assert!(text.ends_with(label), "{width} {text:?}"); }
++                if width >= 4 { assert!(text.starts_with(" π "), "{text}"); }
++                if width > 1 {
++                    let cell = &buffer[(1, 0)];
++                    assert_eq!(cell.fg, color);
++                    assert_eq!(cell.modifier.contains(Modifier::DIM), dim);
++                    if focused { assert_eq!(cell.bg, config.palette.active_row_bg); }
++                }
++                if width == 60 {
++                    let title = &buffer[(3, 0)];
++                    assert_eq!(title.modifier.contains(Modifier::BOLD), status == AgentStatus::Blocked && !stale);
++                    assert_eq!(title.modifier.contains(Modifier::DIM), dim);
++                }
++            }
++        }
++    }
++}
++
++#[test]
++fn product_title_uses_nonempty_fallback_and_never_the_session_identifier() {
++    let config = ClientShellConfig::from_config(&Config::default());
++    let mut projected = snapshot();
++    let mut entry = agent("Human name", AgentStatus::Unknown, 1);
++    entry.title = Some("   ".into());
++    projected.agents = vec![entry];
++    let row = super::super::agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
++    assert_eq!(row.title, "Human name");
++    projected.agents[0].name = None;
++    projected.panes[0].label = Some("Pane label".into());
++    let row = super::super::agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
++    assert_eq!(row.title, "Pane label");
++    projected.panes[0].label = None;
++    let row = super::super::agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
++    assert_eq!(row.title, projected.workspaces[0].label);
++    assert_eq!(row.status_label, "unknown");
++}
++
++#[test]
++fn machine_agent_headers_keep_duplicate_labels_separate_and_skip_empty_groups() {
++    let (mut state, remote) = state_with_remote();
++    for endpoint in &mut state.endpoints { endpoint.label = "Same machine name".into(); }
++    let mut local = snapshot();
++    local.agents = vec![agent("local", AgentStatus::Idle, 1)];
++    state.set_snapshot(Box::new(local));
++    let mut other = snapshot();
++    other.agents = vec![agent("remote", AgentStatus::Blocked, 2)];
++    state.set_endpoint_snapshot(&remote, Box::new(other));
++    let frame = state.compose(120, 60).unwrap();
++    let buffer = frame.to_ratatui_buffer().unwrap();
++    for (rect, _, _) in &state.hits.endpoint_agents {
++        let header: String = (rect.x..rect.right()).map(|x| buffer[(x, rect.y - 1)].symbol()).collect();
++        assert!(header.contains("── Same machine name"), "{header}");
++    }
++    assert_eq!(state.hits.endpoint_agents.len(), 2);
++    let header_y = state.hits.endpoint_agents[1].0.y - 1;
++    let click = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
++        kind: MouseEventKind::Down(MouseButton::Left), column: 2, row: header_y, modifiers: KeyModifiers::NONE,
++    })]);
++    assert!(click.actions.is_empty(), "header is not an agent or a machine activation target");
++    state.config.agent_panel_sort = crate::config::AgentPanelSortConfig::Priority;
++    let frame = state.compose(120, 60).unwrap();
++    let body = state.hits.agent_body;
++    let text = frame.cells.chunks(frame.width as usize).skip(body.y as usize)
++        .take(body.height as usize).map(|line| line.iter().take(body.width as usize)
++            .map(|cell| cell.symbol.as_str()).collect::<String>()).collect::<Vec<_>>().join("\n");
++    assert!(!text.contains("── Same machine name"));
++    assert_eq!(state.hits.endpoint_agents[0].1, remote);
++    state.config.agent_panel_sort = crate::config::AgentPanelSortConfig::Spaces;
++    let mut empty = snapshot();
++    empty.agents.clear();
++    state.set_endpoint_snapshot(&remote, Box::new(empty));
++    state.compose(120, 60).unwrap();
++    assert_eq!(state.hits.endpoint_agents.len(), 1);
++}
++
++#[test]
++fn single_machine_grouped_agents_include_the_existing_local_label() {
++    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
++    let mut projected = snapshot();
++    projected.agents = vec![agent("solo", AgentStatus::Idle, 1)];
++    state.set_snapshot(Box::new(projected));
++    state.set_pane_surface(surface());
++    let frame = state.compose(120, 40).unwrap();
++    let rect = state.hits.agents[0].0;
++    let buffer = frame.to_ratatui_buffer().unwrap();
++    let header: String = (rect.x..rect.right()).map(|x| buffer[(x, rect.y - 1)].symbol()).collect();
++    assert!(header.contains("── Local"), "{header}");
++}
++
++#[test]
++fn unlabeled_custom_agent_view_does_not_gain_machine_headers() {
++    let (mut state, remote) = state_with_remote();
++    for id in [ClientEndpointId::Local, remote] {
++        let mut projected = snapshot();
++        projected.agents = vec![agent("task", AgentStatus::Working, 1)];
++        state.set_endpoint_snapshot(&id, Box::new(projected));
++    }
++    let mut view = current_workspace_view();
++    view.label = None;
++    state.set_test_endpoint_agent_view(&ClientEndpointId::Local, Some(view));
++    let frame = state.compose(120, 40).unwrap();
++    let body = state.hits.agent_body;
++    let buffer = frame.to_ratatui_buffer().unwrap();
++    let text: String = (body.y..body.bottom()).flat_map(|y| (body.x..body.right()).map(move |x| (x, y)))
++        .map(|pos| buffer[pos].symbol()).collect();
++    assert!(!text.contains("── Local"), "custom view must remain flat: {text}");
++}
++
++#[test]
++fn pi_terminal_title_fallback_does_not_duplicate_product_icon() {
++    let config = ClientShellConfig::from_config(&Config::default());
++    for (kind, huginn, explicit, terminal, expected) in [
++        ("pi", true, None, "π - partner", "partner"),
++        ("pi", false, None, "π - Looking to Radar - portfolio", "Looking to Radar - portfolio"),
++        ("pi", false, None, "π - ", "client-shell"),
++        ("pi", true, Some("π - intentional session title"), "π - fallback", "π - intentional session title"),
++        ("pi", false, None, "π calculus notes", "π calculus notes"),
++        ("claude", false, None, "π - not Pi decoration", "π - not Pi decoration"),
++    ] {
++        let mut projected = snapshot();
++        let mut entry = agent("unused", AgentStatus::Idle, 1);
++        entry.agent = Some(kind.into());
++        entry.name = None;
++        entry.title = explicit.map(str::to_owned);
++        entry.terminal_title_stripped = Some(terminal.into());
++        if huginn {
++            entry.display_agent = Some("huginn".into());
++            entry.tokens = vec![("agent_profile".into(), "huginn".into())];
++        }
++        projected.agents = vec![entry];
++        let row = super::super::agent_sidebar::agent_row(&projected, "pane_1", &config, None).unwrap();
++        assert_eq!(row.title, expected, "{kind} {terminal}");
++        let rect = Rect::new(0, 0, 80, 1);
++        let mut buffer = Buffer::empty(rect);
++        super::super::agent_sidebar::render_agent_row(&mut buffer, rect, &row, &config);
++        let text: String = (0..80).map(|x| buffer[(x, 0)].symbol()).collect();
++        assert!(text.starts_with(&format!(" {} {expected}", row.icon)), "{text}");
++        if kind == "pi" && explicit.is_none() && terminal.starts_with("π - ") {
++            assert!(!text.contains("π - "), "{text}");
++        }
++    }
++}
+diff --git a/src/server/client_shell.rs b/src/server/client_shell.rs
+index 0a98da0..8c53712 100644
+--- a/src/server/client_shell.rs
++++ b/src/server/client_shell.rs
+@@ -629,6 +629,60 @@ fn split_hit_rect(
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn huginn_metadata_dispatches_through_snapshot_to_client_renderer_and_clears() {
++        let config = crate::config::Config::default();
++        let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
++        let mut app = crate::app::App::new(&config, crate::app::AppPolicy::TEST, None, rx, crate::api::EventHub::default());
++        app.state.workspaces = vec![crate::workspace::Workspace::test_new("metadata")];
++        app.state.active = Some(0);
++        app.state.ensure_test_terminals();
++        // Full-lifecycle hooks require a detected process; metadata must not invent agents.
++        for terminal in app.state.terminals.values_mut() {
++            terminal.set_detected_state(Some(crate::detect::Agent::Pi), crate::detect::AgentState::Idle);
++        }
++        let pane = app.session_metadata_snapshot().panes[0].pane_id.clone();
++        let session: crate::api::schema::Request = serde_json::from_value(serde_json::json!({
++            "id": "session", "method": "pane.report_agent_session",
++            "params": { "pane_id": pane, "source": "herdr:pi", "agent": "pi",
++                "agent_session_id": "fixture-session", "session_start_source": "new", "seq": 0 }
++        })).unwrap();
++        let response: serde_json::Value = serde_json::from_str(&app.handle_api_request(session)).unwrap();
++        assert!(response.get("error").is_none(), "{response}");
++        let report: crate::api::schema::Request = serde_json::from_value(serde_json::json!({
++            "id": "state", "method": "pane.report_agent",
++            "params": { "pane_id": pane, "source": "herdr:pi", "agent": "pi",
++                "agent_session_id": "fixture-session", "state": "working", "seq": 1 }
++        })).unwrap();
++        let response: serde_json::Value = serde_json::from_str(&app.handle_api_request(report)).unwrap();
++        assert!(response.get("error").is_none(), "{response}");
++        for (seq, clear) in [(2, false), (3, true)] {
++            let mut params = serde_json::json!({
++                "pane_id": pane, "source": "huginn:presentation", "agent": "pi",
++                "applies_to_source": "herdr:pi", "seq": seq, "ttl_ms": 90000,
++                "tokens": { "agent_profile": if clear { None } else { Some("huginn") }, "needs_input": null }
++            });
++            if clear { params["clear_title"] = true.into(); params["clear_display_agent"] = true.into(); }
++            else { params["title"] = "API title".into(); params["display_agent"] = "huginn".into(); }
++            let request: crate::api::schema::Request = serde_json::from_value(serde_json::json!({
++                "id": "metadata", "method": "pane.report_metadata", "params": params
++            })).unwrap();
++            let response: serde_json::Value = serde_json::from_str(&app.handle_api_request(request)).unwrap();
++            assert!(response.get("error").is_none(), "{response}");
++            let projected = snapshot(&app, "fixture", seq, None, None);
++            assert_eq!(projected.agents.len(), 1);
++            assert_eq!(projected.agents[0].agent.as_deref(), Some("pi"));
++            assert_eq!(projected.agents[0].display_agent.as_deref(), if clear { None } else { Some("huginn") });
++            let mut client = crate::client::ClientShellState::new(crate::client::ClientShellConfig::from_config(&config));
++            client.set_snapshot(Box::new(projected));
++            let frame = client.compose(120, 40).unwrap();
++            let text = frame.cells.chunks(frame.width as usize).map(|row| row.iter()
++                .map(|cell| cell.symbol.as_str()).collect::<String>()).collect::<Vec<_>>().join("\n");
++            if clear { assert!(!text.contains('\u{edea}')); }
++            else { assert!(text.contains("\u{edea} API title"), "{text}"); }
++        }
++    }
++
+     #[tokio::test(flavor = "current_thread")]
+     async fn snapshot_metadata_skips_scroll_reads_and_preserves_public_session_data() {
+         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
