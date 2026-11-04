@@ -36,14 +36,23 @@ idle after a settled turn, so that remains idle rather than claiming task succes
 
 `configs/pi/extensions/herdr-presentation.ts` reports the managed Huginn profile
 marker and sanitized session name using the existing `pane.report_metadata` API,
-guarded to Pi and the stock `herdr:pi` hook. It does not change canonical agent
-identity or replace the stock state authority. Actual `ask_user` executions
-publish explicit input evidence and feed the stock blocked-state event. Updates
-occur on lifecycle events and a 30-second heartbeat; metadata expires after
-90 seconds if publication stops and is cleared on graceful shutdown. `/name`
-changes appear on the next lifecycle update or heartbeat. RPC/headless sessions
-do not publish pane identity. Titles stay on this existing Herdr socket path,
-not the separate fleet reporting service.
+guarded to actual Pi detection and anchored to `herdr:pi`. The stock hook remains
+the state owner for TUI sessions. Root print/JSON workers register their exact
+session plus startup reason, then report working/idle lifecycle state through
+`pane.report_agent` even with redirected stdout. They refresh every 30 seconds
+and release state authority on graceful shutdown. Herdr process detection clears
+authority when the worker exits, including SIGKILL (verified on an isolated server).
+Only TUI `ask_user` executions publish input evidence and feed the stock
+blocked-state event; headless modes cannot show an interactive input dialog.
+Metadata expires after 90 seconds and clears on graceful shutdown. `/name`
+changes appear on the next lifecycle update or heartbeat. RPC sessions,
+background subagent runners and headless sessions with a parent-session header
+do not publish pane identity or state. A process-wide socket/pane lease also
+prevents in-process children without session headers (including `--no-session`
+parents) from publishing or clearing their parent's identity/state. The lease
+releases after shutdown cleanup. A fork opened in its own TUI still owns its pane.
+This uses the existing Herdr socket, not the separate fleet reporting service.
+Existing sessions keep their loaded extension; no reload or restart is automatic.
 
 Verification: the build helper applied both canonical patches to a fresh pinned
 0.9.5 source tree, passed **190 integration tests, 352 client-shell tests (2

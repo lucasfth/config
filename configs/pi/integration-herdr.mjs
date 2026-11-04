@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import net from 'node:net';
+import { spawn as spawnProcess } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,6 +50,7 @@ try {
       const { writeFile } = await import('node:fs/promises');
       await writeFile(${JSON.stringify(path.join(dir, 'started'))}, 'ready');
     });
+    pi.registerCommand('herdr-exit-probe', { handler: async (_, ctx) => ctx.shutdown() });
     pi.registerCommand('herdr-probe', { handler: async (_, ctx) => {
       pi.events.emit('herdr:blocked', { active: true, label: 'Fixture approval' });
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -112,6 +114,33 @@ try {
     && report.params.clear_display_agent && report.params.tokens.agent_profile === null));
   console.log(JSON.stringify({ states: states(), sessionRef: true, realHerdrHook: true,
     huginnIdentity: true, renamedTitle: true, cleanup: true, exitCode: result.exitCode }));
+  // Real headless CLI lifecycle with redirected stdout and an unavailable fixture provider.
+  for (const mode of ['print', 'json']) {
+    const before = reports.length;
+    const child = spawnProcess(process.execPath, [path.join(sourceDir, 'host-entry.mjs'),
+      '--offline', '--no-mcp', '--no-context-files', '--approve',
+      ...(mode === 'print' ? ['-p'] : ['--mode', 'json']), 'Herdr headless lifecycle probe'], {
+      cwd: repoDir, env, stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    child.stderr.on('data', data => { stderr += data; });
+    const timer = setTimeout(() => child.kill(), 15_000);
+    const code = await new Promise((resolve, reject) => {
+      child.on('error', reject);
+      child.on('exit', resolve);
+    }).finally(() => clearTimeout(timer));
+    assert.equal(code, mode === 'print' ? 1 : 0, stderr); // Print propagates the synthetic provider failure.
+    const metadata = reports.slice(before).filter(report => report.method === 'pane.report_metadata');
+    assert.ok(metadata.some(report => report.params.display_agent === 'huginn'), `${mode} identity missing`);
+    assert.ok(metadata.every(report => report.params.applies_to_source === 'herdr:pi'));
+    assert.ok(metadata.some(report => report.params.clear_display_agent), `${mode} cleanup missing`);
+    const lifecycle = reports.slice(before).filter(report => report.method === 'pane.report_agent');
+    assert.deepEqual(lifecycle.map(report => report.params.state), ['idle', 'working', 'idle']);
+    assert.ok(lifecycle.every(report => path.isAbsolute(report.params.agent_session_path)));
+    assert.equal(reports.at(-1).method, 'pane.release_agent');
+    console.log(JSON.stringify({ mode, huginnIdentity: true, states: lifecycle.map(r => r.params.state),
+      sessionRef: true, redirectedStdout: true, cleanup: true }));
+  }
 } finally {
   if (pty?.exitCode === null) pty.kill();
   await new Promise(resolve => server.close(resolve));
