@@ -28,4 +28,4 @@ for key, value in settings.items():
     subprocess.run(["/usr/bin/defaults", "write", str(preferences), key,
                     value_type, str(value)], check=True)
 
-print("Syntax Highlight: applied Catppuccin Latte/Mocha, JetBrains Mono Nerd Font, 2-space tabs.")
+print(f"Syntax Highlight: applied Catppuccin Latte/Mocha, {settings['font-family']}, {settings['tab-spaces']}-space tabs.")

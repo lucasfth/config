@@ -1,3 +1,9 @@
+# Text stays unmasked; retain Nerd Font icons used by Hugi, Herdr and Starship.
+font-family = Obel Mono
+font-family = JetBrainsMono Nerd Font
+font-codepoint-map = U+E000-U+F8FF,U+F0000-U+FFFFD,U+100000-U+10FFFD=JetBrainsMono Nerd Font
+font-feature = -ss01
+
 theme = Catppuccin Mocha
 keybind = global:shift+alt+cmd+n=toggle_quick_terminal
 window-decoration = true

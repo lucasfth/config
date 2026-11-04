@@ -1,0 +1,6 @@
+{
+  "editor.fontFamily": "'Obel Mono', 'JetBrainsMono Nerd Font', monospace",
+  "editor.fontLigatures": "'ss01' off",
+  "terminal.integrated.fontFamily": "'Obel Mono', 'JetBrainsMono Nerd Font', monospace",
+  "terminal.integrated.fontLigatures.enabled": false
+}

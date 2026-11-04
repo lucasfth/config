@@ -14,5 +14,6 @@
     ./extras.nix
     ./herdr.nix
     ./fafnir.nix
+    ./fonts.nix
   ];
 }

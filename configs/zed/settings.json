@@ -46,7 +46,14 @@
 	"hard_tabs": true,
 	"remove_trailing_whitespace_on_save": true,
 	"ensure_final_newline_on_save": true,
-	"buffer_font_family": "JetBrains Mono",
+	"buffer_font_family": "Obel Mono",
+	"buffer_font_fallbacks": ["JetBrainsMono Nerd Font"],
+	"buffer_font_features": { "ss01": false },
+	"terminal": {
+		"font_family": "Obel Mono",
+		"font_fallbacks": ["JetBrainsMono Nerd Font"],
+		"font_features": { "ss01": false },
+	},
 	"lsp": {
 		"vtsls": {
 			"settings": {
