@@ -48,11 +48,11 @@
 	"ensure_final_newline_on_save": true,
 	"buffer_font_family": "Obel Mono",
 	"buffer_font_fallbacks": ["JetBrainsMono Nerd Font"],
-	"buffer_font_features": { "ss01": false },
+	"buffer_font_features": { "ss01": true },
 	"terminal": {
 		"font_family": "Obel Mono",
 		"font_fallbacks": ["JetBrainsMono Nerd Font"],
-		"font_features": { "ss01": false },
+		"font_features": { "ss01": true },
 	},
 	"lsp": {
 		"vtsls": {

@@ -11,8 +11,10 @@ _huginn_ssh_identity() {
   if [[ -n ${_HUGINN_IDENTITY_PREVIOUS-} && $RPROMPT == "$_HUGINN_IDENTITY_PREVIOUS" ]]; then
     RPROMPT=$_HUGINN_IDENTITY_BASE
   fi
-  # Neo's legacy prompt already supplies exactly this label.
-  if [[ $RPROMPT == "$label" ]]; then RPROMPT=''; fi
+  # Starship owns its hostname; retain host labels embedded in other prompts.
+  if [[ $RPROMPT == *starship* || $RPROMPT == *"${HUGINN_HOST_LABEL:-${HOST%%.*}}"* ]]; then
+    return $previous_status
+  fi
   typeset -g _HUGINN_IDENTITY_BASE=$RPROMPT
   RPROMPT="${RPROMPT:+$RPROMPT }$label"
   typeset -g _HUGINN_IDENTITY_PREVIOUS=$RPROMPT

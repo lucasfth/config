@@ -17,6 +17,10 @@ __huginn_right_identity() {
     if [[ -n ${__huginn_identity_prefix-} && $PS1 == "$__huginn_identity_prefix"* ]]; then
         PS1=${PS1#"$__huginn_identity_prefix"}
     fi
+    if [[ $PS1 == *"$label"* || $PS1 == *starship* ]]; then
+        __huginn_identity_prefix=''
+        return "$previous_status"
+    fi
     column=$(( ${COLUMNS:-80} - ${#label} + 1 ))
     __huginn_identity_prefix=''
     if (( column > 0 )); then

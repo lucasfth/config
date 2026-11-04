@@ -385,6 +385,83 @@ class FleetShellInstallerTests(unittest.TestCase):
         self.assertIn("status-info", result.stdout)
         self.assertEqual(result.stdout.count("neo"), 1)
 
+    def test_identity_does_not_duplicate_starship_or_embedded_zsh_label(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        for prompt in ('$(starship prompt --right)', '%F{cyan}neo%f | status-info'):
+            code = ('HUGINN_HOST_LABEL=neo; source "$IDENTITY_SOURCE"; '
+                    '_huginn_ssh_identity; print -r -- "$RPROMPT"')
+            result = subprocess.run([shutil.which("zsh"), "-f", "-i", "-c", code],
+                                    env={**self.env, "RPROMPT": prompt,
+                                         "IDENTITY_SOURCE": str(SOURCE_ROOT / "shell/identity.zsh")},
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), prompt)
+
+    def test_identity_preserves_existing_bash_host_label(self):
+        code = ('PS1="neo | status > "; HUGINN_HOST_LABEL=neo; '
+                'source "$IDENTITY_SOURCE"; __huginn_right_identity; printf "%s" "$PS1"')
+        result = subprocess.run([shutil.which("bash"), "--norc", "-i", "-c", code],
+                                env={**self.env, "IDENTITY_SOURCE": str(SOURCE_ROOT / "shell/identity.bash")},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "neo | status > ")
+
+    def test_zsh_git_helpers_are_not_sourced_twice(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        result = subprocess.run([shutil.which("zsh"), "-f", "-i", "-c",
+                                 'source "$HUGINN_SHELL_ROOT/plugins/oh-my-zsh/lib/git.zsh"; '
+                                 'source "$HUGINN_SHELL_ROOT/current.sh"; print -r -- READY'],
+                                env={**self.env, "HUGINN_SHELL_ROOT": str(self.payload)},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("_style=", result.stdout)
+
+    def test_fleet_starship_right_prompt_does_not_append_second_host(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        result = subprocess.run([shutil.which("zsh"), "-f", "-i", "-c",
+                                 'source "$HUGINN_SHELL_ROOT/fleet.zsh"; '
+                                 '_HUGINN_FLEET_STARSHIP_ACTIVE=1; '
+                                 '_HUGINN_FLEET_STARSHIP_PROMPT=left; '
+                                 '_HUGINN_FLEET_STARSHIP_RPROMPT=\u0027$(printf neo)\u0027; '
+                                 'STARSHIP_CONFIG="$HUGINN_SHELL_ROOT/starship-ssh.toml"; '
+                                 '_huginn_fleet_apply_prompt; print -r -- "$RPROMPT"'],
+                                env={**self.env, "HUGINN_SHELL_ROOT": str(self.payload),
+                                     "HUGINN_SHELL_MANAGED": "1", "HUGINN_HOST_LABEL": "neo"},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), '$(printf neo)')
+
+    def test_local_fleet_keeps_host_label_when_starship_right_prompt_is_empty(self):
+        if not shutil.which("zsh"):
+            self.skipTest("Zsh unavailable")
+        result = subprocess.run([shutil.which("zsh"), "-f", "-i", "-c",
+                                 'source "$HUGINN_SHELL_ROOT/fleet.zsh"; '
+                                 '_HUGINN_FLEET_STARSHIP_ACTIVE=1; '
+                                 '_HUGINN_FLEET_STARSHIP_PROMPT=left; '
+                                 '_HUGINN_FLEET_STARSHIP_RPROMPT=""; '
+                                 'STARSHIP_CONFIG="$HUGINN_SHELL_ROOT/starship.toml"; '
+                                 '_huginn_fleet_apply_prompt; print -r -- "$RPROMPT"'],
+                                env={**self.env, "SSH_CONNECTION": "", "HUGINN_SHELL_ROOT": str(self.payload),
+                                     "HUGINN_SHELL_MANAGED": "1", "HUGINN_HOST_LABEL": "neo"},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("neo"), 1)
+
+    def test_real_starship_ssh_identity_uses_fleet_label_not_os_hostname(self):
+        executable = shutil.which("starship")
+        if not executable:
+            self.skipTest("Starship unavailable")
+        result = subprocess.run([executable, "prompt", "--right"],
+                                env={**self.env, "STARSHIP_CONFIG": str(SOURCE_ROOT / "configs/starship/starship-ssh.toml"),
+                                     "HUGINN_HOST_LABEL": "mimer", "HOSTNAME": "wrong-os-host"},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("mimer"), 1)
+        self.assertNotIn("wrong-os-host", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
