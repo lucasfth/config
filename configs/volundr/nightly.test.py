@@ -284,12 +284,13 @@ class ProbeRoutingTests(unittest.TestCase):
             for name, status in [('active-guide', 'active'), ('archived-guide', 'archived')]:
                 guide = library / 'skills' / name / 'SKILL.md'
                 guide.parent.mkdir(parents=True)
-                guide.write_text(f'---\nname: {name}\nmetadata:\n  status: {status}\n---\n')
+                guide.write_text('---\n' + json.dumps({'name': name, 'metadata': {'status': status}}) + '\n---\n')
+            # JSON is a YAML subset; the fixture needs no external parser.
             (root / 'hermes_yaml.py').write_text(
-                'import json\nfrom io import StringIO\nimport yaml\n'
-                'safe_load = yaml.safe_load\n'
+                'import json\n'
+                'safe_load = json.loads\n'
                 'class Editor:\n'
-                ' def load(self, value): return yaml.safe_load(value)\n'
+                ' def load(self, value): return json.loads(value)\n'
                 ' def dump(self, value, out): out.write(json.dumps(value))\n'
                 'def roundtrip_yaml(): return Editor()\n')
             config = home / 'config.yaml'
