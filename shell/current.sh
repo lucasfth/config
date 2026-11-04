@@ -5,7 +5,7 @@ export PATH="$_huginn_shell_root/bin:$HOME/.local/bin:$HOME/.nix-profile/bin:$PA
 if [ -n "${ZSH_VERSION-}" ] && [ -r "$_huginn_shell_root/plugins/oh-my-zsh/plugins/git/git.plugin.zsh" ]; then
   autoload -Uz compinit
   (( $+functions[compdef] )) || compinit
-  . "$_huginn_shell_root/plugins/oh-my-zsh/lib/git.zsh"
+  (( $+functions[git_prompt_info] )) || . "$_huginn_shell_root/plugins/oh-my-zsh/lib/git.zsh"
   . "$_huginn_shell_root/plugins/oh-my-zsh/plugins/git/git.plugin.zsh"
 elif [ -n "${BASH_VERSION-}" ]; then
   git_current_branch() { command git symbolic-ref --quiet --short HEAD 2>/dev/null || command git rev-parse --short HEAD 2>/dev/null; }

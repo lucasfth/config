@@ -24,6 +24,19 @@ Deployment mappings live in [`../nix/common/dotfiles.nix`](../nix/common/dotfile
 
 Store-backed settings require an approved rebuild, followed by the application's own reload/restart if necessary. Editing a source file does not update an existing store snapshot. Live-linked settings expose file changes immediately, but application reload behavior still depends on the application.
 
+### Obel Mono secret masking
+
+Ghostty enables the ordinary Obel Mono font's `ss01` feature. Zed enables it for buffers and its terminal; [`vscode/font-settings.json`](vscode/font-settings.json) lists the equivalent settings to merge into existing VS Code preferences. Keep Nerd Font fallback for the raven and prompt icons. Websites intentionally remain unmasked.
+
+Masking is visual substitution for recognised token patterns, **not redaction**. Raw text, copy/paste, logs and scrollback still contain the original values, and arbitrary secrets may not match. Never display a secrets file to test it.
+
+```sh
+python3 tests/obel-mono-masking.py --font "$HOME/Library/Fonts/ObelMono[wght].ttf"
+python3 tests/obel-mono.py
+```
+
+The optional shaping check uses installed `hb-shape` and fake AWS/Slack tokens only. Without `--font`, it checks source settings. Existing Ghostty windows may require Reload Configuration; editor/terminal render checks remain separate from settings validation.
+
 ### LazyGit
 
 LazyGit's native macOS directory is separate from `~/.config` unless `XDG_CONFIG_HOME` is set. Deploying only to `~/.config/lazygit` leaves the macOS app using its own config rather than the managed settings. The managed config disables the subprocess-return prompt and sets `git.overrideGpg: true` to avoid suspending for commits, as suggested in [upstream issue #4956](https://github.com/jesseduffield/lazygit/issues/4956). Git's signing configuration is unchanged, but successful signing and commit-to-UI behavior with this workaround have not been verified locally. It does not repair terminal resume for external editors or shell commands.

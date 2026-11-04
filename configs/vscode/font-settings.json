@@ -1,6 +1,7 @@
 {
   "editor.fontFamily": "'Obel Mono', 'JetBrainsMono Nerd Font', monospace",
-  "editor.fontLigatures": "'ss01' off",
+  "editor.fontLigatures": "'ss01' on",
   "terminal.integrated.fontFamily": "'Obel Mono', 'JetBrainsMono Nerd Font', monospace",
-  "terminal.integrated.fontLigatures.enabled": false
+  "terminal.integrated.fontLigatures.enabled": true,
+  "terminal.integrated.fontLigatures.featureSettings": "\"calt\" on, \"ss01\" on"
 }

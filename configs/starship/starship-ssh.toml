@@ -17,15 +17,16 @@ $line_break\
 $character\
 """
 
-right_format = "$hostname"
+right_format = "${custom.host_label}"
 
 palette = "catppuccin_mocha"
 
-[hostname]
-ssh_only = true
-ssh_symbol = ""
+[custom.host_label]
+command = 'printf "%s" "${HUGINN_HOST_LABEL:-${HOSTNAME:-${HOST:-unknown}}}"'
+when = '[ -n "${SSH_CONNECTION}${SSH_TTY}" ]'
+shell = ["sh"]
 style = "teal"
-format = "[ $hostname ]($style)"
+format = "[ $output ]($style)"
 
 [directory]
 style = "sapphire"

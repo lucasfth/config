@@ -94,6 +94,9 @@ if [[ -o interactive && -t 0 ]] && command -v fzf >/dev/null 2>&1 && (( ! $+func
   _huginn_fzf_zsh="$(command fzf --zsh 2>/dev/null)" && eval "$_huginn_fzf_zsh"
 fi
 
+# Starship's SSH identity uses the configured fleet label, not the OS hostname.
+export HUGINN_HOST_LABEL=$_HUGINN_FLEET_HOST_LABEL
+
 typeset _huginn_starship_ready=0 _huginn_hook
 typeset -a _huginn_starship_hooks _huginn_other_hooks
 for _huginn_hook in "${precmd_functions[@]}"; do
@@ -140,6 +143,10 @@ _huginn_fleet_apply_prompt() {
   if (( _HUGINN_FLEET_STARSHIP_ACTIVE )); then
     PROMPT=$_HUGINN_FLEET_STARSHIP_PROMPT
     RPROMPT=$_HUGINN_FLEET_STARSHIP_RPROMPT
+    # The SSH config renders hostname; the local config deliberately leaves it empty.
+    if [[ ${STARSHIP_CONFIG:-} == "$_huginn_root/starship-ssh.toml" ]]; then
+      return $_huginn_status
+    fi
   fi
   local _huginn_label_prompt="%F{#94e2d5}${_HUGINN_FLEET_HOST_LABEL}%f"
   RPROMPT=${RPROMPT//$_huginn_label_prompt/}
