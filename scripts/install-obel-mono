@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""Install the pinned, unmasked Obel Mono variable fonts (macOS/Linux)."""
+
+import hashlib
+import io
+import os
+from pathlib import Path
+import platform
+import shutil
+import time
+import subprocess
+import tempfile
+import zipfile
+
+URL = "https://typographic.systems/download/ObelMono-1.000-ttf.zip"
+SHA256 = "d39d480b4b52ac8cc9221b86f888ab7b19be8574b315e34fec14145731e0384d"
+
+
+def main():
+    system = platform.system()
+    if system not in ("Darwin", "Linux") or os.geteuid() == 0:
+        raise SystemExit("Run as the target user on macOS or Linux, not root.")
+    data = subprocess.run(
+        ["curl", "--fail", "--location", "--proto", "=https", "--max-time", "60", URL],
+        check=True, stdout=subprocess.PIPE,
+    ).stdout
+    if hashlib.sha256(data).hexdigest() != SHA256:
+        raise SystemExit("Obel Mono checksum mismatch; nothing installed.")
+    root = "ObelMono-1.000-ttf/"
+    names = ["ObelMono[wght].ttf", "ObelMono-Italic[wght].ttf"]
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        files = {name: archive.read(root + "variable/" + name) for name in names}
+        if system == "Linux":
+            files.update({name: archive.read(root + name) for name in ("OFL.txt", "AUTHORS.txt")})
+    destination = (
+        Path.home() / "Library/Fonts"
+        if system == "Darwin" else
+        Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))) / "fonts/obel-mono"
+    )
+    destination.mkdir(parents=True, exist_ok=True)
+    for name, content in files.items():
+        with tempfile.NamedTemporaryFile(dir=destination, delete=False) as temporary:
+            temporary.write(content)
+            pending = Path(temporary.name)
+        try:
+            pending.chmod(0o644)
+            pending.replace(destination / name)
+        finally:
+            pending.unlink(missing_ok=True)
+    if system == "Linux":
+        subprocess.run(["fc-cache", "-f", str(destination)], check=True)
+    if system == "Darwin":
+        ghostty = shutil.which("ghostty") or "/Applications/Ghostty.app/Contents/MacOS/ghostty"
+        command = [ghostty, "+show-face", "--font-family=Obel Mono", "--cp=0x41"]
+        expected = "found in face “Obel Mono”"
+    else:
+        command = ["fc-match", "--format=%{family}", "Obel Mono"]
+        expected = "Obel Mono"
+    for attempt in range(10):
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        resolved = result.stdout + result.stderr
+        if expected in resolved:
+            print(f"Verified Obel Mono 1.000 (unmasked) in {destination}: {resolved.strip()}")
+            break
+        if attempt == 9:
+            raise SystemExit(f"Fonts copied but discovery failed; configuration unchanged: {resolved.strip()}")
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()
