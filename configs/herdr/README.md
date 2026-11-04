@@ -40,8 +40,10 @@ guarded to actual Pi detection and anchored to `herdr:pi`. The stock hook remain
 the state owner for TUI sessions. Root print/JSON workers register their exact
 session plus startup reason, then report working/idle lifecycle state through
 `pane.report_agent` even with redirected stdout. They refresh every 30 seconds
-and release state authority on graceful shutdown. Herdr process detection clears
-authority when the worker exits, including SIGKILL (verified on an isolated server).
+and release state authority on graceful shutdown. The isolated crash fixture
+checks that the same pane survives SIGKILL and transitions from working to idle.
+It emits PTY newlines during the fixture to trigger process discovery; this
+does not prove automatic discovery of a completely silent redirected process.
 Only TUI `ask_user` executions publish input evidence and feed the stock
 blocked-state event; headless modes cannot show an interactive input dialog.
 Metadata expires after 90 seconds and clears on graceful shutdown. `/name`
@@ -70,8 +72,12 @@ back to terminal titles such as `π - partner`. Compact rows now strip that exac
 automatic prefix from the Pi terminal-title fallback only, including Hugi.
 Explicit session titles/names and other agent products are unchanged. The new
 regression test failed on the original fallback and passed after correction.
-The previous build was installed with Lucas's approval; this follow-up build
-has not yet been installed or verified in the running terminal.
+The follow-up build was installed at `~/.local/libexec/herdr-patched` on the
+MacBook and Gimle on 2026-11-04 under Lucas's sync approval. Both installed
+files match the artifact hash below. The Homebrew binaries and running Herdr
+servers were not replaced or restarted. Existing viewing clients keep their
+loaded executable until the user detaches/reattaches; font/UI acceptance remains
+unverified.
 
 Build artifact: `~/.cache/huginn/herdr-client/target/release/herdr`, SHA-256
 `5a0c22d5d6644b4cc4d43613a434066b8a9af35dae0f16728942efc9000a1d09`.
@@ -90,14 +96,14 @@ within-build measurements, **not** a baseline-versus-change speed claim.
 Receipts remain under `~/.cache/huginn/herdr-client/agents-view.3Lkz6f/` and
 `~/.cache/huginn/herdr-client/agents-view-build.log`.
 
-**Not installed or adopted in live sessions by this change.** Existing client
-executables and running Pi extensions keep their loaded code. Installing the
-built client, detaching/reattaching it, reloading existing Pi sessions, and remote
-rollout remain separate adoption steps requiring approval. New managed Pi
-launches from this source include the presentation extension; old sessions
-without its explicit marker retain the basic Pi icon. No Herdr server restart,
-handoff or protocol change is required. Actual font appearance and acceptance
-in Lucas's running terminal are still unverified.
+**Installed binary is not a running-client reload.** No current Pi session was
+reloaded or interrupted. New managed Pi launches include the presentation
+extension; existing sessions retain their loaded code until their normal next
+launch. Fresh Gimle API reads confirmed named headless Huginn workers reporting
+working on its unchanged server. To load the updated sidebar client, detach
+only the viewing client with `Ctrl+B`, then `d`, and run `herdr` again. This
+leaves server-owned panes running. No `nrs` or Herdr server restart is needed
+for this user-local client installation.
 
 ## Agent-only navigation in Ghostty
 

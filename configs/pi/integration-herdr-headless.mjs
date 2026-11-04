@@ -15,7 +15,7 @@ const config = path.join(dir, 'config.toml');
 const env = { ...process.env, HERDR_SOCKET_PATH: socket, HERDR_CONFIG_PATH: config,
   XDG_CONFIG_HOME: path.join(dir, 'config'), XDG_STATE_HOME: path.join(dir, 'state'),
   PI_CODING_AGENT_DIR: agentDir, NEO_PROXY_URL: 'http://127.0.0.1:9/v1', NEO_PROXY_API_KEY: 'synthetic',
-  PI_OFFLINE: '1', PI_TELEMETRY: '0' };
+  MUNINN_MCP_TOKEN: 'synthetic', PI_OFFLINE: '1', PI_TELEMETRY: '0' };
 for (const key of ['HERDR_SESSION', 'HERDR_ENV', 'HERDR_PANE_ID', 'HERDR_CLIENT_SOCKET_PATH']) delete env[key];
 await writeFile(config, 'default_shell = "/bin/sh"\n[onboarding]\ncompleted = true\n');
 const api = (method, params = {}) => new Promise((resolve, reject) => {
@@ -52,12 +52,16 @@ try {
   await writeFile(hold, `export default pi => {
     pi.on('before_provider_request', async () => {
       const { writeFile } = await import('node:fs/promises');
+      // PTY events drive Herdr process discovery; test lifecycle after discovery.
+      // This deliberately does not qualify a completely silent redirected process.
+      const discovery = setInterval(() => { void writeFile('/dev/tty', '\\n'); }, 250);
       await writeFile(${JSON.stringify(path.join(dir, 'pid'))}, String(process.pid));
       await writeFile(${JSON.stringify(path.join(dir, 'env.json'))}, JSON.stringify({
         socket: process.env.HERDR_SOCKET_PATH, pane: process.env.HERDR_PANE_ID,
         enabled: process.env.HERDR_ENV, child: process.env.PI_SUBAGENT_CHILD
       }));
-      await new Promise(resolve => setTimeout(resolve, 120000));
+      try { await new Promise(resolve => setTimeout(resolve, 120000)); }
+      finally { clearInterval(discovery); }
     });
   };`);
   const settings = JSON.parse(await readFile(path.join(agentDir, 'settings.json'), 'utf8'));
@@ -79,6 +83,7 @@ try {
       connection.on('data', data => appendFileSync(${JSON.stringify(path.join(dir, 'wire.jsonl'))}, JSON.stringify({ reply: String(data) }) + '\\n'));
       return connection;
     };`);
+  env.NODE_OPTIONS = `--import=${trace}`;
   server = spawn('herdr', ['server'], { cwd: dir, env, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '';
   server.stderr.on('data', data => { stderr += data; });
@@ -89,8 +94,10 @@ try {
   }, 'isolated server readiness');
   const created = await api('workspace.create', { cwd: dir, label: 'headless-kill-fixture', focus: false });
   const pane = created.root_pane.pane_id;
-  const args = [process.execPath, '--import', trace, path.join(sourceDir, 'host-entry.mjs'), '--offline', '--no-mcp',
-    '--no-context-files', '--approve', '-p', 'fixture'];
+  // Exercise the managed launch shape, using only explicit fixture extensions.
+  const args = [process.execPath, path.join(sourceDir, 'launch.mjs'), '--offline', '--no-mcp',
+    '--no-context-files', '--approve', '--no-extensions',
+    '-e', path.join(sourceDir, 'extensions/herdr-presentation.ts'), '-e', hold, '-p', 'fixture'];
   const quoted = args.map(arg => `'${arg.replaceAll("'", "'\\''")}'`).join(' ');
   await api('pane.send_text', { pane_id: pane, text: `${quoted} > ${dir}/stdout.log 2> ${dir}/stderr.log\n` });
   const pid = Number(await until(() => readFile(path.join(dir, 'pid'), 'utf8').catch(() => false), 'fixture Pi start'));
@@ -109,15 +116,17 @@ try {
   process.kill(pid, 'SIGKILL'); // Only the PID written by this isolated fixture.
   const after = await until(async () => {
     const reply = await status();
-    return ['idle', 'unknown'].includes(reply.agent_status) ? reply : false;
-  }, 'non-working state after SIGKILL');
-  assert.ok(['idle', 'unknown'].includes(after.agent_status));
+    return reply.agent_status === 'idle' ? reply : false;
+  }, 'idle state after SIGKILL');
+  assert.equal(after.agent_status, 'idle');
   assert.equal(after.pane_id, pane);
   console.log(JSON.stringify({ isolatedHerdr: true, pane, killedFixturePid: pid,
     before: before.agent_status, after: after.agent_status }));
 } catch (error) {
   console.error(await readFile(path.join(dir, 'env.json'), 'utf8').catch(() => 'no fixture env'));
   console.error(JSON.stringify(await api('agent.list').catch(() => ({}))));
+  console.error(JSON.stringify(await api('agent.explain', { target: 'w1:p1' }).catch(() => ({}))));
+  console.error(JSON.stringify(await api('pane.process_info', { pane_id: 'w1:p1' }).catch(() => ({}))));
   console.error(await readFile(path.join(dir, 'stderr.log'), 'utf8').catch(() => ''));
   console.error(await readFile(path.join(dir, 'wire.jsonl'), 'utf8').catch(() => 'no socket requests'));
   throw error;
