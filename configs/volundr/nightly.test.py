@@ -267,5 +267,47 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.git(self.repo, 'rev-parse', 'HEAD'), self.before)
 
 
+class ProbeRoutingTests(unittest.TestCase):
+    def test_invalid_mode_rejected_before_subprocess(self):
+        for mode in (True, False, None, 'APPLY', 'unknown'):
+            with self.subTest(mode=mode), patch.object(module, 'run') as run:
+                with self.assertRaisesRegex(ValueError, 'mode'):
+                    module.probe({}, '.', mode)
+                run.assert_not_called()
+
+    def test_real_apply_regenerates_both_routing_fields(self):
+        import sys
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            library, home = root / 'published', root / 'profile'
+            home.mkdir()
+            for name, status in [('active-guide', 'active'), ('archived-guide', 'archived')]:
+                guide = library / 'skills' / name / 'SKILL.md'
+                guide.parent.mkdir(parents=True)
+                guide.write_text(f'---\nname: {name}\nmetadata:\n  status: {status}\n---\n')
+            (root / 'hermes_yaml.py').write_text(
+                'import json\nfrom io import StringIO\nimport yaml\n'
+                'safe_load = yaml.safe_load\n'
+                'class Editor:\n'
+                ' def load(self, value): return yaml.safe_load(value)\n'
+                ' def dump(self, value, out): out.write(json.dumps(value))\n'
+                'def roundtrip_yaml(): return Editor()\n')
+            config = home / 'config.yaml'
+            config.write_text(json.dumps({'unrelated': {'keep': True}, 'skills': {
+                'external_dirs': ['/old/skills/active-guide'], 'create_dir': '/old/skills',
+                'disabled': ['user-disabled']}}))
+            config.chmod(0o600)
+            settings = {'home': str(home), 'runtime_python': sys.executable,
+                        'runtime_source': str(root)}
+            result = module.probe(settings, library, 'apply')
+            data = json.loads(config.read_text())
+            self.assertEqual(result, {'active': 1, 'archived': 1})
+            self.assertEqual(data['unrelated'], {'keep': True})
+            self.assertEqual(data['skills']['external_dirs'], [str(library / 'skills/active-guide')])
+            self.assertEqual(data['skills']['create_dir'], str(library / 'skills'))
+            self.assertEqual(data['skills']['disabled'], ['archived-guide', 'user-disabled'])
+            self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+
+
 if __name__ == '__main__':
     unittest.main()

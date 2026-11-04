@@ -53,6 +53,7 @@ if mode!='apply':(profile/'cache').mkdir(parents=True,exist_ok=True)
 if mode=='apply':
  p=profile/'config.yaml';editor=roundtrip_yaml();data=editor.load(p.read_text());s=data.setdefault('skills',{})
  s['external_dirs']=active;s['disabled']=sorted(set(s.get('disabled') or [])|set(archived))
+ s['create_dir']=str(root/'skills')
  out=StringIO();editor.dump(data,out);tmp=p.with_name('config.volundr-new');tmp.write_text(out.getvalue());tmp.chmod(p.stat().st_mode&0o777);tmp.replace(p)
 else:
  with tempfile.TemporaryDirectory(prefix='volundr-probe-',dir=profile/'cache') as folder:
@@ -68,6 +69,8 @@ print(json.dumps({'active':len(active),'archived':len(archived)}))
 
 
 def probe(settings, root, mode='probe'):
+    if mode not in ('probe', 'apply'):
+        raise ValueError('Invalid probe mode: expected probe or apply')
     env = dict(os.environ, **settings.get('runtime_env', {}))
     result = run(settings['runtime_python'], '-c', PROBE, root, settings['home'], mode,
                  cwd=settings['runtime_source'], env=env)
