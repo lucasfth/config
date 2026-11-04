@@ -1,6 +1,12 @@
 {
   "mcpServers": {
     "vercel": { "type": "http", "url": "https://mcp.vercel.com" },
-    "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp" }
+    "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp" },
+    "webflow": {
+      "type": "http",
+      "url": "https://mcp.webflow.com/mcp",
+      "exposure": "codemode",
+      "description": "Inspect Webflow sites, CMS, domains and report integrations. Site changes and publishing require explicit approval."
+    }
   }
 }

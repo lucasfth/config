@@ -89,6 +89,8 @@ Pi does not import OMP's `models.yml`, SQLite catalogue, or generated MCP config
 
 `mcp.json` holds non-secret native server defaults; existing private Pi server entries take precedence. Fresh private Muninn/company-library endpoints come from environment. Credentials and sessions are not migrated or rewritten by a source edit.
 
+Webflow uses the official remote HTTP MCP at `https://mcp.webflow.com/mcp`; no local package or API key is needed. After adding this source default, run `~/config/scripts/pi-native --help` once to regenerate the private profile, then `/reload` and `/mcp login webflow` in the existing session. Approve only the intended EcoRay workspace/site in Webflow's consent flow. OAuth credentials stay in private `mcp-auth.json`; profile generation preserves that file and existing server overrides. Most Data API inspection does not need the Designer Bridge App; live canvas operations do. Connecting authorizes inspection, not site edits, publication or DNS changes. Authentication and access to the intended site must be verified separately from config tests.
+
 Run `node integration-qwen.mjs` explicitly with private endpoint/key environment for bounded live streaming, tool-result continuation and thinking checks on both routes. It creates only a temporary profile and does not prove the current interactive session has reloaded.
 
 ## Private fleet reporting

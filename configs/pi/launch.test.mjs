@@ -77,6 +77,29 @@ test('prepared keybinding map recognizes Command-V while retaining custom shortc
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('Webflow defaults reach the generated profile without replacing private choices or OAuth credentials', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-webflow-mcp-'));
+  const options = { agentDir: dir, env: { NEO_PROXY_URL: 'https://proxy.invalid/v1' } };
+  const auth = '{"synthetic-webflow":{"tokens":{"access_token":"keep","refresh_token":"keep-refresh"}}}\n';
+  try {
+    await writeFile(path.join(dir, 'mcp-auth.json'), auth);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await prepareRuntime(options);
+      const { webflow } = JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers;
+      assert.equal(webflow.type, 'http');
+      assert.equal(webflow.url, 'https://mcp.webflow.com/mcp');
+      assert.equal(webflow.exposure, 'codemode');
+      assert.equal(webflow.headers, undefined, 'OAuth discovery needs no hardcoded bearer credential');
+      assert.equal(await readFile(path.join(dir, 'mcp-auth.json'), 'utf8'), auth);
+    }
+    const custom = { url: 'https://custom.invalid/mcp', enabled: false };
+    await writeFile(path.join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { webflow: custom } }));
+    await prepareRuntime(options);
+    assert.deepEqual(JSON.parse(await readFile(path.join(dir, 'mcp.json'), 'utf8')).mcpServers.webflow, custom);
+    assert.equal(await readFile(path.join(dir, 'mcp-auth.json'), 'utf8'), auth);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('Vercel requests refreshable OAuth without replacing credentials or explicit server choices', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-vercel-oauth-'));
   const env = { NEO_PROXY_URL: 'https://proxy.invalid/v1' };
