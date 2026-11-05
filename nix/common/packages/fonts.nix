@@ -5,17 +5,17 @@
 }: let
   obelMono = pkgs.stdenvNoCC.mkDerivation {
     pname = "obel-mono";
-    version = "1.000";
+    version = "1.001";
     src = pkgs.fetchurl {
-      url = "https://typographic.systems/download/ObelMono-1.000-ttf.zip";
-      hash = "sha256-051IC0tSrIzJIhuG+Iirexm+hXSzFeNP7BQUVzHgOE0=";
+      url = "https://typographic.systems/download/ObelMono-1.001.zip";
+      hash = "sha256-XjJJ41/3thCJ6q9BwC5WH72m69gTaV8fX7lAqBiRRHI=";
     };
     nativeBuildInputs = [pkgs.unzip];
-    sourceRoot = "ObelMono-1.000-ttf";
+    sourceRoot = "ObelMono-1.001";
     dontBuild = true;
     installPhase = ''
       runHook preInstall
-      install -Dm644 variable/*.ttf -t "$out/share/fonts/truetype/obel-mono"
+      install -Dm644 ObelMono/ttf/variable/*.ttf -t "$out/share/fonts/truetype/obel-mono"
       install -Dm644 OFL.txt AUTHORS.txt -t "$out/share/licenses/obel-mono"
       runHook postInstall
     '';

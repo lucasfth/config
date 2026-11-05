@@ -23,6 +23,20 @@ the locked GTK-enabled `vim-full` fails to compile with missing `gui.scale`
 members. The MacBook's cask order, formulae, taps and Vim choice are unchanged.
 Resolve/CorridorKey installation remains MacBook-only.
 
+### Prepared Hermes v0.22.6 update (not activated)
+
+The source launcher `scripts/loki-service-run` selects the reviewed gateway
+tree at `~/loki-data/live/update-staging-20261103/hermes-loki-v0.22.6` and managed
+Python 3.14.9. Vault, Ask Loki, browser and Hue retain `live/hermes-source` and
+Python 3.14.7; do not replace that shared source directory beneath live services.
+
+These are source-only changes. Before activation, provision the candidate's
+Hermes PM closure for the production home, retain rollback state, drain gateway
+work, coordinate the separate tmux-owned dashboard, and obtain switchover approval.
+The staged `CUTOVER.md`, `RELEASE.json` and `ARTIFACT-SHA256.json` record the
+integration evidence and remaining gates. A source edit or staged version check
+does not establish the version of the running gateway.
+
 Gimle retains Python with pip, virtualenv, NumPy and Pillow but excludes
 JupyterLab. The locked notebook dependency tree failed native builds in
 `trio-websocket` and `backrefs` timeout tests; no upstream tests are disabled.

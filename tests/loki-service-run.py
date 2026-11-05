@@ -134,9 +134,19 @@ class AuxiliaryCommands(unittest.TestCase):
                             runner.main()
                         execute.assert_not_called()
 
+class GatewaySourceSelectionTests(unittest.TestCase):
+    def test_auxiliary_imports_keep_existing_source_and_python(self):
+        for service in ('vault', 'ask', 'browser', 'hue'):
+            with self.subTest(service=service):
+                source, python = runner.service_runtime(service)
+                self.assertEqual(source, runner.SOURCE)
+                self.assertEqual(python, runner.HOME / 'tools/python-3.14.7+20260901-darwin-arm64/bin/python3')
 
-
-
+    def test_gateway_uses_reviewed_release_without_retargeting_shared_source(self):
+        source, python = runner.service_runtime('gateway')
+        self.assertEqual(source, runner.LIVE / 'update-staging-20261103/hermes-loki-v0.22.6')
+        self.assertEqual(python, runner.HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3')
+        self.assertNotEqual(source, runner.SOURCE)
 
 
 if __name__ == '__main__':

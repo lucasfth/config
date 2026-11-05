@@ -49,6 +49,16 @@ def auxiliary_command(service):
     ]
 
 
+def service_runtime(service):
+    # Keep auxiliary MCP services on their existing closure during the Hermes upgrade.
+    if service == 'gateway':
+        return (
+            LIVE / 'update-staging-20261103/hermes-loki-v0.22.6',
+            HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3',
+        )
+    return SOURCE, HOME / 'tools/python-3.14.7+20260901-darwin-arm64/bin/python3'
+
+
 def main():
     assert os.geteuid() == 501 and socket.gethostname() == 'gimle', 'Must run as gimle on Gimle'
     assert os.environ.get('HOME') == '/Users/gimle', 'Wrong service HOME'
@@ -87,13 +97,14 @@ def main():
         '/Users/gimle/.nix-profile/bin', '/opt/homebrew/bin', '/Users/gimle/.local/bin',
         *tool_bins, '/usr/bin', '/bin', '/usr/sbin', '/sbin',
     ])
-    os.chdir(SOURCE)
-    python = HOME / 'tools/python-3.14.7+20260901-darwin-arm64/bin/python3'
+    source, python = service_runtime(service)
+    assert source.is_dir(), 'Native Hermes source missing'
     assert python.is_file(), 'Native managed Python missing'
+    os.chdir(source)
     # Resolve the managed dependency closure at process start, not at deployment.
     bootstrap = (
         'import sys,runpy;'
-        f'sys.path.insert(0,{str(SOURCE)!r});'
+        f'sys.path.insert(0,{str(source)!r});'
         'import hermes_bootstrap;'
         f'sys.path.insert(0,{str(LIVE / "service-vendor")!r});'
         'from dotenv import load_dotenv;'
