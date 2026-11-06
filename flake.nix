@@ -43,6 +43,8 @@
             services.gimle.tailscaleAtBoot = nixpkgs.lib.mkDefault (host.tailscaleAtBoot or false);
             services.gimle.production = nixpkgs.lib.mkDefault (host.lokiProduction or false);
             services.gimle.auxiliary = nixpkgs.lib.mkDefault (host.lokiAuxiliary or false);
+            services.gimle.dashboardAtBoot = nixpkgs.lib.mkDefault (host.lokiDashboardAtBoot or false);
+            services.gimle.tailscaleAppAtLogin = nixpkgs.lib.mkDefault (host.tailscaleAppAtLogin or false);
             nixpkgs.config.allowUnfree = true;
             home-manager.backupFileExtension = "before-nix";
             # Set home.stateVersion at home-manager top level (required by aerospace module)

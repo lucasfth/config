@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.lucas.cliproxy-capture-ship</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/klausjensen-neo/.local/bin/trainingarchive</string>
+    <string>ship</string>
+    <string>--root</string><string>/Users/klausjensen-neo/.cli-proxy-api/training-capture</string>
+    <string>--target</string><string>freyr-capture</string>
+    <string>--receiver</string><string>/home/RECEIVER_USER/.local/bin/trainingarchive</string>
+    <string>--archive</string><string>/home/RECEIVER_USER/data/cli-proxy-training</string>
+    <string>--identity</string><string>/Users/klausjensen-neo/.ssh/freyr-capture</string>
+    <string>--known-hosts</string><string>/Users/klausjensen-neo/.ssh/freyr-capture-known-hosts</string>
+    <string>--timeout</string><string>10m</string>
+    <string>--retain-source</string>
+  </array>
+  <key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>
+  <key>Nice</key><integer>10</integer>
+  <key>LowPriorityIO</key><true/>
+  <key>Umask</key><integer>63</integer>
+  <key>StandardOutPath</key><string>/Users/klausjensen-neo/.cli-proxy-api/training-capture/ship.stdout.log</string>
+  <key>StandardErrorPath</key><string>/Users/klausjensen-neo/.cli-proxy-api/training-capture/ship.stderr.log</string>
+</dict></plist>

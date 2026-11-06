@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Lock Gimle's automatically created GUI session, then open the Tailscale app.
+
+Uses only macOS Python/LaunchServices, so a delayed /nix mount cannot prevent
+locking. --check performs preflight only; it never locks or opens applications.
+"""
+import argparse
+import os
+from pathlib import Path
+import socket
+import subprocess
+
+SCREENSAVER = Path('/System/Library/CoreServices/ScreenSaverEngine.app')
+APP = Path('/Applications/Tailscale.app')
+
+
+def preflight():
+    assert socket.gethostname() == 'gimle' and os.geteuid() == 501, 'Must run as gimle on Gimle'
+    assert APP.is_dir(), 'Tailscale app missing'
+    assert SCREENSAVER.is_dir(), 'macOS screen saver missing'
+    status = subprocess.run(['/usr/sbin/sysadminctl', '-screenLock', 'status'],
+                            check=True, capture_output=True, text=True)
+    assert 'screenLock delay is immediate' in status.stdout + status.stderr, 'Immediate password requirement missing'
+
+
+def lock_screen():
+    # ScreenSaverEngine plus the immediate-password policy is the supported
+    # fallback on macOS versions without CGSession. Actual locked-state proof
+    # requires an approved login/reboot test; a successful open is not proof.
+    subprocess.run(['/usr/bin/open', '-g', str(SCREENSAVER)], check=True)
+
+
+def start_tailscale():
+    subprocess.run(['/usr/bin/open', '-g', str(APP)], check=True)
+
+
+def start(check=False):
+    preflight()
+    if check:
+        print('Login-start preflight passed; no lock or app launch performed.')
+        return
+    lock_screen()
+    start_tailscale()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true')
+    start(check=parser.parse_args().check)

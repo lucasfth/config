@@ -1,0 +1,76 @@
+diff --git a/internal/api/server.go b/internal/api/server.go
+index fc1646c9..19dcd1e0 100644
+--- a/internal/api/server.go
++++ b/internal/api/server.go
+@@ -27,6 +27,7 @@ import (
+ 	"github.com/router-for-me/CLIProxyAPI/v8/internal/managementasset"
+ 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
+ 	"github.com/router-for-me/CLIProxyAPI/v8/internal/redisqueue"
++	"github.com/router-for-me/CLIProxyAPI/v8/internal/trainingcapture"
+ 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v8/sdk/access"
+ 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
+ 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+@@ -67,8 +68,9 @@ type Server struct {
+ 	accessManager *sdkaccess.Manager
+ 
+ 	// requestLogger is the request logger instance for dynamic configuration updates.
+-	requestLogger logging.RequestLogger
+-	loggerToggle  func(bool)
++	requestLogger   logging.RequestLogger
++	loggerToggle    func(bool)
++	trainingCapture *trainingcapture.Collector
+ 
+ 	// configFilePath is the absolute path to the YAML config file for persistence.
+ 	configFilePath string
+@@ -231,6 +233,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
+ 		s.mgmt.SetPostAuthPersistHook(optionState.postAuthPersistHook)
+ 	}
+ 	s.localPassword = optionState.localPassword
++	s.initTrainingCapture()
+ 
+ 	// Home heartbeat gate: when home is enabled, block all endpoints with 503 until the
+ 	// subscribe-config heartbeat connection is healthy.
+@@ -414,6 +417,7 @@ func (s *Server) Start() error {
+ //   - error: An error if the server fails to stop
+ func (s *Server) Stop(ctx context.Context) error {
+ 	log.Debug("Stopping API server...")
++	defer s.stopTrainingCapture()
+ 
+ 	if s.keepAliveEnabled {
+ 		select {
+diff --git a/internal/api/server_routes.go b/internal/api/server_routes.go
+index 61786b4a..8ebb70dd 100644
+--- a/internal/api/server_routes.go
++++ b/internal/api/server_routes.go
+@@ -63,6 +63,7 @@ func (s *Server) setupRoutes() {
+ 	// OpenAI compatible API routes
+ 	v1 := s.engine.Group("/v1")
+ 	v1.Use(AuthMiddleware(s.accessManager))
++	v1.Use(s.trainingCaptureMiddleware())
+ 	{
+ 		v1.GET("/models", s.unifiedModelsHandler(openaiHandlers, claudeCodeHandlers))
+ 		v1.GET("/models/*model", func(c *gin.Context) {
+@@ -109,6 +110,7 @@ func (s *Server) setupRoutes() {
+ 
+ 	openaiV1 := s.engine.Group("/openai/v1")
+ 	openaiV1.Use(AuthMiddleware(s.accessManager))
++	openaiV1.Use(s.trainingCaptureMiddleware())
+ 	{
+ 		openaiV1.POST("/videos", openaiHandlers.VideosCreate)
+ 		openaiV1.GET("/videos/:video_id/content", openaiHandlers.VideosContent)
+@@ -118,6 +120,7 @@ func (s *Server) setupRoutes() {
+ 	// Codex CLI direct route aliases (chatgpt_base_url compatible)
+ 	codexDirect := s.engine.Group("/backend-api/codex")
+ 	codexDirect.Use(AuthMiddleware(s.accessManager))
++	codexDirect.Use(s.trainingCaptureMiddleware())
+ 	{
+ 		codexDirect.GET("/responses", openaiResponsesHandlers.ResponsesWebsocket)
+ 		codexDirect.POST("/responses", openaiResponsesHandlers.Responses)
+@@ -128,6 +131,7 @@ func (s *Server) setupRoutes() {
+ 	// Gemini compatible API routes
+ 	v1beta := s.engine.Group("/v1beta")
+ 	v1beta.Use(AuthMiddleware(s.accessManager))
++	v1beta.Use(s.trainingCaptureMiddleware())
+ 	{
+ 		v1beta.GET("/models", s.geminiModelsHandler(geminiHandlers))
+ 		v1beta.POST("/interactions", geminiHandlers.Interactions)

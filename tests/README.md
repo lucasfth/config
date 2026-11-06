@@ -65,6 +65,20 @@ macOS-specific tools, or temporary local services/mocks.
 - `gimle-config.py` evaluates the Mac mini identity, host-isolation boundaries and retained MacBook integrations. Run with `python3 tests/gimle-config.py`; it does not activate either host.
 - `loki-service-run.py` checks native service gates and safe auxiliary commands.
   `gimle-auxiliary-activate.py` checks managed-link readability and rollback refusal.
+- `gimle-boot-launch.py` tests delayed/missing Nix runtime execution using evaluated
+  `GIMLE_BOOT_JOBS` JSON; `gimle-boot-recover.py` checks scoped plist rewriting and
+  dry-run preservation. Export jobs with `nix eval --json
+  '.#darwinConfigurations.gimle.config.launchd.daemons' --apply
+  'jobs: builtins.mapAttrs (_: job: job.serviceConfig) jobs' > /tmp/gimle-boot-jobs.json`,
+  then set `GIMLE_BOOT_JOBS=/tmp/gimle-boot-jobs.json` when running these tests.
+  `gimle-login-start.py` checks lock-before-app ordering without locking the host;
+  `loki-dashboard-run.py` checks encrypted-home and account gates.
+  `gimle-next-boot-install.py` requires `GIMLE_NEXT_BOOT_PAYLOAD` containing the two
+  reviewed, embedded-runner plist dictionaries (omit null Nix option fields).
+  Its tests otherwise skip; no test installs or reloads a live job.
+- `configs/cli-proxy-capture/`: `go test -race ./... -count=1` and `go vet ./...`
+  exercise capture, scrub, spool and archive fixtures. The pinned upstream build
+  helper separately compiles/tests the actual Gin integration; see its README.
 - `loki-readcode-transport.py` checks the fixed vault-only vendor path under isolated
   Python, missing-dependency refusal, and Company-worker isolation.
   `loki-readcode-vendor.py` checks exact versions/RECORD hashes and refuses overwrite.

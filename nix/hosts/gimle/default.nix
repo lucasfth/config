@@ -6,8 +6,11 @@
   homeDirectory = "/Users/gimle";
   stateVersion = "24.11";
   nixbldGid = 350;
-  tailscaleAtBoot = true;
+  # Preserve the app's exit-node country selector; auto-login supplies its GUI session.
+  tailscaleAtBoot = false;
+  tailscaleAppAtLogin = true;
   lokiProduction = true;
+  lokiDashboardAtBoot = true;
   # Keep off until the restored tunnel has an explicitly coordinated handoff.
   lokiAuxiliary = false;
 }

@@ -1,0 +1,133 @@
+package api
+
+import (
+ "bytes"
+ "compress/gzip"
+ "context"
+ "encoding/json"
+ "fmt"
+ "io"
+ "net/http"
+ "net/http/httptest"
+ "os"
+ "path/filepath"
+ "strings"
+ "testing"
+
+ "github.com/gin-gonic/gin"
+ "github.com/router-for-me/CLIProxyAPI/v8/internal/trainingcapture"
+ "github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+ coreexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
+ "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+)
+
+func TestTrainingCaptureNativeWriterAndSealedSecret(t *testing.T){
+ root:=filepath.Join(t.TempDir(),"capture")
+ t.Setenv("CPA_TRAINING_CAPTURE_ROOT",root)
+ server:=newTestServer(t)
+ if server.trainingCapture==nil{t.Fatal("capture not initialized")}
+ // Test the same after-auth adapter used by production route groups, without
+ // spending a teacher request. Stock diagnostic logging is absent in this router.
+ makeRouter:=func(enabled bool)*gin.Engine{
+  r:=gin.New();g:=r.Group("/v1");g.Use(func(c *gin.Context){c.Set("userApiKey","synthetic-client-secret");c.Next()})
+  if enabled{g.Use(server.trainingCaptureMiddleware())}
+  g.POST("/messages",func(c *gin.Context){body,_:=io.ReadAll(c.Request.Body);if !bytes.Contains(body,[]byte("synthetic-client-secret")){t.Error("request changed")};c.Header("Content-Type","text/event-stream");c.Status(201);c.Writer.WriteHeaderNow();c.Writer.WriteString("data: {\"ok\":true}\n\n");c.Writer.Flush();c.Writer.Write([]byte("data: [DONE]\n\n"))})
+  g.GET("/models",func(c *gin.Context){c.JSON(200,gin.H{"data":[]any{}})})
+  g.GET("/responses",func(c *gin.Context){c.Header("X-Upgrade-Fixture","unchanged");c.Status(426);c.Writer.WriteString("upgrade fixture")})
+  return r
+ }
+ var baseline *httptest.ResponseRecorder
+ for _,enabled:=range []bool{false,true}{
+  router:=makeRouter(enabled);req:=httptest.NewRequest("POST","/v1/messages",strings.NewReader(`{"text":"synthetic-client-secret"}`));req.Header.Set("Content-Type","application/json");rr:=httptest.NewRecorder();router.ServeHTTP(rr,req)
+  if !enabled{baseline=rr}else if rr.Code!=baseline.Code||rr.Body.String()!=baseline.Body.String()||rr.Header().Get("Content-Type")!=baseline.Header().Get("Content-Type"){t.Fatal("capture changed native Gin response")}
+  for _,path:=range []string{"/v1/models","/v1/responses"}{req=httptest.NewRequest("GET",path,nil);if path=="/v1/responses"{req.Header.Set("Upgrade","websocket")};rr=httptest.NewRecorder();router.ServeHTTP(rr,req);want:=200;if path=="/v1/responses"{want=426};if rr.Code!=want{t.Fatal("excluded route changed")}}
+ }
+ if err:=server.trainingCapture.Close(context.Background());err!=nil{t.Fatal(err)}
+ stats:=server.trainingCapture.Stats();if stats.Persisted!=1||stats.MemoryBytes!=0{t.Fatalf("stats %+v",stats)}
+ files,_:=filepath.Glob(filepath.Join(root,"sealed","*.jsonl.gz"));if len(files)!=1{t.Fatal("segment missing")}
+ f,err:=os.Open(files[0]);if err!=nil{t.Fatal(err)};defer f.Close();gz,err:=gzip.NewReader(f);if err!=nil{t.Fatal(err)};defer gz.Close();var record trainingcapture.Record;if err=json.NewDecoder(gz).Decode(&record);err!=nil{t.Fatal(err)}
+ if bytes.Contains(record.Request,[]byte("synthetic-client-secret"))||record.ScrubCount!=1||record.Status!=201{t.Fatalf("invalid saved record status=%d scrubs=%d",record.Status,record.ScrubCount)}
+}
+
+func TestTrainingCaptureProductionAuthenticationAndExclusions(t *testing.T){
+ root:=filepath.Join(t.TempDir(),"capture");t.Setenv("CPA_TRAINING_CAPTURE_ROOT",root);server:=newTestServer(t)
+ for _,test:=range []struct{method,path string}{ {"GET","/v1/models"},{"GET","/v1/responses"},{"POST","/v1/messages"},{"POST","/v1/realtime/client_secrets"} }{
+  req:=httptest.NewRequest(test.method,test.path,strings.NewReader(`{}`));req.Header.Set("Content-Type","application/json");if test.path=="/v1/responses"{req.Header.Set("Upgrade","websocket")};rr:=httptest.NewRecorder();server.Handler().ServeHTTP(rr,req)
+  if rr.Code!=http.StatusUnauthorized{t.Fatalf("unauthenticated route %s status=%d",test.path,rr.Code)}
+ }
+ if err:=server.trainingCapture.Close(context.Background());err!=nil{t.Fatal(err)};if stats:=server.trainingCapture.Stats();stats.Enqueued!=0||stats.MemoryBytes!=0{t.Fatalf("captured unauthenticated/control traffic %+v",stats)}
+}
+
+func TestTrainingCaptureRealAuthenticatedRoutesUnchanged(t *testing.T){
+	t.Setenv("CPA_TRAINING_CAPTURE_ROOT","");control:=newTestServer(t)
+	root:=filepath.Join(t.TempDir(),"capture");t.Setenv("CPA_TRAINING_CAPTURE_ROOT",root);candidate:=newTestServer(t)
+	for _,test:=range []struct{method,path,body string}{{"GET","/v1/models",""},{"POST","/v1/messages",`{"model":"capture-fixture-nonexistent","messages":[{"role":"user","content":"test-key"}]}`}}{
+		var before *httptest.ResponseRecorder
+		for i,server:=range []*Server{control,candidate}{
+			req:=httptest.NewRequest(test.method,test.path,strings.NewReader(test.body));req.Header.Set("Authorization","Bearer test-key");req.Header.Set("Content-Type","application/json")
+			rr:=httptest.NewRecorder();server.Handler().ServeHTTP(rr,req)
+			if rr.Code==http.StatusUnauthorized{t.Fatal("fixture authentication failed")}
+			if i==0{before=rr}else if rr.Code!=before.Code||rr.Body.String()!=before.Body.String(){t.Fatalf("authenticated %s changed status/body",test.path)}
+		}
+	}
+	if err:=candidate.trainingCapture.Close(context.Background());err!=nil{t.Fatal(err)}
+	if stats:=candidate.trainingCapture.Stats();stats.Persisted!=1||stats.MemoryBytes!=0{t.Fatalf("production chain stats %+v",stats)}
+	files,_:=filepath.Glob(filepath.Join(root,"sealed","*.jsonl.gz"));if len(files)!=1{t.Fatal("no sealed production-chain capture")}
+	f,err:=os.Open(files[0]);if err!=nil{t.Fatal(err)};defer f.Close();gz,err:=gzip.NewReader(f);if err!=nil{t.Fatal(err)};defer gz.Close();var record trainingcapture.Record;if err=json.NewDecoder(gz).Decode(&record);err!=nil{t.Fatal(err)}
+	if bytes.Contains(record.Request,[]byte("test-key")){t.Fatal("authenticated key persisted")}
+}
+
+type trainingFixtureExecutor struct{}
+func(e *trainingFixtureExecutor)Identifier()string{return "claude"}
+func(e *trainingFixtureExecutor)ExecuteStream(context.Context,*auth.Auth,coreexecutor.Request,coreexecutor.Options)(*coreexecutor.StreamResult,error){
+	chunks:=make(chan coreexecutor.StreamChunk,3)
+	chunks<-coreexecutor.StreamChunk{Payload:[]byte("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"fixture-message\",\"model\":\"fixture-teacher\",\"role\":\"assistant\",\"content\":[]}}\n\n")}
+	chunks<-coreexecutor.StreamChunk{Payload:[]byte("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"fixture answer\"}}\n\n")}
+	chunks<-coreexecutor.StreamChunk{Payload:[]byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")};close(chunks);return &coreexecutor.StreamResult{Chunks:chunks},nil
+}
+func(e *trainingFixtureExecutor)Execute(context.Context,*auth.Auth,coreexecutor.Request,coreexecutor.Options)(coreexecutor.Response,error){return coreexecutor.Response{},fmt.Errorf("unexpected Execute in streaming fixture")}
+func(e *trainingFixtureExecutor)Refresh(context.Context,*auth.Auth)(*auth.Auth,error){return nil,fmt.Errorf("unexpected Refresh in streaming fixture")}
+func(e *trainingFixtureExecutor)CountTokens(context.Context,*auth.Auth,coreexecutor.Request,coreexecutor.Options)(coreexecutor.Response,error){return coreexecutor.Response{},fmt.Errorf("unexpected CountTokens in streaming fixture")}
+func(e *trainingFixtureExecutor)HttpRequest(context.Context,*auth.Auth,*http.Request)(*http.Response,error){return nil,fmt.Errorf("unexpected HttpRequest in streaming fixture")}
+
+func TestTrainingCaptureAuthenticatedMockTeacherStream(t *testing.T){
+	t.Setenv("CPA_TRAINING_CAPTURE_ROOT","");control:=newTestServer(t)
+	root:=filepath.Join(t.TempDir(),"capture");t.Setenv("CPA_TRAINING_CAPTURE_ROOT",root);candidate:=newTestServer(t)
+	for index,server:=range []*Server{control,candidate}{
+		executor:=&trainingFixtureExecutor{};server.handlers.AuthManager.RegisterExecutor(executor)
+		credential:=&auth.Auth{ID:fmt.Sprintf("capture-teacher-%d",index),Provider:"claude",Status:auth.StatusActive}
+		if _,err:=server.handlers.AuthManager.Register(context.Background(),credential);err!=nil{t.Fatal(err)}
+		registry.GetGlobalRegistry().RegisterClient(credential.ID,credential.Provider,[]*registry.ModelInfo{{ID:"capture-fixture-model",Type:"claude",OwnedBy:"anthropic"}});t.Cleanup(func(){registry.GetGlobalRegistry().UnregisterClient(credential.ID)})
+	}
+	collector:=candidate.trainingCapture;var baseline *httptest.ResponseRecorder
+	for index,server:=range []*Server{control,candidate}{
+		req:=httptest.NewRequest("POST","/v1/messages",strings.NewReader(`{"model":"capture-fixture-model","max_tokens":128,"stream":true,"messages":[{"role":"user","content":"test-key"}]}`));req.Header.Set("Authorization","Bearer test-key");req.Header.Set("Content-Type","application/json")
+		rr:=httptest.NewRecorder();server.Handler().ServeHTTP(rr,req)
+		if rr.Code!=200||!strings.Contains(rr.Body.String(),"fixture answer"){t.Fatalf("teacher fixture failed status=%d body=%s",rr.Code,rr.Body.String())}
+		if index==0{baseline=rr}else if rr.Code!=baseline.Code||rr.Body.String()!=baseline.Body.String(){t.Fatal("teacher stream changed")}
+	}
+	if err:=collector.Close(context.Background());err!=nil{t.Fatal(err)}
+	if stats:=collector.Stats();stats.Persisted!=1||stats.MemoryBytes!=0{t.Fatalf("teacher stats %+v",stats)}
+	files,_:=filepath.Glob(filepath.Join(root,"sealed","*.jsonl.gz"));if len(files)!=1{t.Fatal("no teacher segment")}
+	f,err:=os.Open(files[0]);if err!=nil{t.Fatal(err)};defer f.Close();gz,err:=gzip.NewReader(f);if err!=nil{t.Fatal(err)};defer gz.Close();var r trainingcapture.Record;if err=json.NewDecoder(gz).Decode(&r);err!=nil{t.Fatal(err)}
+	if r.RequestedModel!="capture-fixture-model"||len(r.ReportedModels)!=1||r.ReportedModels[0]!="fixture-teacher"||bytes.Contains(r.Request,[]byte("test-key")){t.Fatal("teacher capture missing provenance or leaked key")}
+}
+
+func TestTrainingCaptureGinPanicAndBodylessStatus(t *testing.T){
+	for _,panics:=range []bool{false,true}{t.Run(fmt.Sprintf("panic=%v",panics),func(t *testing.T){
+		var saved []trainingcapture.Record
+		collector:=trainingcapture.NewCollector(trainingcapture.CollectorConfig{Sink:func(r trainingcapture.Record)error{saved=append(saved,r);return nil}})
+		server:=&Server{trainingCapture:collector}
+		var before *httptest.ResponseRecorder
+		for _,enabled:=range []bool{false,true}{
+			router:=gin.New();router.Use(gin.RecoveryWithWriter(io.Discard));group:=router.Group("/v1");if enabled{group.Use(server.trainingCaptureMiddleware())}
+			group.POST("/messages",func(c *gin.Context){io.Copy(io.Discard,c.Request.Body);if panics{panic("synthetic handler")};c.Writer.WriteHeader(204)})
+			req:=httptest.NewRequest("POST","/v1/messages",strings.NewReader(`{}`));req.Header.Set("Content-Type","application/json");rr:=httptest.NewRecorder();router.ServeHTTP(rr,req)
+			if !enabled{before=rr}else if rr.Code!=before.Code||rr.Body.String()!=before.Body.String(){t.Fatal("panic/bodyless response changed")}
+		}
+		if err:=collector.Close(context.Background());err!=nil{t.Fatal(err)}
+		if stats:=collector.Stats();stats.MemoryBytes!=0||stats.Persisted!=1{t.Fatalf("finalization failed %+v",stats)}
+		want:=204;if panics{want=500};if len(saved)!=1||saved[0].Status!=want{t.Fatal("capture status wrong")}
+		if panics&&saved[0].Complete{t.Fatal("panic recorded complete")}
+	})}
+}

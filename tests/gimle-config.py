@@ -33,6 +33,8 @@ in {
   lokiDaemons = builtins.filter (name: builtins.match "loki-.*|gimle-tailscaled" name != null) (builtins.attrNames c.launchd.daemons);
   lokiVolume = if c.networking.hostName == "gimle" then c.launchd.daemons.loki-volume.serviceConfig else null;
   tailscaled = if c.launchd.daemons ? gimle-tailscaled then c.launchd.daemons.gimle-tailscaled.serviceConfig else null;
+  loginStart = if c.launchd.user.agents ? loki-login-start then c.launchd.user.agents.loki-login-start.serviceConfig else null;
+  dashboard = if c.launchd.daemons ? loki-dashboard then c.launchd.daemons.loki-dashboard.serviceConfig else null;
   backup = if c.launchd.daemons ? loki-muninn-backup then c.launchd.daemons.loki-muninn-backup.serviceConfig else null;
 }'''
 
@@ -49,11 +51,11 @@ def main():
     assert (mini["username"], mini["hostname"], mini["home"]) == (
         "gimle", "gimle", "/Users/gimle")
     assert not mini["nixManaged"], "Determinate must retain Nix ownership"
-    assert mini["agents"] == ["aerospace", "nix-health"], mini["agents"]
+    assert mini["agents"] == ["aerospace", "loki-login-start", "nix-health"], mini["agents"]
     assert mini["taps"] == ["crmne/tap", "spicy-lemonade/tap"]
     assert {"ghostty", "zed", "slack", "obsidian", "raycast", "google-chrome"}.issubset(mini["casks"])
     assert not {"betterdisplay", "displaylink"}.intersection(mini["casks"])
-    assert mini["brews"] == ["bun", "container", "herdr", "spicy-lemonade/tap/salt"]
+    assert mini["brews"] == ["bun", "container", "firebase-cli", "gum", "herdr", "spicy-lemonade/tap/salt"]
     assert mini["gitUser"] == {"name": "lucasfth", "email": "online@lucashanson.dk"}
     assert not mini["signing"], "Do not require the MacBook's private signing key"
     assert not mini["gpgAgent"], "Headless Gimle must not inherit the signing agent"
@@ -73,14 +75,22 @@ def main():
     assert mini["powerRestart"] is True
     assert mini["computerSleep"] == "never"
     assert mini["lokiDaemons"] == [
-        "gimle-tailscaled", "loki-ask", "loki-browser", "loki-gateway",
+        "loki-ask", "loki-browser", "loki-dashboard", "loki-gateway",
         "loki-hue", "loki-muninn-backup", "loki-vault", "loki-volume",
     ], "The persistent host must retain the completed production cutover"
     assert mini["lokiVolume"]["RunAtLoad"] is True
     assert mini["lokiVolume"]["KeepAlive"]["SuccessfulExit"] is False
     assert mini["lokiVolume"]["ThrottleInterval"] == 30
-    assert mini["tailscaled"]["RunAtLoad"] is True
-    assert mini["tailscaled"]["KeepAlive"] is True
+    assert mini["tailscaled"] is None, "Do not run the CLI and app Tailscale backends together"
+    login = mini["loginStart"]
+    assert login["ProgramArguments"][:2] == ["/usr/bin/python3", "-c"]
+    assert "lock_screen()" in login["ProgramArguments"][2]
+    assert login["LimitLoadToSessionType"] == "Aqua"
+    assert login["RunAtLoad"] is True and login["KeepAlive"] is False
+    dashboard = mini["dashboard"]
+    assert dashboard["UserName"] == "gimle" and dashboard["RunAtLoad"] is True
+    assert dashboard["ProgramArguments"][:2] == ["/bin/sh", "-c"]
+    assert dashboard["ProgramArguments"][5:] == ["/etc/loki/dashboard-run.py"]
     backup = mini["backup"]
     assert backup["Label"] == "dk.loki.muninn-backup"
     assert backup["UserName"] == "gimle"
@@ -95,15 +105,17 @@ def main():
           modules = [{services.gimle.production = true;}];
         }; in builtins.mapAttrs (_: job: job.serviceConfig) c.config.launchd.daemons''',
     ], cwd=ROOT, text=True))
-    assert "gimle-tailscaled" in production
+    assert "gimle-tailscaled" not in production
     for service in ("gateway", "vault", "ask", "browser", "hue"):
         job = production["loki-" + service]
         assert job["UserName"] == "gimle" and job["GroupName"] == "staff"
         assert job["EnvironmentVariables"]["HOME"] == "/Users/gimle"
         assert job["KeepAlive"]["SuccessfulExit"] is False
         assert job["RunAtLoad"] is True
-        assert job["ProgramArguments"][0].startswith("/nix/store/")
-        assert job["ProgramArguments"][1:] == ["/etc/loki/service-run.py", service]
+        assert job["ProgramArguments"][:2] == ["/bin/sh", "-c"]
+        assert 'until [ -x "$1" ]' in job["ProgramArguments"][2]
+        assert job["ProgramArguments"][4].startswith("/nix/store/")
+        assert job["ProgramArguments"][5:] == ["/etc/loki/service-run.py", service]
     isolated = json.loads(subprocess.check_output([
         "nix", "eval", "--json", "--impure", "--expr",
         '''let f = builtins.getFlake (toString ./.); base = f.darwinConfigurations.gimle;
@@ -134,6 +146,7 @@ def main():
     assert "herdrOmpIntegration" not in laptop["hooks"]
     assert "pmset -b powernap 0" in laptop["postActivation"]
     assert not laptop["lokiDaemons"], "Gimle daemons must not reach the MacBook"
+    assert laptop["loginStart"] is None and laptop["dashboard"] is None
     print("PASS: Gimle identity and host isolation; MacBook integrations retained")
 
 

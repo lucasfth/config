@@ -12,6 +12,15 @@ not all share the same deployment or activation behavior.
   ordinary personal-profile access, VNC or Freyr fallback. See the
   [Pi browser boundaries](../configs/pi/README.md#integration-boundaries) for source
   checks and separately recorded live acceptance.
+- `gimle-boot-recover` and `gimle-next-boot-install PAYLOAD` inspect scoped Loki
+  next-boot plist repairs. Both default to dry-run; `--apply` needs separately
+  approved root access on Gimle and preserves rollback copies. Neither invokes
+  launchctl or restarts live jobs. The latter accepts the reviewed v0.22.6 gateway
+  payload only; it is not a general runtime-upgrade installer.
+- `gimle-login-start`, `loki-dashboard-run` and `loki-service-run` are Nix-managed
+  launchd entrypoints, not manual startup commands. Source publication does not
+  activate them. Login startup's screen-saver request is not proof of a locked
+  session; approved boot and client acceptance remain separate.
 - `nix-health [--check|--notify]` checks the local Nix installation. See
   [`docs/nix-recovery.md`](../docs/nix-recovery.md) for recovery instructions.
 - `muninn-refresh.py` safely refreshes the local readable Muninn snapshot; the

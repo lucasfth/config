@@ -1,0 +1,94 @@
+package api
+
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/trainingcapture"
+	log "github.com/sirupsen/logrus"
+)
+
+func (s *Server) initTrainingCapture() {
+	root := os.Getenv("CPA_TRAINING_CAPTURE_ROOT")
+	if root == "" {
+		return
+	}
+	spool, err := trainingcapture.NewSpool(trainingcapture.SpoolConfig{Root: root})
+	if err != nil {
+		log.Warn("training capture disabled: private spool initialization failed")
+		return
+	}
+	source := os.Getenv("CPA_TRAINING_CAPTURE_SOURCE")
+	if source == "" {
+		source = "neo"
+	}
+	s.trainingCapture = trainingcapture.NewCollector(trainingcapture.CollectorConfig{Source: source, ProxyVersion: "8.0.35+training-capture-v1", Keys: append([]string(nil), s.cfg.APIKeys...), CurrentKeys: s.trainingCaptureKeys, Sink: spool.Append, Rotate: spool.Rotate, CloseSink: spool.Close, Report:func(c trainingcapture.Counters)error{return trainingcapture.WriteStatus(root,c)}})
+	log.Info("training capture enabled; HTTP JSON/SSE only, realtime/WebSocket and binary bodies unsupported")
+}
+
+func (s *Server) trainingCaptureKeys() []string {
+	cfg := s.getConfig()
+	if cfg == nil {
+		return nil
+	}
+	keys := append([]string(nil), cfg.APIKeys...)
+	keys = append(keys, cfg.RemoteManagement.SecretKey, s.localPassword, os.Getenv("MANAGEMENT_PASSWORD"))
+	return keys
+}
+
+func (s *Server) trainingCaptureMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if s.trainingCapture == nil {
+			c.Next()
+			return
+		}
+		observation := s.trainingCapture.Observe(c.Request, c.GetString("userApiKey"))
+		if observation == nil {
+			c.Next()
+			return
+		}
+		original := c.Writer
+		c.Writer = &trainingGinWriter{ResponseWriter: original, observation: observation}
+		defer func() {
+			if value:=recover();value!=nil {observation.Fail("handler_panic");c.Writer=original;observation.Finish(500,original.Header().Get("Content-Type"),c.Request.Context().Err()!=nil);panic(value)}
+			c.Writer = original
+			observation.Finish(original.Status(), original.Header().Get("Content-Type"), c.Request.Context().Err() != nil)
+		}()
+		c.Next()
+	}
+}
+
+// Embed the live Gin writer: status, headers, flush and hijack remain native.
+// Only successfully written response bytes are observed.
+type trainingGinWriter struct {
+	gin.ResponseWriter
+	observation *trainingcapture.Observation
+}
+
+func (w *trainingGinWriter) Write(p []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(p)
+	w.observation.WriteResponse(p[:n])
+	if err!=nil{w.observation.Fail("response_write_error")}
+	return n, err
+}
+func (w *trainingGinWriter) WriteString(s string) (int, error) {
+	n, err := w.ResponseWriter.WriteString(s)
+	w.observation.WriteResponse([]byte(s[:n]))
+	if err!=nil{w.observation.Fail("response_write_error")}
+	return n, err
+}
+
+func (s *Server) stopTrainingCapture() {
+	if s.trainingCapture == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.trainingCapture.Close(ctx); err != nil {
+		log.Warn("training capture shutdown incomplete")
+	}
+	stats := s.trainingCapture.Stats()
+	log.WithFields(log.Fields{"enqueued": stats.Enqueued, "persisted": stats.Persisted, "dropped": stats.Dropped, "capture_errors": stats.Errors, "unsupported": stats.Unsupported}).Info("training capture stopped")
+}

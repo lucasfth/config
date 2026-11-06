@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Install the Loki Nix-mount boot fix without restarting any live service.
+
+Dry-run by default. --apply requires root on Gimle, preserves rollback plists,
+and changes only ProgramArguments for the six existing Loki system jobs.
+Tailscale, dashboard, runtime scripts, credentials and schedulers are untouched.
+"""
+import argparse
+import os
+from pathlib import Path
+import plistlib
+import shutil
+import socket
+import stat
+import subprocess
+import tempfile
+import time
+
+NAMES = ('volume', 'gateway', 'vault', 'ask', 'browser', 'hue')
+PLISTS = Path('/Library/LaunchDaemons')
+BOOT_SCRIPT = '''attempts=0
+if [ ! -x "$1" ]; then
+  echo "Waiting for Nix runtime: $1" >&2
+fi
+until [ -x "$1" ]; do
+  attempts=$((attempts + 1))
+  if [ "$attempts" -ge 60 ]; then
+    echo "Nix runtime unavailable after 118 seconds: $1" >&2
+    exit 75
+  fi
+  /bin/sleep 2
+done
+exec "$@"
+'''
+WRAPPER = ['/bin/sh', '-c', BOOT_SCRIPT, 'loki-boot']
+
+
+def patched_job(current, name):
+    assert current['Label'] == f'dk.loki.{name}', 'Unexpected job identity'
+    expected_script = '/etc/loki/volume-mount.py' if name == 'volume' else '/etc/loki/service-run.py'
+    args = current['ProgramArguments']
+    if args[:4] == WRAPPER:
+        args = args[4:]
+    expected_tail = [expected_script] + ([] if name == 'volume' else [name])
+    assert args[0].startswith('/nix/store/') and args[0].endswith('/bin/python3'), 'Unexpected interpreter'
+    assert args[1:] == expected_tail, 'Unexpected runner arguments'
+    assert current.get('UserName') == (None if name == 'volume' else 'gimle'), 'Unexpected user'
+    assert current.get('RunAtLoad') is True, 'Missing boot startup'
+    assert current.get('KeepAlive') == {'SuccessfulExit': False}, 'Unexpected retry policy'
+    patched = dict(current)
+    patched['ProgramArguments'] = WRAPPER + args
+    return patched
+
+
+def validate_plist(data):
+    with tempfile.NamedTemporaryFile(suffix='.plist') as staged:
+        staged.write(data)
+        staged.flush()
+        subprocess.run(['/usr/bin/plutil', '-lint', staged.name], check=True, capture_output=True)
+
+
+def replace_plist(path, data):
+    fd, staged = tempfile.mkstemp(prefix='.loki-boot-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+            os.fchmod(stream.fileno(), 0o644)
+            os.fchown(stream.fileno(), 0, 0)
+        os.replace(staged, path)
+    finally:
+        if os.path.exists(staged):
+            os.unlink(staged)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--apply', action='store_true', help='Install on-disk plists only; no launchctl mutations')
+    args = parser.parse_args()
+    assert socket.gethostname() == 'gimle', 'Gimle required'
+    if args.apply:
+        assert os.geteuid() == 0, 'Run --apply with sudo on Gimle'
+    planned = {}
+    for name in NAMES:
+        path = PLISTS / f'dk.loki.{name}.plist'
+        meta = path.lstat()
+        assert stat.S_ISREG(meta.st_mode) and meta.st_uid == 0 and not meta.st_mode & 0o022, 'Unsafe plist'
+        original = path.read_bytes()
+        current = plistlib.loads(original)
+        patched = patched_job(current, name)
+        data = plistlib.dumps(patched)
+        validate_plist(data)
+        print(f'{name}: ' + ('already repaired' if patched == current else 'add bounded macOS-shell wait; preserve existing runner'))
+        if patched != current:
+            planned[path] = (original, data)
+    if not args.apply:
+        print('DRY RUN: no files changed. No launchctl commands will run, even with --apply.')
+        return
+    if not planned:
+        print('All six boot plists already repaired; no changes.')
+        return
+    backup = Path(tempfile.mkdtemp(prefix=time.strftime('loki-boot-before-%Y%m%d-%H%M%S-'), dir='/var/root'))
+    for path, (original, _) in planned.items():
+        (backup / path.name).write_bytes(original)
+        os.chmod(backup / path.name, 0o600)
+    print(f'Rollback copies: {backup}', flush=True)
+    changed = []
+    try:
+        for path, (original, data) in planned.items():
+            assert path.read_bytes() == original and not path.is_symlink(), 'Concurrent plist change; stopping'
+            replace_plist(path, data)
+            changed.append(path)
+            assert plistlib.loads(path.read_bytes()) == plistlib.loads(data), 'Readback mismatch'
+            validate_plist(path.read_bytes())
+    except Exception:
+        for path in reversed(changed):
+            replace_plist(path, planned[path][0])
+        raise
+    print('Installed and read back six boot plists. Live jobs were NOT restarted.')
+    print('No-login reboot acceptance test and Tailscale boot ownership remain separate.')
+
+
+if __name__ == '__main__':
+    main()

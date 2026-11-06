@@ -116,6 +116,9 @@ def main():
         with socket.create_connection(('127.0.0.1', 8642), timeout=3):
             pass
     if service == 'gateway':
+        # Keep this process in launchd instead of auto-spawning a detached,
+        # idle-exiting gateway that escapes the system job's supervision.
+        os.environ['HERMES_GATEWAY_EXTERNAL_SUPERVISOR'] = '1'
         ready = json.loads((LIVE / 'cutover-ready.json').read_text())
         assert ready.get('phone_writers_stopped') is True, 'Phone writer stop not recorded'
         assert ready.get('final_snapshot_verified') is True, 'Final snapshot not verified'
