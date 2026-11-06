@@ -113,16 +113,16 @@ export default pi => {
       if (submitted && submittedAt === undefined) submittedAt = samples.length;
       const screen = readScreen();
       // The status icon and model live on the composer's bottom edge; the top edge carries only the session title.
-      const bottomY = screen.findIndex(line => /^╰\s+[◉⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u.test(line));
+      const bottomY = screen.findIndex(line => /^╰\s+[◉▏▎▍▌▋▊▉█]/u.test(line));
       const topY = bottomY < 0 ? -1 : screen.slice(0, bottomY).findLastIndex(line => line.startsWith('╭'));
       if (topY >= 0 && bottomY >= 0) {
         const border = screen[bottomY];
-        const frame = border.match(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u)?.[0];
+        const frame = border.match(/[▏▎▍▌▋▊▉█]/u)?.[0];
         if (frame) frames.add(frame);
         const view = terminal.buffer.active;
         const top = view.getLine(view.viewportY + topY);
         const bottom = view.getLine(view.viewportY + bottomY);
-        const icon = border.search(/[◉⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/u);
+        const icon = border.search(/[◉▏▎▍▌▋▊▉█]/u);
         const colors = { border: rgb(top, 0), spinner: rgb(bottom, icon), label: rgb(bottom, icon + 2),
           topRight: rgb(top, 114), bottomRight: rgb(bottom, 114) };
         // PTY chunks may split a repaint; compare only fully written composer corners.
@@ -210,7 +210,7 @@ export default pi => {
     const { base, target } = composerColors(sessionId, appearance, state);
     return [state, { base: number(base), target: number(target), midpoint: number(mixColors(base, target, 0.5, 'srgb')) }];
   }));
-  assert.ok(frames.size >= 2, 'Native Braille spinner animates');
+  assert.ok(frames.size >= 2, 'Box-drawing breathing indicator animates');
   for (const state of ['model', 'tool']) {
     const stateSamples = samples.filter(sample => sample.colors.bottomRight === expected[state].target);
     assert.ok(stateSamples.length, `${appearance}: real host reaches ${state} endpoint`);

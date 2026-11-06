@@ -222,9 +222,11 @@ test('native retry recovery stays idle, terminal error stays error, cancellation
       try {
         await session.prompt('synthetic retry test');
         const id = createHash('sha256').update(session.sessionManager.getSessionId()).digest('hex').slice(0, 32);
-        const count = rx.rows.length;
-        await until(() => rx.rows.length > count && rx.rows.at(-1).row.sessionId === id, 'fresh settled receipt after prompt');
-        assert.equal(rx.rows.at(-1).row.state, scenario === 'recovered' ? 'idle' : scenario === 'cancelled' ? 'unknown' : 'error', scenario);
+        const expected = scenario === 'recovered' ? 'idle' : scenario === 'cancelled' ? 'unknown' : 'error';
+        // A queued working receipt can arrive before the coalesced settlement.
+        await until(() => events.some(event => event.type === 'agent_settled') &&
+          rx.rows.at(-1)?.row.sessionId === id && rx.rows.at(-1).row.state === expected, 'settled receipt after prompt');
+        assert.equal(rx.rows.at(-1).row.state, expected, scenario);
         assert.equal(calls, scenario === 'cancelled' ? 1 : 2);
         assert.ok(events.some(event => event.type === 'auto_retry_start'));
         assert.equal(events.filter(event => event.type === 'agent_start').length, scenario === 'cancelled' ? 1 : 2);

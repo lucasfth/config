@@ -30,7 +30,7 @@ keybind = ctrl+a>p=previous_tab
 
 window-save-state = always
 
-# Keep Hyper+A as Herdr's Ctrl+B prefix; intercept only the following a.
+# Keep Hyper+A as Herdr's Ctrl+B prefix; intercept the a/i submenus.
 keybind = super+alt+ctrl+shift+a=activate_key_table_once:herdr-prefix
 keybind = chain=text:\x02
 keybind = ctrl+b=activate_key_table_once:herdr-prefix
@@ -38,6 +38,8 @@ keybind = chain=text:\x02
 # Explicit Escape avoids merging with the next shortcut's leading Ctrl+B.
 keybind = herdr-prefix/a=text:\x1b[27u
 keybind = chain=activate_key_table:herdr-agents
+keybind = herdr-prefix/i=text:\x1b[27u
+keybind = chain=activate_key_table_once:herdr-shell
 keybind = herdr-prefix/unconsumed:catch_all=end_key_sequence
 
 # Persistent agent-only navigation. Do not forward navigation keys to panes.
@@ -55,3 +57,14 @@ keybind = herdr-agents/physical:nine=text:\x02\x1b[57;7u
 keybind = herdr-agents/escape=deactivate_key_table
 keybind = herdr-agents/enter=deactivate_key_table
 keybind = herdr-agents/unconsumed:catch_all=deactivate_key_table
+
+# One-shot interactive-shell actions. Cancel Herdr's prefix before forwarding
+# a private Kitty transport chord to the local or remote Pi overlay.
+keybind = herdr-shell/f=text:\x1b[102;7u
+keybind = herdr-shell/b=text:\x1b[98;7u
+keybind = herdr-shell/t=text:\x1b[116;7u
+keybind = herdr-shell/m=text:\x1b[109;7u
+keybind = herdr-shell/g=text:\x1b[103;7u
+keybind = herdr-shell/p=text:\x1b[112;7u
+keybind = herdr-shell/escape=end_key_sequence
+keybind = herdr-shell/unconsumed:catch_all=end_key_sequence

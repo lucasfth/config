@@ -1,0 +1,3 @@
+# Ghostty loads legacy config first, then this modern entry point.
+# Keep the base file (including host settings) unchanged; add only shell transport.
+config-file = herdr-shell.conf

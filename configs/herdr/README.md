@@ -131,6 +131,45 @@ Outside agent mode, Hyper+A followed by `h/j/k/l` still navigates panes and
 `1–9` still selects tabs. `Ctrl+B`, then `g` retains the separate Go To picker.
 Other terminals retain native `Ctrl+B` shortcuts but not Ghostty's persistent mode.
 
+## Interactive-shell submenu in Ghostty
+
+Press **Ctrl+B → i** or **Hyper+A → i**, then one key:
+
+| Key | Shell action |
+| --- | --- |
+| `f` | Focus/unfocus the overlay |
+| `b` | Background the running shell |
+| `t` | Transfer output to the agent |
+| `m` | Open session actions |
+| `g` | Return control to the agent after takeover |
+| `p` | Spawn the configured default agent |
+
+This is one-shot; Esc cancels. Existing agent, pane and tab navigation stays
+unchanged. `p` preserves upstream's default-agent launch, not a picker. The
+overlay hints use the prefix sequences. Ordinary Ctrl+B/T/Q/G are no longer
+shell-overlay commands; no Alt+Shift+F/P binding competes with AeroSpace.
+Internal transport is Kitty Ctrl+Alt+letter, sent without Herdr's prefix.
+
+`configs/ghostty/config.ghostty` adds `herdr-shell.conf` after the legacy base
+config. This supports a scoped rollout without replacing store-backed base
+symlinks, host-specific settings, fonts or existing navigation. Home Manager
+declares both new files for future activations. Pi's pinned package changes
+live in `configs/pi/patches/pi-interactive-shell+herdr-prefix.patch`; `setup.mjs`
+applies them idempotently. This submenu is Ghostty-specific, not a new native
+Herdr binding. Other terminals can send the transport chords directly.
+
+2026-11-06 rollout: deployed and parsed on MacBook, Gimle and Freyr. Gimle's
+canonical managed Pi checkout and installed package were updated with guarded
+preimages and readback. Mini, Neo, Mimer, VPS1 and VPS2 were inspected: none
+loads `pi-interactive-shell`, so no extension or package was installed there.
+Connections from the MacBook use its local terminal transport regardless of
+remote host. Existing Herdr servers and agent sessions were not restarted.
+Ghostty's local scripting `reload_config` returned true; Gimle/Freyr desktop
+reload and physical-key acceptance remain separate. Existing Pi sessions need
+a safe `/reload` or their normal next launch; don't reload during active shell
+work. Isolated real overlays and a real Herdr client passed all six transport
+checks on both MacBook and Gimle; this is not physical keyboard proof.
+
 ## Copy mode on Danish keyboards
 
 Press **Ctrl+B**, release, then **Option+8** (`[` on Danish macOS layouts).

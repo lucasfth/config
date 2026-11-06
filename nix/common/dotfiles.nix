@@ -43,6 +43,8 @@ in {
       # ── Cross-platform dotfiles ─────────────────────────────────
       ".config/starship.toml".source = "${flakeDir.outPath}/configs/starship/starship.toml";
       ".config/ghostty/config".source = "${flakeDir.outPath}/configs/ghostty/config";
+      ".config/ghostty/config.ghostty".source = "${flakeDir.outPath}/configs/ghostty/config.ghostty";
+      ".config/ghostty/herdr-shell.conf".source = "${flakeDir.outPath}/configs/ghostty/herdr-shell.conf";
       # LazyGit uses the native macOS config directory when XDG_CONFIG_HOME is unset.
       ${
         if pkgs.stdenv.isDarwin

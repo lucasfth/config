@@ -1,0 +1,181 @@
+--- a/node_modules/pi-interactive-shell/config.ts
++++ b/node_modules/pi-interactive-shell/config.ts
+@@ -81,7 +81,7 @@
+ 
+ const DEFAULT_SPAWN_CONFIG: SpawnConfig = {
+ 	defaultAgent: "pi",
+-	shortcut: "alt+shift+p",
++	shortcut: "ctrl+alt+p",
+ 	commands: {
+ 		pi: "pi",
+ 		codex: "codex",
+@@ -104,7 +104,7 @@
+ 	overlayWidthPercent: 95,
+ 	overlayHeightPercent: 60,
+ 	overlayAnchor: "center",
+-	focusShortcut: "alt+shift+f",
++	focusShortcut: "ctrl+alt+f",
+ 	spawn: DEFAULT_SPAWN_CONFIG,
+ 	scrollbackLines: 5000,
+ 	ansiReemit: true,
+--- a/node_modules/pi-interactive-shell/overlay-component.ts
++++ b/node_modules/pi-interactive-shell/overlay-component.ts
+@@ -614,7 +614,7 @@
+ 		return captureCompletionOutput(this.session, this.config);
+ 	}
+ 
+-	/** Capture output for transfer action (Ctrl+T or dialog) */
++	/** Capture output for transfer action (Prefix → i → t or dialog) */
+ 	private captureTransferOutput(): InteractiveShellResult["transferred"] {
+ 		return captureTransferOutput(this.session, this.config);
+ 	}
+@@ -854,14 +854,14 @@
+ 			return;
+ 		}
+ 
+-		// Ctrl+G: Return to agent monitoring (only active during takeover)
+-		if (this.userTookOver && this.state === "running" && matchesKey(data, "ctrl+g")) {
++		// Prefix → i → g: Return to agent monitoring (only active during takeover)
++		if (this.userTookOver && this.state === "running" && matchesKey(data, "ctrl+alt+g")) {
+ 			this.returnToHandsFree();
+ 			return;
+ 		}
+ 
+-		// Ctrl+T: Quick transfer - capture output and close (works in all states including "exited")
+-		if (matchesKey(data, "ctrl+t")) {
++		// Prefix → i → t: Quick transfer - capture output and close (works in all states including "exited")
++		if (matchesKey(data, "ctrl+alt+t")) {
+ 			// If in hands-free mode, trigger takeover first (notifies agent)
+ 			if (this.state === "hands-free") {
+ 				this.triggerUserTakeover();
+@@ -870,8 +870,8 @@
+ 			return;
+ 		}
+ 
+-		// Ctrl+B: Quick background - dismiss overlay, keep process running
+-		if (matchesKey(data, "ctrl+b") && !this.session.exited) {
++		// Prefix → i → b: Quick background - dismiss overlay, keep process running
++		if (matchesKey(data, "ctrl+alt+b") && !this.session.exited) {
+ 			this.finishWithBackground();
+ 			return;
+ 		}
+@@ -883,8 +883,8 @@
+ 			return;
+ 		}
+ 
+-		// Ctrl+Q opens detach dialog (works in both hands-free and running)
+-		if (matchesKey(data, "ctrl+q")) {
++		// Prefix → i → m opens detach dialog (works in both hands-free and running)
++		if (matchesKey(data, "ctrl+alt+m")) {
+ 			// If in hands-free mode, trigger takeover first (notifies agent)
+ 			if (this.state === "hands-free") {
+ 				this.triggerUserTakeover();
+@@ -1009,12 +1009,12 @@
+ 			hint = `🤖 Hands-free (${elapsed}) • Type anything to take over`;
+ 		} else if (this.userTookOver) {
+ 			hint = sanitizedReason
+-				? `You took over • Ctrl+G return to agent • ${sanitizedReason}`
+-				: "You took over • Ctrl+G return to agent";
++				? `You took over • Prefix → i → g return to agent • ${sanitizedReason}`
++				: "You took over • Prefix → i → g return to agent";
+ 		} else {
+ 			hint = sanitizedReason
+-				? `Ctrl+B background • ${sanitizedReason}`
+-				: "Ctrl+B background";
++				? `Prefix → i → b background • ${sanitizedReason}`
++				: "Prefix → i → b background";
+ 		}
+ 		lines.push(row(dim(truncateToWidth(hint, innerWidth, "..."))));
+ 		lines.push(border(borderGlyphs.separatorLeft + borderGlyphs.horizontal.repeat(width - 2) + borderGlyphs.separatorRight));
+@@ -1075,16 +1075,16 @@
+ 			footerLines.push(row(dim(`Closing in ${this.exitCountdown}s... (any key to close) • ${focusHint}`)));
+ 		} else if (this.state === "hands-free") {
+ 			if (this.focused) {
+-				footerLines.push(row(dim(`🤖 Agent controlling • Type to take over • Ctrl+T transfer • Ctrl+B background • ${focusHint}`)));
++				footerLines.push(row(dim(`🤖 Agent controlling • Type to take over • Prefix → i → t transfer • Prefix → i → b background • ${focusHint}`)));
+ 			} else {
+ 				footerLines.push(row(dim(`🤖 Agent controlling • ${focusHint}`)));
+ 			}
+ 		} else if (!this.focused) {
+ 			footerLines.push(row(dim(focusHint)));
+ 		} else if (this.userTookOver) {
+-			footerLines.push(row(dim(`Ctrl+G agent • Ctrl+T transfer • Ctrl+B background • Ctrl+Q menu • ${focusHint}`)));
++			footerLines.push(row(dim(`Prefix → i → g agent • Prefix → i → t transfer • Prefix → i → b background • Prefix → i → m menu • ${focusHint}`)));
+ 		} else {
+-			footerLines.push(row(dim(`Ctrl+T transfer • Ctrl+B background • Ctrl+Q menu • Shift+Up/Down scroll • ${focusHint}`)));
++			footerLines.push(row(dim(`Prefix → i → t transfer • Prefix → i → b background • Prefix → i → m menu • Shift+Up/Down scroll • ${focusHint}`)));
+ 		}
+ 
+ 		while (footerLines.length < footerHeight) {
+--- a/node_modules/pi-interactive-shell/reattach-overlay.ts
++++ b/node_modules/pi-interactive-shell/reattach-overlay.ts
+@@ -117,7 +117,7 @@
+ 		return captureCompletionOutput(this.session, this.config);
+ 	}
+ 
+-	/** Capture output for transfer action (Ctrl+T or dialog) */
++	/** Capture output for transfer action (Prefix → i → t or dialog) */
+ 	private captureTransferOutput(): InteractiveShellResult["transferred"] {
+ 		return captureTransferOutput(this.session, this.config);
+ 	}
+@@ -223,14 +223,14 @@
+ 			return;
+ 		}
+ 
+-		// Ctrl+T: Quick transfer - capture output and close (works in all states including "exited")
+-		if (matchesKey(data, "ctrl+t")) {
++		// Prefix → i → t: Quick transfer - capture output and close (works in all states including "exited")
++		if (matchesKey(data, "ctrl+alt+t")) {
+ 			this.finishWithTransfer();
+ 			return;
+ 		}
+ 
+-		// Ctrl+B: Quick background - dismiss overlay, keep process running
+-		if (matchesKey(data, "ctrl+b") && !this.session.exited) {
++		// Prefix → i → b: Quick background - dismiss overlay, keep process running
++		if (matchesKey(data, "ctrl+alt+b") && !this.session.exited) {
+ 			this.finishWithBackground();
+ 			return;
+ 		}
+@@ -250,8 +250,8 @@
+ 			return;
+ 		}
+ 
+-		// Ctrl+Q opens detach dialog
+-		if (matchesKey(data, "ctrl+q")) {
++		// Prefix → i → m opens detach dialog
++		if (matchesKey(data, "ctrl+alt+m")) {
+ 			this.state = "detach-dialog";
+ 			this.dialogSelection = "transfer";
+ 			this.tui.requestRender();
+@@ -348,8 +348,8 @@
+ 		// Sanitize reason: collapse newlines and whitespace to single spaces for display
+ 		const sanitizedReason = this.bgSession.reason?.replace(/\s+/g, " ").trim();
+ 		const hint = sanitizedReason
+-			? `Reattached • ${sanitizedReason} • Ctrl+B background`
+-			: "Reattached • Ctrl+B background";
++			? `Reattached • ${sanitizedReason} • Prefix → i → b background`
++			: "Reattached • Prefix → i → b background";
+ 		lines.push(row(dim(truncateToWidth(hint, innerWidth, "..."))));
+ 		lines.push(border("├" + "─".repeat(width - 2) + "┤"));
+ 
+@@ -413,7 +413,7 @@
+ 			footerLines.push(row(exitMsg));
+ 			footerLines.push(row(dim(`Closing in ${this.exitCountdown}s... (any key to close) • ${focusHint}`)));
+ 		} else if (this.focused) {
+-			footerLines.push(row(dim(`Ctrl+T transfer • Ctrl+B background • Ctrl+Q menu • Shift+Up/Down scroll • ${focusHint}`)));
++			footerLines.push(row(dim(`Prefix → i → t transfer • Prefix → i → b background • Prefix → i → m menu • Shift+Up/Down scroll • ${focusHint}`)));
+ 		} else {
+ 			footerLines.push(row(dim(focusHint)));
+ 		}
+--- a/node_modules/pi-interactive-shell/types.ts
++++ b/node_modules/pi-interactive-shell/types.ts
+@@ -293,6 +293,8 @@
+ 
+ /** Format a key shortcut string for display (capitalize modifier names) */
+ export function formatShortcut(shortcut: string): string {
++	// Ghostty's one-shot Herdr shell table emits these transport chords.
++	if (/^ctrl\+alt\+[fbtmgp]$/.test(shortcut)) return `Prefix → i → ${shortcut.at(-1)}`;
+ 	return shortcut
+ 		.replace(/ctrl/gi, "Ctrl")
+ 		.replace(/shift/gi, "Shift")

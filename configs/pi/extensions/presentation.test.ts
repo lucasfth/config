@@ -11,7 +11,14 @@ import { colorToHex, colorToRgb, mixColors, stripTerminalSequences, visibleWidth
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { WorkingStatusIndicator, RetryStatusIndicator, CompactionStatusIndicator } from '../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/status-indicator.js';
 import { theme } from '../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js';
-import presentation, { composerActivity, composerColors, fitBoxBorder, formatWorkingDirectory, getWorkingDirectoryLabel, headerLayout, markUserMessage } from './presentation.ts';
+import presentation, { breathingIndicator, composerActivity, composerColors, fitBoxBorder, formatWorkingDirectory, getWorkingDirectoryLabel, headerLayout, markUserMessage } from './presentation.ts';
+
+test('breathing frames stay one cell and widen then narrow over a two-second cycle', () => {
+  assert.deepEqual(breathingIndicator.frames.slice(0, 10), breathingIndicator.frames.slice(10).toReversed());
+  assert.ok(breathingIndicator.frames.every(frame => visibleWidth(frame) === 1));
+  assert.deepEqual([...new Set(breathingIndicator.frames)], [...'▏▎▍▌▋▊▉█'], 'only left-aligned widths, no line-glyph transitions');
+  assert.equal(breathingIndicator.frames.length * breathingIndicator.intervalMs, 2000);
+});
 
 test("box borders stay within narrow terminal widths", () => {
   for (let width = 0; width <= 12; width++) {
@@ -154,13 +161,13 @@ function createProfileEditor(appearance = 'dark', sessionId = 'session-a', fresh
   return { editor, top, border, tui, terminal, emit, ready, header: header!, transform: transform!, renderRequests: () => renderRequests };
 }
 
-test('native working spinner replaces the idle icon without a working suffix', () => {
+test('breathing box-drawing spinner replaces Braille without moving the model label', () => {
   const { editor, border, tui } = createProfileEditor();
   assert.match(border(), /╰\s+◉ Sol/);
   const indicator = new WorkingStatusIndicator(tui, 'Working...', { frames: ['⠋'] }, text => text);
   try {
     editor.setWorkingStatusIndicator(indicator);
-    assert.match(border(), /╰\s+⠋ Sol/);
+    assert.match(border(), /╰\s+▏ Sol/);
     assert.ok(!border().includes('◉'));
     assert.ok(!/working/i.test(border()));
     for (let width = 1; width <= 120; width++) {
@@ -180,8 +187,8 @@ test('native spinner advances and requests renders without an extension timer', 
     editor.setWorkingStatusIndicator(animated);
     const first = border();
     let changed = false;
-    for (let attempt = 0; attempt < 30 && !changed; attempt++) {
-      await delay(11);
+    for (let attempt = 0; attempt < 100 && !changed; attempt++) {
+      await delay(25);
       changed = border() !== first;
     }
     assert.ok(changed, 'Native animation reaches the custom top border');
@@ -325,7 +332,7 @@ test('light/dark diagonal corners and spinner stay exact while text and cursor s
       const rgb = (color: typeof base) => { const { r, g, b } = colorToRgb(color); return [r, g, b].map(Math.round); };
       const first = top.match(/\x1b\[38;2;(\d+);(\d+);(\d+)m/)!;
       assert.deepEqual(first.slice(1).map(Number), rgb(base));
-      assert.ok(bottom.includes(theme.style('⠋', { fg: mixColors(base, target, 0.5, 'srgb') })), 'spinner cannot retain its host thinking colour');
+      assert.ok(bottom.includes(theme.style('▏', { fg: mixColors(base, target, 0.5, 'srgb') })), 'spinner cannot retain its host thinking colour');
       assert.deepEqual(lastForeground(top), rgb(mixColors(base, target, 0.5, 'srgb')));
       assert.deepEqual(lastForeground(bottom), rgb(target));
       assert.deepEqual(rows.slice(1, -1).map(interior), before);

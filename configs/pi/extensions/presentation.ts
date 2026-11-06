@@ -47,6 +47,12 @@ export function markUserMessage(markdown: string, dot: string) {
 
 export type ComposerActivity = 'idle' | 'model' | 'tool' | 'waiting' | 'retry' | 'compaction' | 'error';
 type ProfileStatus = Parameters<CustomEditor['setWorkingStatusIndicator']>[0];
+// Fixed left edge, eight widths, symmetric inhale/exhale on the native timer.
+// Repeat endpoints for easing; never switch to centred line glyphs.
+export const breathingIndicator = {
+  frames: ['▏', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█', '█', '█', '█', '▉', '▊', '▋', '▌', '▍', '▎', '▏', '▏'],
+  intervalMs: 100,
+};
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 const headerLetters: Record<string, string[]> = {
   H: ['█ █', '█▀█', '█ █'],
@@ -232,6 +238,7 @@ export default function presentationExtension(pi: ExtensionAPI) {
       private identityColumns = 0;
       private titleColumns = 0;
       override setWorkingStatusIndicator(indicator: Parameters<CustomEditor['setWorkingStatusIndicator']>[0]) {
+        if (indicator && indicator !== profileStatus) indicator.setIndicator(breathingIndicator);
         super.setWorkingStatusIndicator(indicator);
         profileStatus = indicator;
         render?.();
