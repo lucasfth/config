@@ -33,14 +33,14 @@ async function receiver(handler) {
 }
 const timing = { heartbeatMs: 100, coalesceMs: 10, timeoutMs: 100 };
 
-async function nativeSession(root, configPath, sessionManager = SessionManager.inMemory(root), outcome = 'stop', retry = { enabled: false }) {
+async function nativeSession(root, configPath, sessionManager = SessionManager.inMemory(root), outcome = 'stop', retry = { enabled: false }, reporterTiming = timing) {
   const runtime = await ModelRuntime.create({ modelsPath: null, credentials: new InMemoryCredentialStore(), modelsStore: new InMemoryModelsStore(), refreshOnCreate: false });
   runtime.hasConfiguredAuth = () => true; // scripted stream only, never provider auth/traffic
   const model = runtime.getModels().find(model => model.api === 'openai-completions');
   const settings = SettingsManager.inMemory({ packages: [], extensions: [], skills: [], prompts: [], retry, compaction: { enabled: false }, cacheWarming: 'off' });
   const loader = new DefaultResourceLoader({ cwd: root, agentDir: root, settingsManager: settings,
     noExtensions: true, noSkills: true, noThemes: true, noPromptTemplates: true, noContextFiles: true,
-    extensionFactories: [installSessionTitles, createFleetExtension({ configPath, allowTestLoopback: true, timing }),
+    extensionFactories: [installSessionTitles, createFleetExtension({ configPath, allowTestLoopback: true, timing: reporterTiming }),
       // Hold the actual SDK read start briefly so coalescing cannot hide start evidence.
       pi => { pi.on('tool_execution_start', async () => { await sleep(30); }); }],
     systemPromptOverride: () => 'Synthetic lifecycle proof only.', appendSystemPromptOverride: () => [],
@@ -336,4 +336,106 @@ test('actual SDK reload clears tool evidence; synthetic session_start fork/resum
     }
     await session.extensionRunner.emit({type:'session_shutdown',reason:'quit'});const n=rx.rows.length;await sleep(250);assert.equal(rx.rows.length,n,'no duplicate live heartbeat timers after replacement/shutdown');
   } finally {await session?.extensionRunner.emit({type:'session_shutdown',reason:'quit'});session?.dispose();await rx.close();await rm(root,{recursive:true,force:true});}
+});
+
+test('production defaults bound continuous tool traffic, retain latest state and keep idle liveness fresh', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout', 'setInterval'], now: Date.parse('2026-11-06T12:00:00.000Z') });
+  const rows = [];
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    rows.push(JSON.parse(options.body));
+    return new Response(null, { status: 202 });
+  });
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  const reporter = new FleetReporter({ endpoint: 'https://portfolio.invalid/api/admin/fleet/report', hostId: 'gimle', token }, 'synthetic-budget');
+  try {
+    reporter.update({ state: 'working' });
+    t.mock.timers.tick(0); await flush();
+    assert.equal(rows.length, 1, 'initial observation remains immediate');
+    const started = Date.now();
+    for (let second = 1; second <= 180; second++) {
+      for (let tool = 0; tool < 100; tool++) reporter.update({ state: 'working', toolCompleted: true, toolsInFlight: tool });
+      reporter.update({ toolsInFlight: second % 10 });
+      t.mock.timers.tick(1000); await flush();
+      if (second === 29) assert.equal(rows.length, 1, 'tool events cannot bypass the 30s budget');
+      if (second % 30 === 0) {
+        assert.equal(rows.at(-1).toolsInFlight, second % 10, 'send reads latest snapshot, not queued events');
+        assert.equal(Date.parse(rows.at(-1).lastToolCompletedAt), started + (second - 1) * 1000);
+      }
+    }
+    assert.equal(rows.length, 7, 'initial plus six snapshots in three minutes, independent of tool count');
+    for (let i = 1; i < rows.length; i++) {
+      assert.ok(Date.parse(rows[i].observedAt) - Date.parse(rows[i - 1].observedAt) >= 30_000);
+      assert.equal(rows[i].sequence, rows[i - 1].sequence + 1);
+      assert.equal(rows[i].workingSince, rows[1].workingSince);
+    }
+    reporter.update({ state: 'idle' });
+    t.mock.timers.tick(5000); await flush();
+    assert.equal(rows.at(-1).state, 'idle', 'settlement reaches receiver within 5s, not 30s');
+    assert.equal(rows.at(-1).toolsInFlight, 0);
+    assert.equal(rows.at(-1).workingSince, null);
+    const quietCount = rows.length;
+    for (let second = 0; second < 180; second++) { t.mock.timers.tick(1000); await flush(); }
+    assert.equal(rows.length - quietCount, 3, 'idle sessions send one heartbeat per minute');
+    assert.ok(Date.now() - Date.parse(rows.at(-1).observedAt) < 60_000, 'below 120s stale threshold');
+    reporter.update({ state: 'working', toolsInFlight: 1 });
+    await reporter.close();
+    assert.equal(rows.at(-1).state, 'ended', 'shutdown bypasses the ordinary budget');
+    assert.equal(rows.at(-1).toolsInFlight, 0);
+    const closedCount = rows.length;
+    reporter.update({ state: 'working' });
+    t.mock.timers.tick(180_000); await flush();
+    assert.equal(rows.length, closedCount, 'no work after close');
+  } finally { await reporter.close(); }
+});
+
+test('state transitions preempt pending tool churn but rapid lifecycle flaps remain bounded', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout', 'setInterval'], now: Date.parse('2026-11-06T12:00:00.000Z') });
+  const rows = [];
+  t.mock.method(globalThis, 'fetch', async (_url, options) => { rows.push(JSON.parse(options.body)); return new Response(null, { status: 202 }); });
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  const reporter = new FleetReporter({ endpoint: 'https://portfolio.invalid/api/admin/fleet/report', hostId: 'gimle', token }, 'synthetic-lifecycle-budget');
+  try {
+    t.mock.timers.tick(0); await flush();
+    reporter.update({ toolCompleted: true }); // queues the ordinary 30s window
+    reporter.update({ state: 'working' });
+    t.mock.timers.tick(5000); await flush();
+    assert.equal(rows.at(-1).state, 'working', 'start preempts the tool timer');
+    for (const state of ['idle', 'working', 'error', 'working', 'unknown']) {
+      const count = rows.length;
+      reporter.update({ toolCompleted: true });
+      reporter.update({ state });
+      t.mock.timers.tick(4999); await flush();
+      assert.equal(rows.length, count, 'lifecycle changes obey the 5s minimum');
+      t.mock.timers.tick(1); await flush();
+      assert.equal(rows.length, count + 1);
+      assert.equal(rows.at(-1).state, state, 'latest settlement/start sent promptly after recent send');
+    }
+  } finally { await reporter.close(); }
+});
+
+test('shipping default SDK settlement sends idle/error/unknown promptly after an initial receipt', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fleet-default-settle-'));
+  const rx = await receiver();
+  try {
+    const configPath = path.join(root, 'fleet.json');
+    await writeFile(configPath, JSON.stringify({ endpoint: rx.endpoint, hostId: 'gimle', token }), { mode: 0o600 });
+    for (const outcome of ['stop', 'error', 'aborted']) {
+      const { session, errors } = await nativeSession(root, configPath, SessionManager.inMemory(root), outcome, { enabled: false }, { heartbeatMs: 60_000, coalesceMs: 30_000, timeoutMs: 5000 });
+      try {
+        const id = createHash('sha256').update(session.sessionManager.getSessionId()).digest('hex').slice(0, 32);
+        await until(() => rx.rows.some(({ row }) => row.sessionId === id), 'initial default-timing receipt');
+        const initial = rx.rows.find(({ row }) => row.sessionId === id).row;
+        const before = Date.now();
+        await session.prompt('PRIVATE_PROMPT_CANARY');
+        const expected = outcome === 'stop' ? 'idle' : outcome === 'error' ? 'error' : 'unknown';
+        const settled = () => rx.rows.find(({ row }) => row.sessionId === id && row.sequence > initial.sequence && row.state === expected && (outcome !== 'stop' || row.lastToolCompletedAt));
+        while (!settled() && Date.now() - before < 6500) await sleep(10);
+        assert.ok(settled(), `default ${outcome} settlement must arrive in 5s plus transport slack, not 30s`);
+        assert.ok(Date.now() - before < 6500);
+        assert.equal(settled().row.toolsInFlight, 0);
+        assert.equal(settled().row.workingSince, null);
+        assert.equal(errors.length, 0);
+      } finally { await session.extensionRunner.emit({ type: 'session_shutdown', reason: 'quit' }); session.dispose(); }
+    }
+  } finally { await rx.close(); await rm(root, { recursive: true, force: true }); }
 });
