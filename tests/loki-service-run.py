@@ -144,7 +144,7 @@ class GatewaySourceSelectionTests(unittest.TestCase):
 
     def test_gateway_uses_reviewed_release_without_retargeting_shared_source(self):
         source, python = runner.service_runtime('gateway')
-        self.assertEqual(source, runner.LIVE / 'update-staging-20261103/hermes-loki-v0.22.6')
+        self.assertEqual(source, runner.LIVE / 'update-staging-20261106-v0.23.0/hermes-loki-v0.23.0')
         self.assertEqual(python, runner.HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3')
         self.assertNotEqual(source, runner.SOURCE)
 

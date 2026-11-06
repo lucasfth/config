@@ -3,8 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    # Official desktop, including upstream's Darwin pm-package fix.
-    hermes-agent.url = "github:NousResearch/hermes-agent/5a5aa9a3a8d376ebe0013ca6565c184e87318404";
+    # Match the reviewed Loki gateway/dashboard release (Hermes v0.23.0).
+    hermes-agent.url = "github:NousResearch/hermes-agent/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19";
     darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";

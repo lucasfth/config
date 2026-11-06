@@ -53,7 +53,7 @@ def service_runtime(service):
     # Keep auxiliary MCP services on their existing closure during the Hermes upgrade.
     if service == 'gateway':
         return (
-            LIVE / 'update-staging-20261103/hermes-loki-v0.22.6',
+            LIVE / 'update-staging-20261106-v0.23.0/hermes-loki-v0.23.0',
             HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3',
         )
     return SOURCE, HOME / 'tools/python-3.14.7+20260901-darwin-arm64/bin/python3'
