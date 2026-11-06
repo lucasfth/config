@@ -15,6 +15,12 @@ from pathlib import Path
 import re
 import tempfile
 import urllib.request
+import sys
+_code_root = Path(__file__).resolve().parents[1]
+_source_automation = _code_root / 'maintenance' / 'automation'
+_automation = _source_automation if _source_automation.is_dir() else _code_root / 'automation'
+sys.path.insert(0, str(_automation))
+from auto_review import BudgetExhausted
 
 MAX_SOURCE = 24000
 MAX_NOTES = 8
@@ -260,6 +266,9 @@ def distil(vault, state_dir, model, today=None):
             state['records'][record['id']] = record
             store_state(state_dir, state)
             processed.append(record['id'])
+        except BudgetExhausted:
+            return {'processed':processed,'errors':errors,'skipped':skipped,'deferred':deferred,
+                'status':'budget-paused','budget_paused':True,'guidance_applied':False,'skills_changed':False}
         except (ValueError, UnicodeError, OSError) as error:
             errors.append({'source': source['path'], 'error': str(error)[:160]})
     return {'processed': processed, 'errors': errors, 'skipped': skipped, 'deferred': deferred,
@@ -267,13 +276,17 @@ def distil(vault, state_dir, model, today=None):
             'guidance_applied': False, 'skills_changed': False}
 
 
-def dream_model(script):
+def dream_model(script,*,budget_state):
     """Reuse provider configuration without importing/running dreaming or tools."""
     tree = ast.parse(script.read_text())
     helper = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_deepseek_api_call')
     namespace = {'os': os, 'json': json, 'urllib': urllib}
     exec(compile(ast.Module(body=[helper], type_ignores=[]), str(script), 'exec'), namespace)
     def call(prompt):
+        import sys
+        sys.path.insert(0,str(Path(__file__).parents[1]/'automation'))
+        import auto_review
+        auto_review.reserve_budget(budget_state or auto_review.STATE)
         answer = namespace['_deepseek_api_call'](prompt, 'Evidence-linked AAR proposals only. JSON only, no reasoning trace.', max_tokens=3500, temperature=0.1)
         if answer.startswith('ERROR:'):
             raise ValueError('Distillation provider failed')
@@ -311,7 +324,7 @@ def nightly(config_path):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if config.get('provider_env'):
             load_provider_env(Path(config['provider_env']))
-        model = dream_model(Path(config['dream_script']))
+        model = dream_model(Path(config['dream_script']),budget_state=state_dir/'auto-review')
         if config.get('chunked_enabled') is not True:
             return distil(vault, state_dir, model)
         from .chunked import drain
@@ -319,6 +332,8 @@ def nightly(config_path):
         result = distil(vault, state_dir, model)
         review_path = safe(state_dir, 'manual-review.json')
         review = json.loads(review_path.read_text()) if review_path.exists() else {'schema': 1, 'records': {}}
+        # distil can discover a new oversized queue entry AFTER drain committed.
+        # Reconcile every exact revision in the same writer lock before receipt.
         ledger = load_state(state_dir)['records']
         for entry in review['records'].values():
             matches = [r for r in ledger.values() if r['source']['path'] == entry['source']['path']
@@ -339,6 +354,7 @@ def nightly(config_path):
         result['errors'].extend(chunks['errors'])
         result['chunked'] = chunks
         result['status'] = ('partial-failure' if result['errors'] else
+                            'budget-paused' if result.get('budget_paused') or chunks.get('budget_paused') else
                             'manual-review-required' if result['deferred'] else 'complete')
         return result
 

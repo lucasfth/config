@@ -1,9 +1,13 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 import canonical_apply as apply
+
+SKILL_ROOT = Path(os.environ.get('VOLUNDR_SKILLS_DIR', '/Users/gimle/loki-data/live/volundr/skills'))
+REFRESH = SKILL_ROOT.parent / 'scripts/refresh_manifest.py'
 
 class ApplyTests(unittest.TestCase):
     def git(self,root,*args):return subprocess.check_output(['git','-C',str(root),*args],text=True).strip()
@@ -16,7 +20,7 @@ class ApplyTests(unittest.TestCase):
             'sources':[],'discovery':{},'credential_review':{'findings':[]},'maintenance_reviews':[]}))
         import shutil
         scripts=root/'scripts';scripts.mkdir()
-        shutil.copyfile('/Users/gimle/loki-data/live/volundr/scripts/refresh_manifest.py',scripts/'refresh_manifest.py')
+        shutil.copyfile(REFRESH,scripts/'refresh_manifest.py')
         self.git(root,'add','.');self.git(root,'commit','-qm','test: base')
         return p
     def test_binding_and_wrong_base_refused(self):
@@ -46,7 +50,7 @@ class ApplyTests(unittest.TestCase):
             self.assertEqual(record['outputs']['skills/example/SKILL.md']['before'],apply.sha(base))
     def test_real_refresh_rejects_wrong_before(self):
         import importlib.util
-        path=Path('/Users/gimle/loki-data/live/volundr/scripts/refresh_manifest.py')
+        path=REFRESH
         spec=importlib.util.spec_from_file_location('real_refresh',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);p=self.repo(root/'repo');tree=p.parent.parent.parent;base=p.read_bytes();candidate=base+b'\nExact output.\n';p.write_bytes(candidate)

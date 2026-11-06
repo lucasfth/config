@@ -35,8 +35,17 @@ Reviewer process receipts bind PID/session IDs, input hashes and private capture
 reviewer stdout/verdict hashes. Raw captured reviewer output is private, mode 0400,
 never sent in public cron summaries; it is rechecked before consumer writes.
 Same-UID process separation is not adversarial isolation. No caller-supplied
-`VERIFIED` flag authorizes application. No-change decisions remain unreviewed
-local dispositions and cannot create a staged candidate.
+`VERIFIED` flag authorizes application. No-change decisions require a separate
+source-bound independent review under `run/nochange/`; they never authorize
+application. The controller supplies exact-source-token task skills and safely
+read source-cited package support, recording every selected path/hash. A denied
+no-change is never re-proposed. Only a changed deterministic safe evidence packet
+can trigger a distinct `run/nochange-attempt-<hash>/` review, linking its prior
+verified denial without modifying it. Identical denied evidence is skipped; two
+verified denials exhaust the retry bound even if `seen.json` is lost. Denial
+tampering fails closed before any model turn. Proposer choices and candidates
+persist across daily allowance pauses without consuming semantic attempts.
+Coverage reports extraction-ledger source revisions, not whole-vault completion.
 
 ## Verification and rollout
 
@@ -50,7 +59,7 @@ readback. Keep old unrelated edits intact.
 
 Task receipts, deployment hashes, rollback copies, model accounting, source
 reviews and exact live/staged state are in:
-`~/loki-data/live/hermes/cache/scratch/muninn-autonomous-loop/HANDOFF.md`.
+`~/loki-data/live/hermes/cache/scratch/learning-autoapply-20261104/HANDOFF.md`.
 Read its current section before adopting a candidate wrapper; historical green
 receipts do not prove the latest scheduled payload or natural trigger.
 

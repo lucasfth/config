@@ -115,6 +115,15 @@ def drain(vault,state_dir,model,budget=8,today=None):
                             f"starts at global line {chunk['line']}.\n\n"+chunk['text'])
                         chunk['result']=parse(model(prompt));chunk['status']='complete'
                         chunk.pop('error_type',None)
+                    except extract.BudgetExhausted:
+                        chunk['attempts']-=1;calls-=1;chunk['status']='pending'
+                        chunk.pop('error_type',None)
+                        extract.save(manifest_path,json.dumps(manifest,indent=2)+'\n')
+                        result={'schema':1,'calls':calls,'processed':processed,'pending':pending+1,'errors':errors,
+                            'skipped':skipped,'completed_sources':completed,'budget_paused':True,
+                            'guidance_applied':False,'skills_changed':False}
+                        extract.save(extract.safe(state_dir,'chunked-last-run.json'),json.dumps(result,indent=2)+'\n')
+                        return result
                     except Exception as error:
                         # Ordinary provider failures only; process-control BaseExceptions propagate.
                         chunk['status']='failed';chunk['error_type']=type(error).__name__

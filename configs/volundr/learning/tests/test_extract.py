@@ -123,7 +123,8 @@ class LearningTests(unittest.TestCase):
                 'def _deepseek_api_call(*args, **kwargs):\n'
                 '    assert urllib.request.Request("https://fixture.invalid").get_method() == "GET"\n'
                 '    return "provider available"\n')
-            self.assertEqual(learning.dream_model(script)('fixture'), 'provider available')
+            budget=Path(tmp)/'budget'
+            self.assertEqual(learning.dream_model(script,budget_state=budget)('fixture'), 'provider available')
 
     def test_nightly_returns_honest_candidate_status_without_archive_plan(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -22,7 +22,7 @@ RULES=('tech/vault-note-writing-rules.md','tech/Muninn-Maintenance-And-Capture-R
 MAX_FILES=12000
 
 
-def mcp(name,args):
+def mcp(name,args,*,allow_missing=False):
     token=os.environ.get('MUNINN_MCP_TOKEN','')
     # The existing Hermes profile config uses the local Muninn service; the
     # interactive Pi URL is optional, not required in an unattended worker.
@@ -38,6 +38,8 @@ def mcp(name,args):
     if 'error' in result:raise ValueError('MCP protocol error')
     result=result['result']
     content=json.loads(next(c['text'] for c in result['content'] if c.get('type')=='text'))
+    if allow_missing and name=='vault_read' and content.get('error')=='File not found: '+args.get('filename',''):
+        return {'error':'File not found'}
     if result.get('isError') or 'error' in content:raise ValueError('MCP operation refused')
     return content
 

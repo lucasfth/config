@@ -58,9 +58,10 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual(auto.cycle(state=state/'auto',vault=v,library=s)['state'],'idle')
                 self.assertEqual(proposer.call_count,2)
             other=state/'other'
-            with patch.object(auto,'propose',return_value={'decision':'no-change','reason':'already covered'}),patch.object(auto.review_runner,'review',side_effect=AssertionError('must not review unrelated base')):
+            with patch.object(auto,'propose',return_value={'decision':'no-change','reason':'already covered'}),patch.object(auto,'review_nochange',return_value={'status':'approved'}) as review,patch.object(auto.review_runner,'launch',side_effect=AssertionError('no model in fixtures')):
                 r=auto.cycle(state=other,vault=v,library=s)
-            self.assertEqual(r['state'],'proposer-no-change-unreviewed');self.assertEqual(r['staged'],0)
+            review.assert_called_once()
+            self.assertEqual(r['state'],'independently-reviewed-no-change');self.assertEqual(r['staged'],0)
             self.assertEqual(t.read_text(),b)
     def test_read_no_follow_inside_symlink(self):
         with tempfile.TemporaryDirectory() as d:
