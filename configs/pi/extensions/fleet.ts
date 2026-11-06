@@ -54,12 +54,14 @@ export class FleetReporter {
   private active?: Promise<void>;
   private controller?: AbortController;
   private dirty = false;
+  private stateChanged = false;
   private closed = false;
   private lastSend = 0;
   status = 'configured; awaiting receipt';
 
   constructor(private config: FleetConfig, nativeId: string, label?: string,
-    private timing = { heartbeatMs: 30_000, coalesceMs: 1000, timeoutMs: 5000 }) {
+    // 60s liveness stays below the receiver's 120s freshness threshold.
+    private timing = { heartbeatMs: 60_000, coalesceMs: 30_000, timeoutMs: 5000 }) {
     const sessionId = createHash('sha256').update(nativeId).digest('hex').slice(0, 32);
     const now = new Date().toISOString();
     this.report = { schemaVersion: 1, hostId: config.hostId, sessionId,
@@ -72,6 +74,12 @@ export class FleetReporter {
 
   update(change: { state?: State; label?: string; toolCompleted?: boolean; toolsInFlight?: number }): void {
     if (this.closed) return;
+    if (change.state && change.state !== this.report.state) {
+      this.stateChanged = true;
+      // A state transition preempts a pending tool snapshot, never active I/O.
+      clearTimeout(this.scheduled);
+      this.scheduled = undefined;
+    }
     if (change.state) {
       if (change.state === 'working') this.report.workingSince ??= this.timestamp();
       else { this.report.workingSince = null; this.report.toolsInFlight = 0; }
@@ -90,18 +98,22 @@ export class FleetReporter {
 
   private schedule(): void {
     if (this.closed || this.active || this.scheduled || !this.dirty) return;
+    // Lifecycle changes can send 5s after the last attempt; tool churn waits 30s.
+    // This is per session, not a host-wide budget; rapid turns can still hit receiver limits.
+    const interval = this.stateChanged ? Math.min(5000, this.timing.coalesceMs) : this.timing.coalesceMs;
     this.scheduled = setTimeout(() => {
       this.scheduled = undefined;
       this.active = this.send(this.timing.timeoutMs).finally(() => {
         this.active = undefined;
         this.schedule();
       });
-    }, Math.max(0, this.lastSend + this.timing.coalesceMs - Date.now()));
+    }, Math.max(0, this.lastSend + interval - Date.now()));
     this.scheduled.unref();
   }
 
   private async send(timeoutMs: number): Promise<void> {
     this.dirty = false;
+    this.stateChanged = false;
     this.lastSend = Date.now();
     this.report.observedAt = this.timestamp();
     const body = JSON.stringify({ ...this.report, sequence: this.report.sequence++ });
