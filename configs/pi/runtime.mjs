@@ -69,7 +69,7 @@ async function privateJson(filename, value) {
 
 
 function requiredProxyModels() {
-  return ['gpt-6.1-sol', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'].map(id => ({
+  return ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'].map(id => ({
     id, name: id, reasoning: true, input: ['text', 'image'],
     contextWindow: id.startsWith('claude-') ? 1000000 : 1050000, maxTokens: 128000,
   }));

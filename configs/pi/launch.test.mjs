@@ -26,6 +26,8 @@ test('runtime preserves model role choices and private MCP credentials on repeat
     assert.equal(settings.showCacheMissNotices, undefined, 'native cache notices retain their existing default');
     const models = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
     assert.equal(models.providers['neo-proxy'].baseUrl, 'https://proxy.invalid/v1');
+    assert.ok(models.providers['neo-proxy'].models.some(model => model.id === 'gpt-6.1-terra'),
+      'the explicit Pi model catalogue exposes Terra through the proxy');
     await prepareRuntime({ agentDir: dir, env: { ...env, NEO_PROXY_URL: 'https://proxy.invalid' }, ompDir: path.join(dir, 'absent') });
     const normalized = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
     assert.equal(normalized.providers['neo-proxy'].baseUrl, 'https://proxy.invalid/v1');
