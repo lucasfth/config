@@ -45,6 +45,7 @@
     "zen"
 
     # ── Media & graphics ────────────────────────────────────
+    "bettercapture"
     "betterdisplay"
     "displaylink"
     "gyroflow"
