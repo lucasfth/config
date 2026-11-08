@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import platform
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 VERSION = '8.30.1'
@@ -16,14 +18,30 @@ ASSETS = {
     ('Linux', 'x86_64'): ('linux_x64', '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'),
 }
 
+DOWNLOAD_ATTEMPTS = 3
+RETRY_DELAYS = (1, 2)
+
+
+def download(url):
+    for attempt in range(DOWNLOAD_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if not 500 <= error.code < 600 or attempt == DOWNLOAD_ATTEMPTS - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError, OSError):
+            if attempt == DOWNLOAD_ATTEMPTS - 1:
+                raise
+        time.sleep(RETRY_DELAYS[attempt])
+
 
 def install(destination):
     key = platform.system(), platform.machine()
     if key[0] == 'Android':key = 'Linux', key[1]
     asset, expected = ASSETS[key]
     url = f'https://github.com/gitleaks/gitleaks/releases/download/v{VERSION}/gitleaks_{VERSION}_{asset}.tar.gz'
-    with urllib.request.urlopen(url, timeout=60) as response:
-        archive = response.read()
+    archive = download(url)
     if hashlib.sha256(archive).hexdigest() != expected:
         raise ValueError('Gitleaks archive checksum mismatch')
     with tarfile.open(fileobj=io.BytesIO(archive)) as source:
