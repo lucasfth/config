@@ -118,7 +118,7 @@ Requires Ghostty 1.3+ and the matching `../ghostty/config` source.
    the shell or agent. Any other unbound key exits the mode and is forwarded
    normally, so unexpected typing cannot remain trapped in the agent table.
 
-This uses a persistent Ghostty key table, not Herdr's Go To picker. Native Herdr
+This uses a persistent Ghostty key table, independently of the Omni picker. Native Herdr
 actions perform selection; Ghostty sends explicit Kitty-encoded modified keys
 because plain control bytes can be ambiguous. No scripts, fork, or server restart
 are required. The mode is local to the Ghostty surface, not a native Herdr mode.
@@ -128,7 +128,8 @@ entry sends explicit Kitty Escape (`ESC [ 27 u`) to leave Herdr prefix mode;
 a bare Escape can merge with the next shortcut and lose the first digit.
 
 Outside agent mode, Hyper+A followed by `h/j/k/l` still navigates panes and
-`1–9` still selects tabs. `Ctrl+B`, then `g` retains the separate Go To picker.
+`1–9` still selects tabs. `Ctrl+B`, then `g` opens Omni once the managed plugins
+are activated and the configuration is reloaded; `prefix+p` remains previous-tab.
 Other terminals retain native `Ctrl+B` shortcuts but not Ghostty's persistent mode.
 
 ## Interactive-shell submenu in Ghostty
@@ -389,3 +390,78 @@ The earlier 0.9.5 update notice was legitimate because the server was 0.9.4.
 The local server and installed patched client now report current stable 0.9.5.
 Direct `herdr update` can overwrite the sidebar patch: port and rebuild the patch
 against a new stable tag for future upgrades instead of hiding version notices.
+
+## Unified picker and automatic tab titles
+
+Source configuration replaces native Go To on **Ctrl+B → g** (or **Hyper+A → g**
+in Ghostty) with [Herdr Omni](https://github.com/mmjang/herdr-omni). It opens a
+Catppuccin popup without adding tiled panes: type to filter, use `@` for
+workspaces, `>` for live agents or `:` for actions, then Enter to jump.
+Existing agent navigation and previous-tab (`prefix+p`) are unchanged.
+Live Pi agents are discoverable; saved Pi-session history/resume is not supported.
+The tested release labels an idle Pi result as `unknown activity` even though
+Herdr's sidebar and its preview show `idle`; do not use that badge as authority.
+
+[herdr-automatic-rename](https://github.com/qu8n/herdr-automatic-rename) names
+tabs from their directory and foreground program or Pi terminal task title.
+New tabs skip the name prompt (`ui.prompt_new_tab_name = false`). A manual
+rename opts that tab out until this explicit reset:
+
+```sh
+herdr plugin action invoke herdr-automatic-rename.reset
+```
+
+`automatic-rename.sh` is the managed policy at
+`~/.config/herdr-automatic-rename/config.sh`: no numbering, host prefixes, pane
+names/topics, transcript reads, icons, program arguments or model calls.
+The Zsh hook in `nix/common/shell/interactive.zsh` sources the installed plugin
+only inside a Herdr pane. Reloading the shell does not duplicate its hooks.
+Pi `/name` changes reach Omni immediately, but the tab label needs a switch
+away and back (or another supported lifecycle event) to reconcile. Refocusing
+an already-focused tab is not enough. Herdr 0.9.5 excludes `pane.updated` from
+plugin hooks; no unsupported hook or polling daemon is installed.
+
+### Ownership and adoption gates
+
+`plugins.nix` pins Omni **0.17.2** release binaries by platform/hash and rename
+**0.15.0** at commit `a99754357fdea3119c430fd0cad822eef9047895`. Omni's managed
+manifest omits upstream install scripts and uses a local plugin registration,
+which makes its GitHub self-update path ineligible. No latest downloads occur
+during activation. Upstream Omni had no declared license at this pin; this
+configuration fetches its binary locally, not for redistribution.
+
+Home Manager (`nix/common/herdr.nix`) owns both plugin links and the rename
+policy. Its existing registration activation links all three managed plugins;
+it does **not** restart Herdr. A source edit/build is not activation or live
+adoption. An approved activation, plugin loading/config reload and a new shell
+or approved shell reload are separate steps. Do not reload the picker binding
+on a host until Omni is registered. `scripts/deploy-herdr.py` checks for its
+enabled `picker` entrypoint before even proposing a remote config sync.
+Non-Nix hosts require a separately approved pinned plugin delivery; the
+config-only deploy script does not install binaries, naming policy or hooks.
+
+Build without activation:
+
+```sh
+nix build --impure --no-link --print-out-paths --expr '
+  let flake = builtins.getFlake (toString ./.);
+      pkgs = flake.inputs.nixpkgs.legacyPackages.aarch64-darwin;
+      plugins = import ./configs/herdr/plugins.nix { inherit pkgs; };
+  in [ plugins.omni plugins.automaticRename ]'
+python3 tests/herdr-customization.py
+python3 tests/deploy-herdr.py
+python3 tests/herdr-customization-runtime.py --herdr "$HOME/.local/libexec/herdr-patched" \
+  --omni <built-omni-directory> --rename <built-rename-directory>
+```
+
+The runtime test creates a disposable server, HOME/config/state roots and offline
+Pi profile. It checks shell/program/task titles, manual-title preservation across
+command exit, reset, refocus after Pi rename, actual rendered popup/search,
+selection of a different workspace and preserved tiled-pane inventory. It does
+not contact a model or touch existing sessions. macOS arm64 build/runtime were
+tested; other platform assets are pinned but not runtime-qualified here.
+
+Rollback before adoption: revert only these source changes. After adoption,
+restore native `goto = "prefix+g"`, remove the custom command, unlink the two
+plugins and remove the hook/policy through the same approved deployment route.
+Do not delete unrelated plugins, saved sessions or runtime history.

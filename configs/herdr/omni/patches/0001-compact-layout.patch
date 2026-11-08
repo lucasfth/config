@@ -1,0 +1,623 @@
+--- a/src/ui.rs
++++ b/src/ui.rs
+@@ -8,7 +8,7 @@
+ };
+ use ratatui::{
+     prelude::*,
+-    widgets::{Block, Clear, Paragraph},
++    widgets::{Block, BorderType, Borders, Clear, Paragraph},
+ };
+ use serde_json::{json, Value};
+ use std::{
+@@ -210,7 +210,16 @@
+         s(&item["session"], "id"),
+         item["session"]["updatedAt"]
+     )
++}
++fn workspace_preview_line(line: &str, width: usize) -> String {
++    let Some((label, status)) = line.rsplit_once(" [") else {
++        return clip_line(line, width);
++    };
++    let suffix = format!(" [{}", status);
++    let label_width = width.saturating_sub(UnicodeWidthStr::width(suffix.as_str()));
++    format!("{}{}", clip_line(label, label_width), suffix)
+ }
++
+ fn clip_line(line: &str, width: usize) -> String {
+     if UnicodeWidthStr::width(line) <= width {
+         return line.to_owned();
+@@ -1848,7 +1857,7 @@
+             let parts = if area.width >= 116 && !self.expanded {
+                 Layout::horizontal([
+                     Constraint::Min(0),
+-                    Constraint::Length((area.width as f64 * 0.42).floor() as u16),
++                    Constraint::Length((body.width as f64 * 0.30).floor() as u16),
+                 ])
+                 .split(body)
+             } else {
+@@ -1871,8 +1880,19 @@
+             (body, Rect::default())
+         };
+         let side_preview = show_preview && area.width >= 116 && !self.expanded;
+-        let preview_padding = if side_preview { 2 } else { 0 };
+         self.preview_area = preview;
++        let preview_padding = if side_preview { 1 } else { 0 };
++        let preview_content = if side_preview {
++            preview.inner(Margin::new(1, 1))
++        } else {
++            Rect::new(
++                preview.x + preview_padding,
++                preview.y,
++                preview.width.saturating_sub(2),
++                preview.height,
++            )
++        };
++        let preview = preview.intersection(f.area());
+         self.hitboxes.clear();
+         self.paneboxes.clear();
+         let height = list.height as usize;
+@@ -2113,7 +2133,7 @@
+             let available_rows = if side_preview {
+                 f.area().height.saturating_sub(10)
+             } else {
+-                preview.height.saturating_sub(3)
++                preview_content.height.saturating_sub(3)
+             };
+             let pane_rows = panes
+                 .map(|p| {
+@@ -2133,20 +2153,39 @@
+             } else {
+                 ""
+             };
++            let workspace_preview = self.rows.get(self.selected).is_some_and(|v| {
++                v["resourcePreview"]["kind"] == "workspace"
++            });
++            let workspace_display;
++            let preview_text = if workspace_preview {
++                workspace_display = text
++                    .lines()
++                    .map(|line| workspace_preview_line(line, preview_content.width as usize))
++                    .collect::<Vec<_>>()
++                    .join("\n");
++                workspace_display.as_str()
++            } else {
++                text
++            };
+             let (text, offset) = preview_lines(
+-                text,
++                preview_text,
+                 query,
+-                preview.width.saturating_sub(2) as usize,
++                preview_content.width as usize,
+                 h,
+                 self.offset,
+                 self.is_live_preview(),
+                 accent,
+             );
+             self.offset = offset;
+-            f.render_widget(
+-                Block::default().style(Style::default().bg(panel).fg(fg)),
+-                preview,
+-            );
++            let preview_block = if side_preview {
++                Block::default()
++                    .borders(Borders::ALL)
++                    .border_type(BorderType::Rounded)
++                    .style(Style::default().bg(panel).fg(fg))
++            } else {
++                Block::default().style(Style::default().bg(panel).fg(fg))
++            };
++            f.render_widget(preview_block, preview);
+             let selected = self.rows.get(self.selected).cloned().unwrap_or(Value::Null);
+             let resource = if self.transcripts {
+                 &Value::Null
+@@ -2225,11 +2264,11 @@
+                             muted
+                         })),
+                         Rect::new(
+-                            preview.x + preview_padding,
+-                            preview.y + row as u16,
+-                            preview.width.saturating_sub(2),
++                            preview_content.x,
++                            preview_content.y + row as u16,
++                            preview_content.width,
+                             1,
+-                        ),
++                        ).intersection(preview_content),
+                     );
+                 }
+             }
+@@ -2237,31 +2276,32 @@
+                 let start = self.pane.saturating_sub(pane_rows.saturating_sub(1));
+                 for (index, pane) in panes.iter().enumerate().skip(start).take(pane_rows) {
+                     let rect = Rect::new(
+-                        preview.x + preview_padding,
+-                        preview.y + 3 + (index - start) as u16,
+-                        preview.width.saturating_sub(2),
++                        preview_content.x,
++                        preview_content.y + 3 + (index - start) as u16,
++                        preview_content.width,
+                         1,
+-                    );
++                    ).intersection(preview_content);
++                    let prefix = format!("{} {}. ", if index == self.pane { "›" } else { " " }, index + 1);
++                    let label = s(pane, "label")
++                        .split_whitespace()
++                        .collect::<Vec<_>>()
++                        .join(" ");
++                    let suffix = if s(pane, "agent").is_empty() {
++                        String::new()
++                    } else {
++                        format!(
++                            " · {} [{}]",
++                            s(pane, "agent"),
++                            pane["status"].as_str().unwrap_or("unknown")
++                        )
++                    };
++                    let label_width = (rect.width as usize)
++                        .saturating_sub(1)
++                        .saturating_sub(UnicodeWidthStr::width(prefix.as_str()))
++                        .saturating_sub(UnicodeWidthStr::width(suffix.as_str()));
++                    let row = format!("{prefix}{}{suffix}", clip_line(&label, label_width));
+                     f.render_widget(
+-                        Paragraph::new(format!(
+-                            "{} {}. {}{}",
+-                            if index == self.pane { "›" } else { " " },
+-                            index + 1,
+-                            s(pane, "label")
+-                                .split_whitespace()
+-                                .collect::<Vec<_>>()
+-                                .join(" "),
+-                            if s(pane, "agent").is_empty() {
+-                                String::new()
+-                            } else {
+-                                format!(
+-                                    " · {} [{}]",
+-                                    s(pane, "agent"),
+-                                    pane["status"].as_str().unwrap_or("unknown")
+-                                )
+-                            }
+-                        ))
+-                        .style(Style::default().fg(
++                        Paragraph::new(row).style(Style::default().fg(
+                             if s(pane, "status") == "blocked" {
+                                 error
+                             } else if index == self.pane {
+@@ -2278,11 +2318,11 @@
+             if meta_rows > 0 {
+                 let pane = &panes.unwrap()[self.pane.min(panes.unwrap().len() - 1)];
+                 let meta = Rect::new(
+-                    preview.x + preview_padding,
+-                    preview.y + 3 + pane_rows as u16,
+-                    preview.width.saturating_sub(2),
++                    preview_content.x,
++                    preview_content.y + 3 + pane_rows as u16,
++                    preview_content.width,
+                     meta_rows,
+-                );
++                ).intersection(preview_content);
+                 let program = if self.demo {
+                     if self.pane == 0 {
+                         "codex"
+@@ -2307,11 +2347,11 @@
+             f.render_widget(
+                 Paragraph::new(text).style(Style::default().bg(panel).fg(fg)),
+                 Rect::new(
+-                    preview.x + preview_padding,
+-                    preview.y + 3 + pane_rows as u16 + meta_rows,
+-                    preview.width.saturating_sub(2),
++                    preview_content.x,
++                    preview_content.y + 3 + pane_rows as u16 + meta_rows,
++                    preview_content.width,
+                     h as u16,
+-                ),
++                ).intersection(preview_content),
+             );
+         }
+         if self.offer.is_some() {
+@@ -2528,6 +2568,27 @@
+ mod tests {
+     use super::*;
+     #[test]
++    fn workspace_preview_line_preserves_status_and_handles_plain_lines() {
++        assert_eq!(workspace_preview_line("Payment agent · claude [blocked]", 80), "Payment agent · claude [blocked]");
++        assert_eq!(workspace_preview_line("plain line", 80), "plain line");
++        assert_eq!(workspace_preview_line("Payment agent · claude [blocked]", 20), "Payment a… [blocked]");
++    }
++
++    #[test]
++    fn wide_preview_uses_thirty_percent_and_preserves_list_width() {
++        let mut app = App::new(true);
++        app.rows = vec![json!({
++            "id":"preview", "title":"Fixture", "category":"Agents", "session":{"id":"one"}
++        })];
++        let mut terminal = Terminal::new(ratatui::backend::TestBackend::new(160, 40)).unwrap();
++        terminal.draw(|frame| app.draw(frame)).unwrap();
++        // 30% of the 156-column content body is 46; 2-column outer margin gives x=112.
++        assert_eq!(app.preview_area.width, 46);
++        assert_eq!(app.preview_area.x, 112);
++        assert_eq!(terminal.backend().buffer()[(app.preview_area.x, app.preview_area.y)].symbol(), "╭");
++    }
++
++    #[test]
+     fn every_dialog_survives_tiny_terminal_resize() {
+         for width in [0, 1, 2, 4, 8, 12, 20] {
+             for height in [0, 1, 2, 3, 5, 8] {
+@@ -3015,6 +3076,11 @@
+         let cases: Value =
+             serde_json::from_str(include_str!("../tests/fixtures/ui-preview-frames.json")).unwrap();
+         for case in cases.as_array().unwrap() {
++            if case["width"].as_u64().unwrap_or_default() >= 116 && case["expanded"] != true {
++                // These four collapsed side-preview frames use the reviewed rounded-layout fixture below;
++                // the unchanged TypeScript oracle remains authoritative for every stacked/expanded case.
++                continue;
++            }
+             let mut app = App::new(true);
+             // Render the reference release version without altering its oracle frames.
+             app.version = "0.15.1";
+@@ -3059,6 +3125,55 @@
+         }
+     }
+     #[test]
++    fn rounded_preview_frames_match_reviewed_fixture() {
++        let fixture: Value = serde_json::from_str(include_str!(
++            "../tests/fixtures/ui-preview-frames-rounded.json",
++        ))
++        .unwrap();
++        for case in fixture["cases"].as_array().unwrap() {
++            let mut app = App::new(true);
++            app.version = "0.15.1";
++            app.demo = false;
++            app.base = vec![case["item"].clone()];
++            app.status.clear();
++            app.sessions_loading = false;
++            app.expanded = case["expanded"] == true;
++            app.rebuild();
++            app.preview = s(case, "preview").into();
++            app.detail = s(case, "detail").into();
++            let backend = ratatui::backend::TestBackend::new(
++                case["width"].as_u64().unwrap() as u16,
++                case["height"].as_u64().unwrap() as u16,
++            );
++            let mut terminal = Terminal::new(backend).unwrap();
++            terminal.draw(|f| app.draw(f)).unwrap();
++            let buffer = terminal.backend().buffer();
++            let actual = (0..buffer.area.height)
++                .map(|y| {
++                    (0..buffer.area.width)
++                        .map(|x| buffer[(x, y)].symbol())
++                        .collect::<String>()
++                        .trim_end()
++                        .to_owned()
++                })
++                .collect::<Vec<_>>();
++            let expected = case["frame"]
++                .as_array()
++                .unwrap()
++                .iter()
++                .map(|line| line.as_str().unwrap().trim_end().to_owned())
++                .collect::<Vec<_>>();
++            assert_eq!(
++                actual,
++                expected,
++                "width {} kind {} expanded {}",
++                case["width"],
++                case["item"]["category"],
++                case["expanded"]
++            );
++        }
++    }
++    #[test]
+     fn static_ui_frames_match_typescript() {
+         let fixture: Value =
+             serde_json::from_str(include_str!("../tests/fixtures/ui-frames.json")).unwrap();
+--- /dev/null
++++ b/tests/fixtures/ui-preview-frames-rounded.json
+@@ -0,0 +1,307 @@
++{
++  "note": "Reviewed candidate TestBackend frames for the approved 30% rounded side-preview layout. These four collapsed side-preview cases intentionally differ from the unchanged v0.15.1 TypeScript oracle; stacked and expanded cases remain under exact parity coverage.",
++  "cases": [
++    {
++      "width": 120,
++      "height": 30,
++      "item": {
++        "id": "w1",
++        "title": "Shop",
++        "category": "Workspace",
++        "description": "",
++        "icon": "◇",
++        "aliases": [],
++        "shortcuts": [],
++        "invocation": {
++          "kind": "shortcut"
++        },
++        "resourcePreview": {
++          "kind": "workspace",
++          "workspaceId": "w1",
++          "paths": [
++            "/repo/shop"
++          ],
++          "tabs": [
++            {
++              "id": "w1:t1",
++              "label": "Development",
++              "panes": [
++                {
++                  "id": "w1:p1",
++                  "label": "Payment agent",
++                  "agent": "claude",
++                  "status": "blocked",
++                  "cwd": "/repo/shop",
++                  "focused": true
++                },
++                {
++                  "id": "w1:p2",
++                  "label": "Build terminal",
++                  "cwd": "/repo/shop"
++                }
++              ]
++            }
++          ],
++          "paneCount": 2
++        }
++      },
++      "expanded": false,
++      "preview": "Branch: feature/payments\nPath: /repo/shop\n\n▣ Development · 2 panes\n  Payment agent · claude [blocked]\n  Build terminal",
++      "detail": "feature/payments",
++      "frame": [
++        "  Herdr Omni  v0.15.1                                                                Ctrl+Y preview · tab switch · esc",
++        "  Search · @ workspaces · > agents · : actions",
++        "  [All] (1)  Workspaces (1)   Agents (0)   Tabs (0)   Actions (0)",
++        "",
++        "  Workspaces                                                                        ╭────────────────────────────────╮",
++        "   ┃◇  Shop                                                                      ◧  │Workspace overview              │",
++        "    →  View all Workspaces (1)                                                      │1 tabs · 2 panes                │",
++        "                                                                                    │Expand · Ctrl+O  PgUp/Dn scroll │",
++        "                                                                                    │Branch: feature/payments        │",
++        "                                                                                    │Path: /repo/shop                │",
++        "                                                                                    │                                │",
++        "                                                                                    │▣ Development · 2 panes         │",
++        "                                                                                    │  Payment agent · cla… [blocked]│",
++        "                                                                                    │  Build terminal                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    ╰────────────────────────────────╯",
++        "  enter/click select   ↑/↓ move                                             Ctrl+F · Search session content  1 results"
++      ]
++    },
++    {
++      "width": 120,
++      "height": 30,
++      "item": {
++        "id": "t1",
++        "title": "Shop → Development",
++        "category": "Tabs",
++        "description": "",
++        "icon": "▣",
++        "aliases": [],
++        "shortcuts": [],
++        "invocation": {
++          "kind": "shortcut"
++        },
++        "resourcePreview": {
++          "kind": "tab",
++          "workspaceId": "w1",
++          "workspaceLabel": "Shop",
++          "panes": [
++            {
++              "id": "w1:p1",
++              "label": "Payment agent",
++              "agent": "claude",
++              "status": "blocked",
++              "cwd": "/repo/shop",
++              "focused": true
++            },
++            {
++              "id": "w1:p2",
++              "label": "Build terminal",
++              "cwd": "/repo/shop"
++            }
++          ]
++        }
++      },
++      "expanded": false,
++      "preview": "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n❯ REAL INPUT PROMPT",
++      "detail": "bun",
++      "frame": [
++        "  Herdr Omni  v0.15.1                                                                Ctrl+Y preview · tab switch · esc",
++        "  Search · @ workspaces · > agents · : actions",
++        "  [All] (1)  Workspaces (0)   Agents (0)   Tabs (1)   Actions (0)",
++        "",
++        "  Tabs                                                                              ╭────────────────────────────────╮",
++        "   ┃▣  Shop → Development                                                        ◧  │Tab preview · live panes        │",
++        "    →  View all Tabs (1)                                                            │2 panes · F6 / Shift+F6 switch  │",
++        "                                                                                    │Expand · Ctrl+O  PgUp/Dn scroll │",
++        "                                                                                    │› 1. Paymen… · claude [blocked] │",
++        "                                                                                    │  2. Build terminal             │",
++        "                                                                                    │Program: bun                    │",
++        "                                                                                    │w1:p1 · /repo/shop              │",
++        "                                                                                    │Line 1                          │",
++        "                                                                                    │Line 2                          │",
++        "                                                                                    │Line 3                          │",
++        "                                                                                    │Line 4                          │",
++        "                                                                                    │Line 5                          │",
++        "                                                                                    │❯ REAL INPUT PROMPT             │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    │                                │",
++        "                                                                                    ╰────────────────────────────────╯",
++        "  enter/click select   ↑/↓ move                                             Ctrl+F · Search session content  1 results"
++      ]
++    },
++    {
++      "width": 150,
++      "height": 30,
++      "item": {
++        "id": "w1",
++        "title": "Shop",
++        "category": "Workspace",
++        "description": "",
++        "icon": "◇",
++        "aliases": [],
++        "shortcuts": [],
++        "invocation": {
++          "kind": "shortcut"
++        },
++        "resourcePreview": {
++          "kind": "workspace",
++          "workspaceId": "w1",
++          "paths": [
++            "/repo/shop"
++          ],
++          "tabs": [
++            {
++              "id": "w1:t1",
++              "label": "Development",
++              "panes": [
++                {
++                  "id": "w1:p1",
++                  "label": "Payment agent",
++                  "agent": "claude",
++                  "status": "blocked",
++                  "cwd": "/repo/shop",
++                  "focused": true
++                },
++                {
++                  "id": "w1:p2",
++                  "label": "Build terminal",
++                  "cwd": "/repo/shop"
++                }
++              ]
++            }
++          ],
++          "paneCount": 2
++        }
++      },
++      "expanded": false,
++      "preview": "Branch: feature/payments\nPath: /repo/shop\n\n▣ Development · 2 panes\n  Payment agent · claude [blocked]\n  Build terminal",
++      "detail": "feature/payments",
++      "frame": [
++        "  Herdr Omni  v0.15.1                                                                                              Ctrl+Y preview · tab switch · esc",
++        "  Search · @ workspaces · > agents · : actions",
++        "  [All] (1)  Workspaces (1)   Agents (0)   Tabs (0)   Actions (0)",
++        "",
++        "  Workspaces                                                                                             ╭─────────────────────────────────────────╮",
++        "   ┃◇  Shop                                                                                           ◧  │Workspace overview                       │",
++        "    →  View all Workspaces (1)                                                                           │1 tabs · 2 panes                         │",
++        "                                                                                                         │Expand · Ctrl+O  PgUp/Dn scroll          │",
++        "                                                                                                         │Branch: feature/payments                 │",
++        "                                                                                                         │Path: /repo/shop                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │▣ Development · 2 panes                  │",
++        "                                                                                                         │  Payment agent · claude [blocked]       │",
++        "                                                                                                         │  Build terminal                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         ╰─────────────────────────────────────────╯",
++        "  enter/click select   ↑/↓ move                                                                           Ctrl+F · Search session content  1 results"
++      ]
++    },
++    {
++      "width": 150,
++      "height": 30,
++      "item": {
++        "id": "t1",
++        "title": "Shop → Development",
++        "category": "Tabs",
++        "description": "",
++        "icon": "▣",
++        "aliases": [],
++        "shortcuts": [],
++        "invocation": {
++          "kind": "shortcut"
++        },
++        "resourcePreview": {
++          "kind": "tab",
++          "workspaceId": "w1",
++          "workspaceLabel": "Shop",
++          "panes": [
++            {
++              "id": "w1:p1",
++              "label": "Payment agent",
++              "agent": "claude",
++              "status": "blocked",
++              "cwd": "/repo/shop",
++              "focused": true
++            },
++            {
++              "id": "w1:p2",
++              "label": "Build terminal",
++              "cwd": "/repo/shop"
++            }
++          ]
++        }
++      },
++      "expanded": false,
++      "preview": "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n❯ REAL INPUT PROMPT",
++      "detail": "bun",
++      "frame": [
++        "  Herdr Omni  v0.15.1                                                                                              Ctrl+Y preview · tab switch · esc",
++        "  Search · @ workspaces · > agents · : actions",
++        "  [All] (1)  Workspaces (0)   Agents (0)   Tabs (1)   Actions (0)",
++        "",
++        "  Tabs                                                                                                   ╭─────────────────────────────────────────╮",
++        "   ┃▣  Shop → Development                                                                             ◧  │Tab preview · live panes                 │",
++        "    →  View all Tabs (1)                                                                                 │2 panes · F6 / Shift+F6 switch           │",
++        "                                                                                                         │Expand · Ctrl+O  PgUp/Dn scroll          │",
++        "                                                                                                         │› 1. Payment agent · claude [blocked]    │",
++        "                                                                                                         │  2. Build terminal                      │",
++        "                                                                                                         │Program: bun                             │",
++        "                                                                                                         │w1:p1 · /repo/shop                       │",
++        "                                                                                                         │Line 1                                   │",
++        "                                                                                                         │Line 2                                   │",
++        "                                                                                                         │Line 3                                   │",
++        "                                                                                                         │Line 4                                   │",
++        "                                                                                                         │Line 5                                   │",
++        "                                                                                                         │❯ REAL INPUT PROMPT                      │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         │                                         │",
++        "                                                                                                         ╰─────────────────────────────────────────╯",
++        "  enter/click select   ↑/↓ move                                                                           Ctrl+F · Search session content  1 results"
++      ]
++    }
++  ]
++}

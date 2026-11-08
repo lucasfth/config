@@ -1,0 +1,15 @@
+# Managed binary: no upstream install/build hook or self-updater.
+id = "herdr-omni"
+name = "Herdr Omni"
+version = "0.17.2"
+min_herdr_version = "0.7.0"
+description = "Unified workspace, tab, live-agent and action picker"
+platforms = ["linux", "macos"]
+
+[[panes]]
+id = "picker"
+title = "Herdr Omni"
+placement = "popup"
+width = "90%"
+height = "90%"
+command = ["./bin/herdr-omni"]

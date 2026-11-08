@@ -11,6 +11,7 @@ name = "catppuccin"
 
 [ui]
 sidebar_min_width = 26
+prompt_new_tab_name = false
 
 # Only the first workspace on each machine receives these host-summary tokens.
 [ui.sidebar.spaces]
@@ -27,6 +28,8 @@ delivery = "system"
 
 [keys]
 prefix = "ctrl+b"
+# Omni replaces Go To; keep prefix+p for previous-tab navigation.
+goto = []
 # Ghostty's agent key table sends these prefix-qualified transport chords.
 # Keep normal prefix+h/j/k/l pane and prefix+1..9 tab navigation unchanged.
 next_agent = "prefix+ctrl+j"
@@ -44,3 +47,9 @@ reload_config = "prefix+r"
 
 # ── Detach (match tmux: prefix+d) ──
 detach = "prefix+d"
+
+[[keys.command]]
+key = "prefix+g"
+type = "shell"
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin herdr-omni --entrypoint picker'
+description = "Open Herdr Omni"

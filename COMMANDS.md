@@ -49,11 +49,11 @@ See [the Pi profile](configs/pi/README.md) for `/model` role configuration, `/sw
 | Enter / Esc in agent mode | Exit agent mode without submitting input to a pane |
 | Hyper+A, then h/j/k/l | Navigate split panes, unchanged |
 | Hyper+A, then 1–9 outside agent mode | Select a tab, unchanged |
-| Ctrl+B, then g | Open the separate Go To picker |
+| Ctrl+B or Hyper+A, then g | Open Herdr Omni (replaces native Go To after plugin activation/config reload) |
 | Ctrl+B, then Option+8 on Danish layout | Enter COPY mode (`[`); h/j/k/l moves, v selects, y copies |
 
 Hyper+A is Cmd+Option+Ctrl+Shift+A in Ghostty. Persistent agent mode uses
-Ghostty 1.3+ key tables and Herdr's native agent actions, not its Go To picker.
+Ghostty 1.3+ key tables and Herdr's native agent actions, independently of Omni.
 Deploy and reload both configurations together; see [deployment details](configs/herdr/README.md).
 
 On macOS, `herdr` selects `~/.local/libexec/herdr-patched` through the reloadable

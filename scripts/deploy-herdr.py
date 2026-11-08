@@ -56,6 +56,15 @@ def panes(state):
     return sorted(pane["pane_id"] for pane in state["panes"]) if state else []
 
 
+def require_picker(host):
+    reply = json.loads(ssh(host, '~/.local/bin/herdr plugin list --plugin herdr-omni --json'))
+    plugins = reply.get("result", {}).get("plugins", [])
+    if not any(plugin.get("plugin_id") == "herdr-omni" and plugin.get("enabled")
+               and any(pane.get("id") == "picker" for pane in plugin.get("panes", []))
+               for plugin in plugins):
+        raise RuntimeError(host + ": install/register herdr-omni before deploying its prefix+g binding")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("hosts", nargs="+", choices=HOSTS)
@@ -68,6 +77,7 @@ def main():
         current = ssh(host, 'cat "$HOME/.config/herdr/config.toml"')
         desired = candidate(current.decode(), home)
         before = snapshot(host)
+        require_picker(host)
         if args.apply:
             digest = hashlib.sha256(current).hexdigest()
             command = r'''set -eu

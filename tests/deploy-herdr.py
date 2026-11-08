@@ -24,6 +24,18 @@ class HerdrDeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'private_setting'):
             DEPLOY.candidate('private_setting = true\n', '/home/example')
 
+    def test_missing_picker_blocks_config_deployment(self):
+        response = b'{"result":{"plugins":[]}}'
+        with patch.object(DEPLOY, 'ssh', return_value=response):
+            with self.assertRaisesRegex(RuntimeError, 'herdr-omni'):
+                DEPLOY.require_picker('neo')
+
+    def test_registered_picker_allows_config_deployment(self):
+        response = json.dumps({'result': {'plugins': [{'plugin_id': 'herdr-omni', 'enabled': True,
+                               'panes': [{'id': 'picker'}]}]}}).encode()
+        with patch.object(DEPLOY, 'ssh', return_value=response):
+            DEPLOY.require_picker('neo')
+
     def test_snapshot_uses_flat_pane_inventory(self):
         self.assertEqual(DEPLOY.panes({'workspaces': [{'workspace_id': 'w1'}],
                                      'panes': [{'pane_id': 'w2:p1'}, {'pane_id': 'w1:p1'}]}),

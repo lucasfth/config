@@ -29,6 +29,11 @@ if [[ $OSTYPE == darwin* ]]; then
   }
 fi
 
+# Managed Herdr automatic tab titles. The upstream hook deduplicates on reload.
+if [[ -n ${HERDR_PANE_ID:-} && -r ${XDG_CONFIG_HOME:-$HOME/.config}/herdr/plugins/herdr-automatic-rename/shell/hook.zsh ]]; then
+  source "${XDG_CONFIG_HOME:-$HOME/.config}/herdr/plugins/herdr-automatic-rename/shell/hook.zsh"
+fi
+
 # Select by OS, not whether darwin-rebuild happens to be on PATH.
 # Resolve the managed macOS executable at invocation time, including sudo calls.
 if [[ -z ${HUGINN_SHELL_ROOT-} || -f $HOME/config/flake.nix ]]; then
