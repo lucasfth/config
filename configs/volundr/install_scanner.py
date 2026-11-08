@@ -18,8 +18,8 @@ ASSETS = {
     ('Linux', 'x86_64'): ('linux_x64', '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'),
 }
 
-DOWNLOAD_ATTEMPTS = 3
-RETRY_DELAYS = (1, 2)
+DOWNLOAD_ATTEMPTS = 6
+RETRY_DELAYS = (2, 4, 8, 16, 30)
 
 
 def download(url):
