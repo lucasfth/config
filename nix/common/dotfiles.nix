@@ -34,13 +34,19 @@
     mkdir -p "$(dirname "$OUT")"
     export MIMER_BASE_URL="http://''${ECORAY_MIMER_IP}:8080"
     export NEO_PROXY_URL NEO_PROXY_API_KEY
+    if [ -f "$HOME/.local/share/huginn-pi/mimer-qwen.key" ]; then
+      export MIMER_API_KEY="$(cat "$HOME/.local/share/huginn-pi/mimer-qwen.key")"
+    else
+      export MIMER_API_KEY=""
+      echo "generate-raycast-ai-providers: ~/.local/share/huginn-pi/mimer-qwen.key not found; mimer provider has no key" >&2
+    fi
     if [ -f "$HOME/.local/share/gimle-qwen/api-key" ]; then
       export GIMLE_QWEN_API_KEY="$(cat "$HOME/.local/share/gimle-qwen/api-key")"
     else
       export GIMLE_QWEN_API_KEY=""
       echo "generate-raycast-ai-providers: ~/.local/share/gimle-qwen/api-key not found; gimle-qwen provider has no key" >&2
     fi
-    ${pkgs.gettext}/bin/envsubst '$MIMER_BASE_URL $NEO_PROXY_URL $NEO_PROXY_API_KEY $GIMLE_QWEN_API_KEY' < "$SOURCE" > "$OUT.tmp"
+    ${pkgs.gettext}/bin/envsubst '$MIMER_BASE_URL $NEO_PROXY_URL $NEO_PROXY_API_KEY $GIMLE_QWEN_API_KEY $MIMER_API_KEY' < "$SOURCE" > "$OUT.tmp"
     mv "$OUT.tmp" "$OUT"
   '';
 in {

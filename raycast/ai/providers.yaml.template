@@ -2,6 +2,8 @@ providers:
   - id: mimer
     name: Mimer
     base_url: ${MIMER_BASE_URL}/v1
+    api_keys:
+      mimer: ${MIMER_API_KEY}
     models:
       - id: Qwen3.8-27B-UD-Q6_K_L.gguf
         name: Qwen3.8-27B (Mimer)
