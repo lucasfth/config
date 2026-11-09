@@ -119,7 +119,7 @@ export async function prepareRuntime({ agentDir, env = process.env }) {
   }
   const packageNames = ['pi-subagents', 'pi-intercom', 'pi-interactive-shell', 'pi-lsp-adapter', 'pi-web-access', 'pi-hashline-edit', 'pi-btw', 'pi-condense'];
   const packages = packageNames.map(name => ({ source: path.join(moduleDir, name), extensions: [], skills: name === 'pi-subagents' || name === 'pi-interactive-shell' ? undefined : [], prompts: [] }));
-  const personalExtensions = ['context-policy.ts', 'compaction-policy.ts', 'hashline-host.ts', 'managed-tools.ts', 'user-shell.ts', 'eval.ts', 'code-intelligence.ts', 'code-search.ts', 'source-outline.ts', 'cache-report.ts', 'models.ts', 'muninn.ts', 'workflow.ts', 'visuals.ts', 'gimle.ts', 'history.ts', 'advisor.ts', 'image-attachments.ts', 'presentation.ts', 'herdr-presentation.ts', 'workers.ts', 'fleet.ts'];
+  const personalExtensions = ['context-policy.ts', 'compaction-policy.ts', 'hashline-host.ts', 'managed-tools.ts', 'user-shell.ts', 'eval.ts', 'code-intelligence.ts', 'code-search.ts', 'source-outline.ts', 'cache-report.ts', 'models.ts', 'muninn.ts', 'workflow.ts', 'visuals.ts', 'gimle.ts', 'history.ts', 'advisor.ts', 'image-attachments.ts', 'presentation.ts', 'herdr-presentation.ts', 'workers.ts', 'fleet.ts', 'auto-review.ts'];
   const promptNames = ['aar', 'retro', 'done', 'review', 'full-send', 'full-stop'];
   // Managed prompt paths follow this checkout; retain unrelated user templates.
   const customPrompts = (previous.prompts ?? []).filter(file => !promptNames.some(name => file.endsWith(`${path.sep}configs${path.sep}pi${path.sep}prompts${path.sep}${name}.md`)));
