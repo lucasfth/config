@@ -38,7 +38,8 @@ def download(url):
 
 def install(destination):
     key = platform.system(), platform.machine()
-    if key[0] == 'Android':key = 'Linux', key[1]
+    if key[0] == 'Android':
+        key = 'Linux', key[1]
     asset, expected = ASSETS[key]
     url = f'https://github.com/gitleaks/gitleaks/releases/download/v{VERSION}/gitleaks_{VERSION}_{asset}.tar.gz'
     archive = download(url)
@@ -46,12 +47,15 @@ def install(destination):
         raise ValueError('Gitleaks archive checksum mismatch')
     with tarfile.open(fileobj=io.BytesIO(archive)) as source:
         member = source.getmember('gitleaks')
-        if not member.isfile():raise ValueError('Invalid scanner archive')
+        if not member.isfile():
+            raise ValueError('Invalid scanner archive')
         binary = source.extractfile(member).read()
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = destination.with_suffix('.new')
-    temporary.write_bytes(binary);temporary.chmod(0o700);temporary.replace(destination)
+    temporary.write_bytes(binary)
+    temporary.chmod(0o700)
+    temporary.replace(destination)
     return destination
 
 

@@ -39,12 +39,13 @@ test('Mimer uses the OpenAI v1 base path and keeps the Qwen compatibility alias'
   try {
     await prepareRuntime({
       agentDir: dir,
-      env: { NEO_PROXY_URL: 'https://proxy.invalid/v1', ECORAY_MIMER_IP: 'mimer.invalid' },
+      env: { NEO_PROXY_URL: 'https://proxy.invalid/v1', ECORAY_MIMER_IP: 'mimer.invalid', MIMER_QWEN_KEY_FILE: '/private/mimer-key' },
       ompDir: path.join(dir, 'absent'),
     });
     const { providers } = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
     assert.equal(providers.mimer.baseUrl, 'http://mimer.invalid:8080/v1');
     assert.equal(providers.mimer.api, 'openai-completions');
+    assert.equal(providers.mimer.apiKey, '!cat /private/mimer-key');
     assert.equal(providers.mimer.models[0].id, 'Qwen3.8-27B-UD-Q6_K_L.gguf');
     const qwen = providers.mimer.models[0];
     assert.equal(qwen.reasoning, true);
@@ -54,6 +55,13 @@ test('Mimer uses the OpenAI v1 base path and keeps the Qwen compatibility alias'
     assert.equal(qwen.compat.maxTokensField, 'max_tokens');
     assert.equal(qwen.compat.supportsReasoningEffort, false);
     assert.deepEqual(providers['neo-proxy'].models.find(model => model.id === qwen.id), qwen);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('Mimer rejects unsafe credential paths', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-mimer-key-test-'));
+  try {
+    await assert.rejects(prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: 'https://proxy.invalid', ECORAY_MIMER_IP: 'mimer.invalid', MIMER_QWEN_KEY_FILE: '/tmp/x;id' } }), /MIMER_QWEN_KEY_FILE/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

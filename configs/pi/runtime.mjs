@@ -168,8 +168,10 @@ export async function prepareRuntime({ agentDir, env = process.env }) {
     const url = new URL(mimerEndpoint);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('MIMER_BASE_URL must be an HTTP(S) endpoint.');
     if (url.pathname === '/') url.pathname = '/v1';
+    const keyFile = env.MIMER_QWEN_KEY_FILE || path.join(os.homedir(), '.local/share/huginn-pi/mimer-qwen.key');
+    if (!/^\/[A-Za-z0-9_./-]+$/.test(keyFile)) throw new Error('MIMER_QWEN_KEY_FILE must be an absolute shell-safe path.');
     providers.mimer = { ...providers.mimer, baseUrl: url.href.replace(/\/$/, ''),
-      api: 'openai-completions', apiKey: 'local',
+      api: 'openai-completions', apiKey: `!cat ${keyFile}`,
       models: [...(providers.mimer?.models ?? []).filter(model => model.id !== qwen.id), qwen] };
   }
   const gimlePrivate = await jsonFile(path.join(os.homedir(), '.local/share/gimle-qwen/client.json'));
