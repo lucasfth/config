@@ -32,6 +32,19 @@ def matches(metadata, identity, tokens):
     return metadata.get('identity') == identity and bool(saved) and tokens[:len(saved)] == saved
 
 
+def should_restore(metadata, identity, tokens, rest, has_cache):
+    improvement = len(metadata.get('tokens', [])) - (len(tokens) - len(rest))
+    return matches(metadata, identity, tokens) and improvement > (8192 if has_cache else 0)
+
+
+def load_checkpoint(loader, path):
+    try:
+        return loader(str(path), return_metadata=True)
+    except (OSError, ValueError, KeyError, IndexError, RuntimeError):
+        print('gimle-qwen: discarded invalid checkpoint', file=sys.stderr, flush=True)
+        return None
+
+
 def validate_request(body):
     if not isinstance(body, dict) or body.get('model') not in (MODEL_ID, 'default_model'):
         raise ValueError('Unknown model')
@@ -100,17 +113,19 @@ def main():
         if len(rest) <= 8192:
             return cache, rest
         metadata_path = checkpoint / 'current.json'
-        if cache is None and metadata_path.exists():
+        if metadata_path.exists():
             try:
                 metadata = json.loads(metadata_path.read_text())
-                if matches(metadata, identity, tokens):
+                if should_restore(metadata, identity, tokens, rest, cache is not None):
                     path = checkpoint / (metadata['generation'] + '.safetensors')
-                    restored, stored = load_prompt_cache(str(path), return_metadata=True)
-                    digest = hashlib.sha256(json.dumps(metadata['tokens']).encode()).hexdigest()
-                    if stored != {'identity': identity, 'token_hash': digest}:
-                        raise ValueError('Checkpoint identity mismatch')
-                    mx.eval([c.state for c in restored])
-                    return restored, tokens[len(metadata['tokens']):]
+                    loaded = load_checkpoint(load_prompt_cache, path)
+                    if loaded is not None:
+                        restored, stored = loaded
+                        digest = hashlib.sha256(json.dumps(metadata['tokens']).encode()).hexdigest()
+                        if stored != {'identity': identity, 'token_hash': digest}:
+                            raise ValueError('Checkpoint identity mismatch')
+                        mx.eval([c.state for c in restored])
+                        return restored, tokens[len(metadata['tokens']):]
             except (OSError, ValueError, KeyError):
                 print('gimle-qwen: discarded invalid checkpoint', file=sys.stderr, flush=True)
         provider = active['generator'].model_provider

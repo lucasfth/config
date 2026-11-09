@@ -30,6 +30,33 @@ class PolicyTests(unittest.TestCase):
         self.assertFalse(service.matches(meta, identity, [1, 9, 3, 4]))
         self.assertFalse(service.matches(meta, identity, [1, 2]))
 
+    def test_disk_checkpoint_must_improve_exact_prefix(self):
+        tokens = list(range(20000))
+        meta = {'identity': 'version-a', 'tokens': tokens[:15000]}
+        self.assertTrue(service.should_restore(meta, 'version-a', tokens, tokens[5000:], True))
+        self.assertFalse(service.should_restore(meta, 'version-a', tokens, tokens[16000:], True))
+        self.assertFalse(service.should_restore(meta, 'version-b', tokens, tokens[5000:], True))
+        self.assertFalse(service.should_restore(meta, 'version-a', [0] * 20000, [0] * 15000, True))
+        self.assertFalse(service.should_restore(meta, 'version-a', tokens, tokens[15000:], True))
+        self.assertTrue(service.should_restore({'identity': 'version-a', 'tokens': tokens[:100]},
+                                               'version-a', tokens, tokens, False))
+        self.assertFalse(service.should_restore(meta, 'version-a', tokens, tokens[15000:], False))
+        self.assertFalse(service.should_restore({'identity': 'version-a', 'tokens': tokens[:8192]},
+                                                'version-a', tokens, tokens, True))
+        self.assertTrue(service.should_restore({'identity': 'version-a', 'tokens': tokens[:8193]},
+                                               'version-a', tokens, tokens, True))
+
+    def test_corrupt_checkpoint_falls_back(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder) / 'broken.safetensors'
+            path.write_bytes(b'broken cache')
+            for error in (RuntimeError, KeyError, IndexError):
+                with self.subTest(error=error):
+                    def load(filename, **kwargs):
+                        self.assertEqual(pathlib.Path(filename).read_bytes(), b'broken cache')
+                        raise error('invalid checkpoint')
+                    self.assertIsNone(service.load_checkpoint(load, path))
+
     def test_secret_permissions(self):
         with tempfile.TemporaryDirectory() as folder:
             p = pathlib.Path(folder) / 'key'

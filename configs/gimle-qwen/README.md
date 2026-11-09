@@ -13,15 +13,19 @@ Optional single-user Qwen3.5 9B provider for Hugi/Pi and Loki. Neither default i
 
 ## Ownership and setup
 
-Canonical code is this directory. `nix/common/gimle-qwen.nix`, imported by `nix/home.nix`, owns the future Home Manager agent, gated to Gimle. It points to the Nix-store code, not an indefinitely stale copied script. System-wide Loki Nix module/gateway are separate owners.
+Canonical code is this directory. `nix/common/gimle-qwen.nix`, imported by `nix/home.nix`, owns the Home Manager agent, gated to Gimle; its generated plist points to Nix-store code. System-wide Loki Nix module/gateway are separate owners.
 
-Lucas approved a narrowly scoped initial activation: `scripts/gimle-qwen-install --activate` on Gimle, staged outside its dirty checkout. The helper prepared private dependencies and immutable weights on the encrypted volume, generated `~/Library/LaunchAgents/dk.gimle.qwen.plist`, and bootstrapped only that new agent. No broad Nix activation was run. The current agent uses the staged copy under `~/loki-data/gimle-qwen/source`; the future Nix-store path takes effect only with separately approved Home Manager activation.
+The agent was initially installed with `scripts/gimle-qwen-install --activate`. A later Home Manager generation pointed it at Nix-store code. On 2026-11-09 the agent alone was switched back to the staged copy under `~/loki-data/gimle-qwen/source` for the cache-selection fix; no broad activation was run. A later Home Manager activation can replace this plist with its store-backed version, so verify that generation includes the fix before activating it. The previous plist and service source are backed up on Gimle under `~/loki-data/gimle-qwen/rollback-qwen-20261109-151854/`.
 
 Installation reuses the already-qualified model snapshot by hardlink; model files must not be edited in place. Subsequent source updates require an explicit service update/restart. Installer refuses an existing plist. No automatic restart after footprint stop; inspect `last-exit.json` before starting again. This LaunchAgent requires a logged-in user domain and an already mounted encrypted volume; unattended boot recovery is not qualified.
 
 Hugi client setup: `python3 scripts/gimle-qwen-client`. Private key/config under `~/.local/share/gimle-qwen`, existing-key strict SSH forwarding via `dk.huginn.gimle-qwen-tunnel`. Pi runtime loads this optional descriptor on next launch. Select **`gimle/qwen3.5-9b-6bit`** in `/model`. The current in-memory model catalogue may require a new Pi launch. No roles/defaults changed.
 
 Loki: `scripts/gimle-qwen-loki` adds custom provider **`gimle-qwen`** to private config, preserving all defaults/comments and prior exact bytes. Explicit `chat_completions` mode; provider-specific 1200s request/1100s stale timeout. In Hermes use **`/model gimle-qwen`**, then select the listed model if prompted. Root default remains Mimer. Full gateway hot-reload/model selection UI not exercised; fresh actual provider resolver and agent were exercised.
+
+## Cache selection verification — 2026-11-09
+
+A matching disk checkpoint is selected over an in-memory prefix only when it saves more than 8192 additional tokens; with no in-memory match any positive saving qualifies. The existing early return still skips restore when at most 8192 tokens remain. A synthetic real-cache comparison measured median first-token times of 54.24s versus 0.277s for the old and new selection paths (three runs each); this is not a cold-prefill or full-server A/B. A separate native Pi session and streaming/tool continuation passed against the live service after restart. Ratatosk GUI usage was not verified.
 
 ## Verification — 2026-10-30
 
