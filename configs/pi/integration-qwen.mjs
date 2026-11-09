@@ -20,7 +20,7 @@ try {
   for (const provider of ['mimer', 'neo-proxy']) {
     const definition = providers[provider];
     const model = { ...definition.models.find(model => model.id.startsWith('Qwen3.8-')), provider, api: definition.api, baseUrl: definition.baseUrl };
-    const options = { apiKey: provider === 'mimer' ? 'local' : process.env.NEO_PROXY_API_KEY, maxTokens: 256, get signal() { return AbortSignal.timeout(60000); } };
+    const options = { apiKey: provider === 'mimer' ? (await readFile(definition.apiKey.slice(5), 'utf8')).trim() : process.env.NEO_PROXY_API_KEY, maxTokens: 256, get signal() { return AbortSignal.timeout(60000); } };
     const tool = { name: 'qwen_probe', description: 'Return a diagnostic receipt. No side effects.', parameters: Type.Object({ value: Type.String() }) };
     const messages = [{ role: 'system', content: 'Follow the user instructions.', toolsAdded: [tool], timestamp: 0 }, { role: 'user', content: [{ type: 'text', text: 'Call qwen_probe with value VERIFIED. Do not answer before calling it.' }], timestamp: Date.now() }];
     let payload;
