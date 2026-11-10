@@ -27,7 +27,8 @@ try {
   const fixture = path.join(dir, 'fixture.ts');
   await writeFile(fixture, `export default function(pi) { pi.registerCommand('attach-fixture', {description:'Insert synthetic image',handler:async (_args,ctx)=>{const factory=ctx.ui.getEditorComponent();let editor;ctx.ui.setEditorComponent((...args)=>{editor=factory(...args);return editor});editor.insertImage(${JSON.stringify(image)});editor.insertTextAtCursor(' literal [img1]');}}); }`);
   const settings = JSON.parse(await readFile(path.join(dir, 'settings.json'), 'utf8'));
-  settings.extensions = settings.extensions.filter(p => !p.endsWith('advisor.ts') && !p.endsWith('muninn.ts'));
+  // Isolate the image request from auto-review continuation messages.
+  settings.extensions = settings.extensions.filter(p => !p.endsWith('advisor.ts') && !p.endsWith('muninn.ts') && !p.endsWith('auto-review.ts'));
   settings.extensions.push(fixture); settings.skills = []; settings.packages = [];
   await writeFile(path.join(dir, 'settings.json'), JSON.stringify(settings));
   await writeFile(path.join(dir, 'mcp.json'), '{"mcpServers":{}}');

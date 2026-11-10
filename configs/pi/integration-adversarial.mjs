@@ -64,7 +64,7 @@ try {
   async function stop(){const processExit=new Promise(resolve=>child.once('exit',resolve));child.stdin.end();await processExit;child=undefined;}
   await start();
   const catalogue=(await send('get_available_models')).data.models.filter(model=>model.provider==='neo-proxy');
-  assert.equal(catalogue.length,7,'Private catalogue extensions and native Qwen remain available');
+  assert.deepEqual(new Set(catalogue.map(model=>model.id)),new Set([...ids,'gpt-6.1-terra',JSON.parse(await readFile(path.join(sourceDir,'qwen-model.json'),'utf8')).id]));
   const before=(await send('get_state')).data.model.id;
   await send('prompt',{message:'/switch missing/model'});
   const afterInvalidSwitch = (await send('get_state')).data.model.id;

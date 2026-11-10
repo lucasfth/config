@@ -16,11 +16,12 @@
     "verify:integration": "node integration-sdk.mjs && node integration-advisor.mjs && node integration-ui.mjs && node --import tsx integration-render.ts && node integration-adversarial.mjs && node integration-roles.mjs && node --import tsx integration-presentation.ts && node integration-spinner.mjs && PI_SPINNER_APPEARANCE=light node integration-spinner.mjs && node integration-terminal.mjs && PI_CHART_KIND=bar node integration-terminal.mjs && node integration-images.mjs && node integration-eval.mjs && node integration-retrieval.mjs && node integration-discovery.mjs && node --import tsx tests/integration-retrieval.mjs && node integration-lsp.mjs && node integration-context.mjs && node integration-condense.mjs && node integration-compaction.mjs"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "1.5.0",
-    "@earendil-works/pi-ai": "1.5.0",
-    "@earendil-works/pi-coding-agent": "1.5.0",
-    "@earendil-works/pi-tui": "1.5.0",
+    "@earendil-works/pi-agent-core": "1.5.1",
+    "@earendil-works/pi-ai": "1.5.1",
+    "@earendil-works/pi-coding-agent": "1.5.1",
+    "@earendil-works/pi-tui": "1.5.1",
     "@resvg/resvg-js": "2.6.2",
+    "grok-mermaid": "0.2.3",
     "pi-btw": "0.8.0",
     "pi-chrome-use": "1.1.1",
     "pi-condense": "2.13.1",

@@ -16,7 +16,8 @@ const { composerColors } = await tsImport('./extensions/presentation.ts', import
 const appearance = process.env.PI_SPINNER_APPEARANCE ?? 'dark';
 assert.ok(['light', 'dark'].includes(appearance));
 const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-spinner-proof-'));
-const terminal = new headless.Terminal({ cols: 115, rows: 30, allowProposedApi: true });
+// Keep the miniature visible while the tool result occupies terminal rows.
+const terminal = new headless.Terminal({ cols: 115, rows: 50, allowProposedApi: true });
 let pty;
 let raw = '';
 let frameBuffer = '';
@@ -29,7 +30,7 @@ const samples = [];
 const snapshots = new Map();
 const readScreen = () => {
   const view = terminal.buffer.active;
-  return Array.from({ length: 30 }, (_, y) => view.getLine(view.viewportY + y)?.translateToString(true) ?? '');
+  return Array.from({ length: 50 }, (_, y) => view.getLine(view.viewportY + y)?.translateToString(true) ?? '');
 };
 const rgb = (row, column) => {
   const cell = row?.getCell(column);
@@ -62,7 +63,8 @@ try {
     NEO_PROXY_API_KEY: 'synthetic', PI_OFFLINE: '1', PI_TELEMETRY: '0', TERM: 'xterm-256color', COLORTERM: 'truecolor' });
   await prepareRuntime({ agentDir: dir, env, ompDir: path.join(dir, 'absent') });
   const settings = JSON.parse(await readFile(path.join(dir, 'settings.json'), 'utf8'));
-  settings.extensions = settings.extensions.filter(file => !file.endsWith('advisor.ts') && !file.endsWith('muninn.ts'));
+  // Auto-review sends an unrelated continuation in this spinner-only fixture.
+  settings.extensions = settings.extensions.filter(file => !file.endsWith('advisor.ts') && !file.endsWith('muninn.ts') && !file.endsWith('auto-review.ts'));
   // Instrument only the isolated fixture; observe the actual closure state, not its colours/caption.
   const presentationPath = path.join(sourceDir, 'extensions/presentation.ts');
   let presentationSource = await readFile(presentationPath, 'utf8');
@@ -97,7 +99,7 @@ export default pi => {
   await writeFile(path.join(dir, 'settings.json'), JSON.stringify(settings));
   await writeFile(path.join(dir, 'mcp.json'), '{"mcpServers":{}}');
   pty = spawn(process.execPath, [path.join(sourceDir, 'host-entry.mjs'), '--offline', '--no-mcp',
-    '--no-session', '--no-context-files', '--approve'], { cwd: repoDir, env, cols: 115, rows: 30 });
+    '--no-session', '--no-context-files', '--approve'], { cwd: repoDir, env, cols: 115, rows: 50 });
   pty.onData(data => {
     const text = String(data);
     raw += text;
@@ -133,7 +135,7 @@ export default pi => {
         samples.push({ colors, border, active: Boolean(frame), previewTarget, previewCaption, demoState });
         if (!snapshots.has(colors.bottomRight)) {
           snapshots.set(colors.bottomRight, { screen, topY, bottomY,
-            cells: Array.from({ length: 30 }, (_, y) => Array.from({ length: 115 }, (_, x) => {
+            cells: Array.from({ length: 50 }, (_, y) => Array.from({ length: 115 }, (_, x) => {
               const cell = view.getLine(view.viewportY + y)?.getCell(x);
               return { text: cell?.getChars() ?? '', color: rgb(view.getLine(view.viewportY + y), x) };
             })) });
