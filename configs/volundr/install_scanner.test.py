@@ -51,8 +51,6 @@ class InstallScannerTests(unittest.TestCase):
         timeout = HTTPError(url, 504, 'Gateway Time-out', {}, None)
 
         with patch.object(scanner.time, 'sleep') as sleep, \
-             patch.object(scanner.platform, 'system', return_value='Linux'), \
-             patch.object(scanner.platform, 'machine', return_value='x86_64'), \
              patch.object(scanner.urllib.request, 'urlopen', side_effect=timeout) as open_url:
             with self.assertRaises(HTTPError) as caught:
                 scanner.download(url)
@@ -77,7 +75,6 @@ class InstallScannerTests(unittest.TestCase):
     def test_rejects_checksum_mismatch_before_installing_binary(self):
         binary = b'pinned scanner fixture'
         archive = scanner_archive(binary)
-        url = 'https://example.invalid/gitleaks.tar.gz'
         wrong_asset = ('linux_x64', '0' * 64)
 
         with tempfile.TemporaryDirectory() as directory, \
