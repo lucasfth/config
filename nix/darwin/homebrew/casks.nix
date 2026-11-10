@@ -18,6 +18,7 @@
 
     # ── Terminals & shells ──────────────────────────────────
     "ghostty"
+    "herdr-app"
 
     # ── Fonts ───────────────────────────────────────────────
     "font-jetbrains-mono-nerd-font"
