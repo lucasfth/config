@@ -31,15 +31,21 @@ export function parseReviewOutcome(report: string): ReviewOutcome {
   if (!/^\s*$/.test(suffix)) throw new Error('review output contains text after terminal result marker; incomplete');
   return { status: marker[1] === 'CLEAN' ? 'clean' : 'findings', report };
 }
-function hash(content: string) { return createHash('sha256').update(content).digest('hex'); }
+function hash(content: string | Buffer) { return createHash('sha256').update(content).digest('hex'); }
 
 export async function snapshotWorkspace(cwd: string, retainCleanTracked = false): Promise<Snapshot> {
   cwd = await realpath(cwd);
   const { stdout } = await execFileAsync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd, maxBuffer: 2_000_000, timeout: 5000 });
-  const { stdout: trackedOutput } = await execFileAsync('git', ['ls-files', '--cached', '-z'], { cwd, maxBuffer: 2_000_000, timeout: 5000 });
-  const tracked = new Set(trackedOutput.split('\0').filter(Boolean));
+  const { stdout: trackedOutput } = await execFileAsync('git', ['ls-files', '--stage', '-z'], { cwd, maxBuffer: 2_000_000, timeout: 5000 });
+  const entries = trackedOutput.split('\0').filter(Boolean).map(entry => {
+    const tab = entry.indexOf('\t');
+    return { mode: entry.slice(0, 6), name: entry.slice(tab + 1) };
+  });
+  const tracked = new Set(entries.filter(entry => entry.mode !== '160000').map(entry => entry.name));
+  const gitlinks = new Set(entries.filter(entry => entry.mode === '160000').map(entry => entry.name));
   const { stdout: porcelain } = await execFileAsync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd, maxBuffer: 2_000_000, timeout: 5000 });
-  const names = [...new Set(stdout.split('\0').filter(Boolean))].sort();
+  // Submodules are separate repositories, not files in this review scope.
+  const names = [...new Set(stdout.split('\0').filter(name => name && !gitlinks.has(name)))].sort();
   if (names.length > MAX_FILES) throw new Error(`workspace snapshot exceeds ${MAX_FILES} files; review skipped as incomplete`);
   const dirty = new Set<string>();
   const statusRecords = porcelain.split('\0');
@@ -61,15 +67,28 @@ export async function snapshotWorkspace(cwd: string, retainCleanTracked = false)
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     const canonicalRel = relative(cwd, canonical);
     if (canonicalRel === '..' || canonicalRel.startsWith(`..${sep}`) || isAbsolute(canonicalRel)) throw new Error(`workspace symlink escapes repository: ${name}`);
-    let content: string;
-    try { content = await readFile(filename, 'utf8'); }
+    let bytes: Buffer;
+    try { bytes = await readFile(filename); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
-    if (content.includes('\uFFFD')) throw new Error(`workspace snapshot contains non-UTF8 or binary content at ${name}; review skipped as incomplete`);
-    const size = Buffer.byteLength(content);
-    if (size > MAX_FILE_BYTES) throw new Error(`workspace file ${name} exceeds ${MAX_FILE_BYTES} bytes; review skipped as incomplete`);
+    const cleanTracked = tracked.has(name) && !dirty.has(name);
+    let content: string;
+    try {
+      if (bytes.includes(0)) throw new Error('binary');
+      content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+    } catch {
+      if (!cleanTracked) throw new Error(`workspace snapshot contains non-UTF8 or binary content at ${name}; review skipped as incomplete`);
+      files.set(name, { hash: hash(bytes) });
+      continue;
+    }
+    const size = bytes.length;
+    if (size > MAX_FILE_BYTES) {
+      if (!cleanTracked) throw new Error(`workspace file ${name} exceeds ${MAX_FILE_BYTES} bytes; review skipped as incomplete`);
+      files.set(name, { hash: hash(content) });
+      continue;
+    }
     total += size;
     if (total > MAX_TOTAL_BYTES) throw new Error(`workspace snapshot exceeds ${MAX_TOTAL_BYTES} bytes; review skipped as incomplete`);
-    files.set(name, { hash: hash(content), ...(!retainCleanTracked || (tracked.has(name) && !dirty.has(name)) ? { content } : {}) });
+    files.set(name, { hash: hash(content), ...(!retainCleanTracked || cleanTracked ? { content } : {}) });
   }
   const digest = hash([...files].map(([name, value]) => `${name}\0${value.hash}`).join('\0'));
   return { files, digest, dirty, tracked, cwd };

@@ -75,6 +75,22 @@ test('clean tracked edits produce task-only textual diff; no-change is not revie
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('large clean tracked files do not block small edits but changing them fails closed', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'auto-review-large-'));
+  try {
+    initRepo(root);
+    await writeFile(path.join(root, 'large.txt'), 'x'.repeat(128_001));
+    await writeFile(path.join(root, 'small.txt'), 'before\n');
+    execFileSync('git', ['add', 'large.txt', 'small.txt'], { cwd: root });
+    execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'files'], { cwd: root });
+    const before = await stableWorkspaceSnapshot(root, true);
+    await writeFile(path.join(root, 'small.txt'), 'after\n');
+    assert.match(workspaceDelta(before, await stableWorkspaceSnapshot(root))!, /\+after/);
+    await writeFile(path.join(root, 'large.txt'), 'y'.repeat(128_001));
+    await assert.rejects(stableWorkspaceSnapshot(root), /exceeds 128000 bytes/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('hook passes only clean tracked task diff to reviewer and records full report', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'auto-review-e2e-'));
   try {
@@ -106,6 +122,46 @@ test('hook passes only clean tracked task diff to reviewer and records full repo
     assert.doesNotMatch(task, /const unrelated =|PRIVATE/);
     assert.ok(result, JSON.stringify({ notices, requests }));
     if (childMarker !== undefined) process.env.PI_SUBAGENT_CHILD = childMarker; else delete process.env.PI_SUBAGENT_CHILD;
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('snapshot excludes submodule gitlinks without reading their directories', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'auto-review-gitlink-'));
+  const child = await mkdtemp(path.join(os.tmpdir(), 'auto-review-child-repo-'));
+  try {
+    initRepo(root); initRepo(child);
+    execFileSync('git', ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', child, 'nested'], { cwd: root });
+    await writeFile(path.join(root, 'tracked.txt'), 'visible');
+    execFileSync('git', ['add', 'tracked.txt'], { cwd: root });
+    const snapshot = await snapshotWorkspace(root);
+    assert.equal(snapshot.files.has('nested'), false);
+    assert.equal(snapshot.files.has('tracked.txt'), true);
+  } finally { await rm(root, { recursive: true, force: true }); await rm(child, { recursive: true, force: true }); }
+});
+
+test('valid UTF-8 replacement characters are accepted in snapshots', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'auto-review-utf8-'));
+  try {
+    initRepo(root); await writeFile(path.join(root, 'text.txt'), 'valid \uFFFD text');
+    const snapshot = await snapshotWorkspace(root);
+    assert.equal(snapshot.files.get('text.txt')?.content, 'valid \uFFFD text');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('clean tracked binary is hash-only and binary changes fail closed', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'auto-review-clean-binary-'));
+  try {
+    initRepo(root);
+    await writeFile(path.join(root, 'binary.dat'), Buffer.from([255, 0]));
+    await writeFile(path.join(root, 'text.txt'), 'before');
+    execFileSync('git', ['add', 'binary.dat', 'text.txt'], { cwd: root });
+    execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'files'], { cwd: root });
+    const before = await stableWorkspaceSnapshot(root, true);
+    assert.equal(before.files.get('binary.dat')?.content, undefined);
+    await writeFile(path.join(root, 'text.txt'), 'after');
+    assert.match(workspaceDelta(before, await stableWorkspaceSnapshot(root))!, /\+after/);
+    await writeFile(path.join(root, 'binary.dat'), Buffer.from([254, 0]));
+    await assert.rejects(stableWorkspaceSnapshot(root), /non-UTF8 or binary/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
