@@ -78,10 +78,37 @@ export function buildInteractionExpression(action: 'click' | 'type', selector: s
 
 // Inspect credential controls for presence/visibility only, never their values.
 export const browserPageStateExpression = `(()=>{
-  const visible=selector=>Array.from(document.querySelectorAll(selector)).some(e=>e.getClientRects().length>0);
-  const blocked=visible('input[type="password"],input[autocomplete="one-time-code"],input[name="otp"],iframe[src*="recaptcha"],iframe[src*="hcaptcha"]')
-    || /(?:^|[\\s/_-])(login|signin|sign-in|two-factor|verification|challenge)(?:$|[\\s/_.-])/i.test(document.title+' '+location.pathname);
-  return {origin:location.origin,ready:document.readyState==='complete',blocked};
+  const visible=e=>e.getClientRects().length>0;
+  const credentialControl=Array.from(document.querySelectorAll('input[type="password"],input[autocomplete="one-time-code"],input[name="otp"]')).some(visible);
+  let invisibleRecaptchaBadge=false;
+  const captchaFrames=[];
+  const captchaChallenge=Array.from(document.querySelectorAll('iframe[src*="recaptcha"],iframe[src*="hcaptcha"]')).some(e=>{
+    if(!visible(e))return false;
+    try{
+      const u=new URL(e.getAttribute('src'),location.origin);
+      const badge=u.protocol==='https:'&&!u.username&&!u.password
+        &&['www.google.com','www.recaptcha.net'].includes(u.hostname)
+        &&!u.port&&/^\\/recaptcha\\/(?:api2|enterprise)\\/anchor$/.test(u.pathname)
+        &&u.searchParams.getAll('size').length===1&&u.searchParams.get('size')==='invisible'
+        &&!!e.closest('.grecaptcha-badge');
+      if(badge){invisibleRecaptchaBadge=true;return false;}
+      const kind=/^\\/recaptcha\\/(?:api2|enterprise)\\/bframe$/.test(u.pathname)?'recaptcha-challenge':/^\\/recaptcha\\/(?:api2|enterprise)\\/anchor$/.test(u.pathname)?'recaptcha-anchor':u.hostname.endsWith('.hcaptcha.com')?'hcaptcha-frame':'other-captcha-frame';
+      let cssHidden=false;
+      if(typeof getComputedStyle==='function'){
+        for(let node=e;node;node=node.parentElement){
+          const style=getComputedStyle(node);
+          if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||style.opacity==='0'){cssHidden=true;break;}
+        }
+      }
+      captchaFrames.push(kind+(cssHidden?':css-hidden':':not-css-hidden'));
+      if(cssHidden)return false;
+    }catch{captchaFrames.push('unclassified-captcha-frame');}
+    return true;
+  });
+  const pageIdentity=/(?:^|[\\s/_-])(login|signin|sign-in|two-factor|verification|challenge)(?:$|[\\s/_.-])/i.test(document.title+' '+location.pathname);
+  return {origin:location.origin,ready:document.readyState==='complete',
+    blocked:credentialControl||captchaChallenge||pageIdentity,
+    signals:{credentialControl,captchaChallenge,pageIdentity,invisibleRecaptchaBadge,captchaFrames}};
 })()`;
 
 export function buildFollowLinkExpression(selector: string): string {
@@ -102,7 +129,19 @@ export function buildFollowLinkExpression(selector: string): string {
 }
 
 type LinkSession = { _call(method: string, params?: Record<string, unknown>): Promise<unknown> };
-type PageState = {origin:string;ready:boolean;blocked:boolean};
+type PageState = {origin:string;ready:boolean;blocked:boolean;signals?:{credentialControl:boolean;captchaChallenge:boolean;pageIdentity:boolean;invisibleRecaptchaBadge:boolean;captchaFrames?:string[]}};
+
+function verificationError(state: PageState): Error {
+  const signals = state.signals;
+  // Fixed categories only: never expose selectors, page URLs, tokens or field values.
+  const reasons = signals ? [
+    signals.credentialControl && 'credential-control',
+    signals.captchaChallenge && 'captcha-challenge',
+    signals.pageIdentity && 'page-identity',
+    ...(signals.captchaFrames ?? []).filter(value => /^(?:(?:recaptcha-challenge|recaptcha-anchor|hcaptcha-frame|other-captcha-frame):(?:css-hidden|not-css-hidden)|unclassified-captcha-frame)$/.test(value)),
+  ].filter(Boolean).join(', ') : '';
+  return new Error('Login or verification required; Lucas must handle it through Screen Sharing.' + (reasons ? ' Detected: ' + reasons + '.' : ''));
+}
 
 async function pageState(session: LinkSession): Promise<PageState> {
   const result = await session._call('Runtime.evaluate', {expression:browserPageStateExpression,returnByValue:true}) as {result?:{value?:PageState};exceptionDetails?:unknown};
@@ -113,7 +152,7 @@ async function pageState(session: LinkSession): Promise<PageState> {
 
 function requireApp(state: PageState, origin: string): void {
   if (state.origin !== origin) throw new Error('Unexpected app redirect; stop and ask Lucas.');
-  if (state.blocked) throw new Error('Login or verification required; Lucas must handle it through Screen Sharing.');
+  if (state.blocked) throw verificationError(state);
 }
 
 type OwnedApp = { origin: string; handoffOrigin?: string };
@@ -121,7 +160,7 @@ type OwnedApp = { origin: string; handoffOrigin?: string };
 export function requireAssignedApp(state: PageState, tab: OwnedApp, action: string): void {
   const allowed = state.origin === tab.origin || (action !== 'follow_link' && state.origin === tab.handoffOrigin);
   if (!allowed) throw new Error('Unexpected app redirect; stop and ask Lucas.');
-  if (state.blocked) throw new Error('Login or verification required; Lucas must handle it through Screen Sharing.');
+  if (state.blocked) throw verificationError(state);
 }
 
 export const browserSnapshotExpression = `(()=>{

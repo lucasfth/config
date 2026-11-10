@@ -338,3 +338,105 @@ test('only Nordicway DNS-row text inputs may ignore the observed new-password hi
   location.origin='https://example.com';refuse();location.origin='https://cp08.nordicway.dk:2083';
   for(const path of ['/login','/cpsess123456/frontend/jupiter/other/index.html']) {location.pathname=path;refuse();}
 });
+
+test('page guard distinguishes invisible reCAPTCHA badges from real credential and challenge surfaces', async () => {
+  const { browserPageStateExpression } = await import('./gimle.ts');
+  const evaluate = (kind: string, src = '', badge = false) => {
+    const element = {
+      tagName: kind === 'captcha' ? 'IFRAME' : 'INPUT',
+      getClientRects: () => [1],
+      getAttribute: (name: string) => name === 'src' ? src : null,
+      closest: (selector: string) => badge && selector === '.grecaptcha-badge' ? {} : null,
+      get value() { throw Error('must never read credentials'); },
+    };
+    return runInNewContext(browserPageStateExpression, {
+      URL, location: { origin: 'https://admin.ecoray.dk', pathname: '/admin' },
+      document: { title: 'EcoRay dashboard', readyState: 'complete',
+        querySelectorAll: (selector: string) => selector.includes('iframe') ? (kind === 'captcha' ? [element] : []) : (kind === 'captcha' ? [] : [element]),
+      },
+    });
+  };
+  const invisible = 'https://www.google.com/recaptcha/api2/anchor?size=invisible';
+  assert.equal(evaluate('captcha', invisible, true).blocked, false);
+  assert.equal(evaluate('captcha', invisible, false).blocked, true);
+  assert.equal(evaluate('captcha', 'https://www.google.com/recaptcha/api2/anchor?size=normal', true).blocked, true);
+  for (const src of [
+    'https://www.google.com/recaptcha/api2/bframe?size=invisible',
+    'https://www.recaptcha.net/recaptcha/enterprise/bframe',
+    'https://newassets.hcaptcha.com/captcha/v1/challenge.html',
+    'https://newassets.hcaptcha.com/captcha/v1/checkbox.html',
+  ]) assert.equal(evaluate('captcha', src, true).blocked, true);
+  assert.equal(evaluate('password').blocked, true);
+  assert.equal(evaluate('otp').blocked, true);
+});
+
+test('badge exceptions stay exact and blocked-state diagnostics contain fixed categories only', async () => {
+  const { browserPageStateExpression, requireAssignedApp } = await import('./gimle.ts');
+  const frame = (src: string) => ({ getClientRects: () => [1], getAttribute: () => src, closest: () => ({}) });
+  const context = (frames: unknown[]) => ({ URL, location: { origin: 'https://admin.ecoray.dk', pathname: '/admin' },
+    document: { title: 'Dashboard', readyState: 'complete', querySelectorAll: (selector: string) => selector.includes('iframe') ? frames : [] } });
+  for (const src of [
+    'https://evil.invalid/recaptcha/api2/anchor?size=invisible',
+    'https://www.google.com.evil.invalid/recaptcha/api2/anchor?size=invisible',
+    'https://www.google.com/recaptcha/api2/anchor?size=invisible&size=normal',
+    'https://www.google.com/recaptcha/api2/unknown?size=invisible',
+    'http://www.google.com/recaptcha/api2/anchor?size=invisible',
+  ]) assert.equal(runInNewContext(browserPageStateExpression, context([frame(src)])).blocked, true);
+  const state = runInNewContext(browserPageStateExpression, context([
+    frame('https://www.google.com/recaptcha/api2/anchor?size=invisible'),
+    frame('https://www.google.com/recaptcha/api2/bframe?size=invisible'),
+  ]));
+  assert.equal(state.blocked, true);
+  assert.equal(state.signals.invisibleRecaptchaBadge, true);
+  assert.equal(state.signals.captchaChallenge, true);
+  assert.throws(() => requireAssignedApp(state, { origin: state.origin }, 'snapshot'), /Detected: captcha-challenge, recaptcha-challenge:not-css-hidden\./);
+});
+
+test('CSS-hidden CAPTCHA frames do not block; displayed or unclassifiable frames still block', async () => {
+  const { browserPageStateExpression, requireAssignedApp } = await import('./gimle.ts');
+  const parent = { parentElement: null };
+  const frame = { parentElement: parent, getClientRects: () => [1],
+    getAttribute: () => 'https://www.google.com/recaptcha/api2/bframe?token=PRIVATE', closest: () => null };
+  let hiddenNode: unknown = parent;
+  let hiddenStyle: Partial<Record<'visibility' | 'display' | 'opacity', string>> = { visibility: 'hidden' };
+  const context = {
+    URL, location: { origin: 'https://admin.ecoray.dk', pathname: '/admin' },
+    getComputedStyle: (element: unknown) => ({ visibility: 'visible', opacity: '1', display: 'block', ...(element === hiddenNode ? hiddenStyle : {}) }),
+    document: { title: 'Dashboard', readyState: 'complete', querySelectorAll: (selector: string) => selector.includes('iframe') ? [frame] : [] },
+  };
+  for (const node of [frame, parent]) {
+    hiddenNode = node;
+    for (const style of [{ display: 'none' }, { visibility: 'hidden' }, { visibility: 'collapse' }, { opacity: '0' }]) {
+      hiddenStyle = style;
+      const state = runInNewContext(browserPageStateExpression, context);
+      assert.equal(state.blocked, false);
+      assert.equal(state.signals.captchaChallenge, false);
+      assert.deepEqual(Array.from(state.signals.captchaFrames), ['recaptcha-challenge:css-hidden']);
+      assert.doesNotThrow(() => requireAssignedApp(state, { origin: state.origin }, 'snapshot'));
+      assert.throws(() => requireAssignedApp(state, { origin: 'https://partner.ecoray.dk' }, 'snapshot'), /Unexpected app redirect/);
+      assert.doesNotMatch(JSON.stringify(state), /PRIVATE|google\.com|token=/);
+    }
+  }
+  // Re-evaluate the same frame when it becomes displayed: no cached exemption.
+  hiddenStyle = {};
+  const displayed = runInNewContext(browserPageStateExpression, context);
+  assert.equal(displayed.blocked, true);
+  assert.throws(() => requireAssignedApp(displayed, { origin: displayed.origin }, 'snapshot'), /captcha-challenge/);
+  const unknown = runInNewContext(browserPageStateExpression, { ...context, getComputedStyle: () => { throw Error('unavailable'); } });
+  assert.equal(unknown.blocked, true);
+});
+
+test('hidden CAPTCHA never suppresses another displayed challenge, password, OTP or login page', async () => {
+  const { browserPageStateExpression } = await import('./gimle.ts');
+  const hidden = { getClientRects: () => [1], getAttribute: () => 'https://www.google.com/recaptcha/api2/bframe', closest: () => null };
+  const shown = { ...hidden, getAttribute: () => 'https://newassets.hcaptcha.com/captcha/v1/challenge.html' };
+  const credential = { getClientRects: () => [1], get value() { throw Error('must not read credentials'); } };
+  for (const signal of ['challenge', 'password', 'otp', 'login']) {
+    const state = runInNewContext(browserPageStateExpression, {
+      URL, location: { origin: 'https://admin.ecoray.dk', pathname: signal === 'login' ? '/admin/login' : '/admin' },
+      getComputedStyle: (element: unknown) => ({ display: 'block', visibility: element === hidden ? 'hidden' : 'visible', opacity: '1' }),
+      document: { title: 'Dashboard', readyState: 'complete', querySelectorAll: (selector: string) => selector.includes('iframe') ? (signal === 'challenge' ? [hidden, shown] : [hidden]) : (signal === 'password' || signal === 'otp' ? [credential] : []) },
+    });
+    assert.equal(state.blocked, true, signal);
+  }
+});
