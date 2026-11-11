@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Mokka — procedurally generated Catppuccin dynamic wallpaper."""
 
+import argparse
 import json
 from datetime import datetime
-import os
-import random
 import subprocess
 from pathlib import Path
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
+import numpy as np
+from PIL import Image
+
+if __package__:
+    from .studies import STYLES, field
+else:
+    from studies import STYLES, field
 
 # ── Configuration ─────────────────────────────────────────────
 
@@ -42,20 +48,20 @@ LATTE = {
 }
 
 # latte_mix: 0.0 = Mocha, 1.0 = Latte. Dawn and dusk blend both palettes.
-# Shape values evolve gently without moving the light source across the screen.
+# Geometry stays fixed: only the palette changes over the day.
 SLOTS = [
-    {"time": "04:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.98, "scale_y": 1.02, "intensity": 0.88},
-    {"time": "06:00:00", "phase": "dawn",      "latte_mix": 0.38, "scale_x": 1.01, "scale_y": 1.00, "intensity": 0.91},
-    {"time": "08:00:00", "phase": "morning",   "latte_mix": 1.00, "scale_x": 1.04, "scale_y": 0.98, "intensity": 0.94},
-    {"time": "10:00:00", "phase": "morning",   "latte_mix": 1.00, "scale_x": 1.06, "scale_y": 0.97, "intensity": 0.97},
-    {"time": "12:00:00", "phase": "noon",      "latte_mix": 1.00, "scale_x": 1.08, "scale_y": 0.96, "intensity": 1.00},
-    {"time": "14:00:00", "phase": "afternoon", "latte_mix": 1.00, "scale_x": 1.07, "scale_y": 0.97, "intensity": 0.98},
-    {"time": "16:00:00", "phase": "afternoon", "latte_mix": 1.00, "scale_x": 1.05, "scale_y": 0.99, "intensity": 0.96},
-    {"time": "18:00:00", "phase": "evening",   "latte_mix": 1.00, "scale_x": 1.03, "scale_y": 1.01, "intensity": 0.94},
-    {"time": "20:00:00", "phase": "dusk",      "latte_mix": 0.52, "scale_x": 1.01, "scale_y": 1.03, "intensity": 0.92},
-    {"time": "21:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.99, "scale_y": 1.04, "intensity": 0.90},
-    {"time": "22:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.97, "scale_y": 1.05, "intensity": 0.88},
-    {"time": "00:00:00", "phase": "night",     "latte_mix": 0.00, "scale_x": 0.96, "scale_y": 1.04, "intensity": 0.86},
+    {"time": "04:00:00", "phase": "night",     "latte_mix": 0.00},
+    {"time": "06:00:00", "phase": "dawn",      "latte_mix": 0.38},
+    {"time": "08:00:00", "phase": "morning",   "latte_mix": 1.00},
+    {"time": "10:00:00", "phase": "morning",   "latte_mix": 1.00},
+    {"time": "12:00:00", "phase": "noon",      "latte_mix": 1.00},
+    {"time": "14:00:00", "phase": "afternoon", "latte_mix": 1.00},
+    {"time": "16:00:00", "phase": "afternoon", "latte_mix": 1.00},
+    {"time": "18:00:00", "phase": "evening",   "latte_mix": 1.00},
+    {"time": "20:00:00", "phase": "dusk",      "latte_mix": 0.52},
+    {"time": "21:00:00", "phase": "night",     "latte_mix": 0.00},
+    {"time": "22:00:00", "phase": "night",     "latte_mix": 0.00},
+    {"time": "00:00:00", "phase": "night",     "latte_mix": 0.00},
 ]
 
 PHASES = {
@@ -108,127 +114,21 @@ def validate_slots(slots):
             raise ValueError(f"invalid phase: {slot.get('phase')!r}")
         if not 0.0 <= slot.get("latte_mix", -1.0) <= 1.0:
             raise ValueError(f"invalid latte_mix: {slot.get('latte_mix')!r}")
-        for key in ("scale_x", "scale_y", "intensity"):
-            if not isinstance(slot.get(key), (int, float)) or slot[key] <= 0:
-                raise ValueError(f"invalid {key}: {slot.get(key)!r}")
 
 
 # ── Light field ────────────────────────────────────────────────
 
-FIELD_DIVISOR = 4
+DEFAULT_STYLE = "eclipse"
+PHONE_SIZE = (1170, 2532)
 
 
-def scaled_box(box, width, height, scale_x, scale_y):
-    cx, cy, rx, ry = box
-    return (
-        int((cx - rx * scale_x) * width),
-        int((cy - ry * scale_y) * height),
-        int((cx + rx * scale_x) * width),
-        int((cy + ry * scale_y) * height),
-    )
-
-
-def make_light_mask(size, slot, box, strength, blur_factor):
-    width, height = size
-    mask = Image.new("L", size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse(
-        scaled_box(box, width, height, slot["scale_x"], slot["scale_y"]),
-        fill=int(strength * slot["intensity"]),
-    )
-    return mask.filter(
-        ImageFilter.GaussianBlur(max(width, height) * blur_factor)
-    )
-
-
-def make_density_mask(size, slot):
-    small_size = (
-        max(1, size[0] // FIELD_DIVISOR),
-        max(1, size[1] // FIELD_DIVISOR),
-    )
-    density = Image.new("L", small_size, 0)
-    layers = (
-        ((0.40, 0.54, 0.42, 0.66), 120, 0.115),
-        ((0.38, 0.51, 0.30, 0.49), 190, 0.100),
-        ((0.40, 0.49, 0.18, 0.34), 245, 0.085),
-    )
-    for box, strength, blur_factor in layers:
-        layer = make_light_mask(
-            small_size,
-            slot,
-            box,
-            strength,
-            blur_factor,
-        )
-        density = ImageChops.lighter(density, layer)
-    return density.resize(size, Image.Resampling.LANCZOS)
-
-
-def make_base(size, palette, latte_mix):
-    base_key = "base" if latte_mix >= 0.5 else "crust"
-    return Image.new("RGB", size, palette[base_key])
-
-
-DOT_SPACING = 7
-DOT_RADIUS = 2
-DOT_OPACITY = 0.55
-DOT_COLOURS = ("surface0", "blue", "lavender", "mauve", "rosewater")
-BAYER_4 = (
-    (0, 8, 2, 10),
-    (12, 4, 14, 6),
-    (3, 11, 1, 9),
-    (15, 7, 13, 5),
-)
-
-
-def muted_dot_colour(base, accent):
-    return lerp3(base, accent, DOT_OPACITY)
-
-
-def ordered_dot_colour(palette, density, column, row):
-    position = density / 255 * (len(DOT_COLOURS) - 1)
-    lower = min(int(position), len(DOT_COLOURS) - 1)
-    if lower == len(DOT_COLOURS) - 1:
-        return palette[DOT_COLOURS[lower]]
-    fraction = position - lower
-    threshold = BAYER_4[row % 4][column % 4] / 16
-    index = lower + 1 if fraction > threshold else lower
-    return palette[DOT_COLOURS[index]]
-
-
-def draw_dot_field(base, palette, slot):
-    density = make_density_mask(base.size, slot)
-    image = base.copy()
-    draw = ImageDraw.Draw(image)
-    base_colour = image.getpixel((0, 0))
-    offset = DOT_SPACING // 2
-    for row, y in enumerate(range(offset, image.height, DOT_SPACING)):
-        for column, x in enumerate(range(offset, image.width, DOT_SPACING)):
-            accent = hex_to_rgb(
-                ordered_dot_colour(
-                    palette,
-                    density.getpixel((x, y)),
-                    column,
-                    row,
-                )
-            )
-            colour = muted_dot_colour(base_colour, accent)
-            draw.ellipse(
-                (
-                    x - DOT_RADIUS,
-                    y - DOT_RADIUS,
-                    x + DOT_RADIUS,
-                    y + DOT_RADIUS,
-                ),
-                fill=colour,
-            )
-    return image
-
-
-def generate_slot_image(slot, size=(WIDTH, HEIGHT)):
+def generate_slot_image(slot, size=(WIDTH, HEIGHT), style=DEFAULT_STYLE):
     palette = palette_for_mix(slot["latte_mix"])
-    image = make_base(size, palette, slot["latte_mix"])
-    return draw_dot_field(image, palette, slot)
+    mask = field(style, *size)
+    background = np.array(hex_to_rgb(palette["base"]), dtype=np.uint8)
+    foreground = np.array(hex_to_rgb(palette[STYLES[style]]), dtype=np.uint8)
+    pixels = np.where(mask[..., None], foreground, background)
+    return Image.fromarray(pixels).resize(size, Image.Resampling.NEAREST)
 
 
 # ── Pipeline ──────────────────────────────────────────────────
@@ -247,37 +147,62 @@ def wallpapper_entries(slots):
     return entries
 
 
-def generate():
+def export_phone(style, output_dir):
+    output_dir = Path(output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for theme, mix in (("dark", 0.0), ("light", 1.0)):
+        path = output_dir / f"mokka-{style}-iphone-16e-{theme}.png"
+        generate_slot_image({"latte_mix": mix}, PHONE_SIZE, style).save(path)
+        print(f"  -> {path}")
+
+
+def generate(style=DEFAULT_STYLE, output_dir=OUTPUT_DIR, png_only=False):
     validate_slots(SLOTS)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if style not in STYLES:
+        raise ValueError(f"unknown style: {style}")
+    wallpapper = Path.home() / ".local/bin/wallpapper"
+    if not png_only and not wallpapper.is_file():
+        raise FileNotFoundError(f"wallpapper binary not found: {wallpapper}")
+    output_dir = Path(output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
     entries = wallpapper_entries(SLOTS)
 
     for slot, entry in zip(SLOTS, entries):
-        print(
-            f"  [{slot['time']}]  {slot['phase']:9s}  "
-            f"latte={slot['latte_mix']:.2f}  "
-            f"shape=({slot['scale_x']:.2f},{slot['scale_y']:.2f})"
+        print(f"  [{slot['time']}] {style} latte={slot['latte_mix']:.2f}")
+        generate_slot_image(slot, style=style).save(output_dir / entry["fileName"])
+
+    metadata_path = output_dir / "wallpapper.json"
+    metadata_path.write_text(json.dumps(entries, indent=2) + "\n")
+    if png_only:
+        return
+
+    # Only replace the previous HEIC once assembly has succeeded.
+    wallpaper_path = output_dir / "mokka.heic"
+    pending_path = output_dir / "mokka.pending.heic"
+    try:
+        subprocess.run(
+            [str(wallpapper), "-i", str(metadata_path), "-o", str(pending_path)],
+            cwd=output_dir,
+            check=True,
         )
-        generate_slot_image(slot).save(OUTPUT_DIR / entry["fileName"])
-
-    metadata_path = OUTPUT_DIR / "wallpapper.json"
-    with metadata_path.open("w") as metadata_file:
-        json.dump(entries, metadata_file, indent=2)
-
-    wallpaper_path = OUTPUT_DIR / "mokka.heic"
-    wallpapper = Path.home() / ".local/bin/wallpapper"
-    if not wallpapper.is_file():
-        raise FileNotFoundError(f"wallpapper binary not found: {wallpapper}")
-    subprocess.run(
-        [str(wallpapper), "-i", str(metadata_path), "-o", str(wallpaper_path)],
-        cwd=OUTPUT_DIR,
-        check=True,
-    )
+        pending_path.replace(wallpaper_path)
+    finally:
+        pending_path.unlink(missing_ok=True)
     print(f"\n  -> {wallpaper_path}")
 
 
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--style", choices=STYLES, default=DEFAULT_STYLE)
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("--png-only", action="store_true", help="skip HEIC assembly")
+    parser.add_argument("--phone", action="store_true", help="export portrait dark/light PNGs only")
+    args = parser.parse_args()
+    if args.phone:
+        export_phone(args.style, args.output_dir)
+    else:
+        generate(args.style, args.output_dir, args.png_only)
+
+
 if __name__ == "__main__":
-    seed = int(os.environ.get("MOKKA_SEED", random.randint(0, 2**31)))
-    random.seed(seed)
-    print(f"Mokka  seed: {seed}")
-    generate()
+    main()

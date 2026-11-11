@@ -141,7 +141,7 @@ in {
       OUTDIR="$HOME/config/scripts/mokka/output"
       if [ -f "$SCRIPT" ]; then
         echo "Mokka: generating dynamic wallpaper..."
-        ${pkgs.python312.withPackages (ps: [ps.pillow])}/bin/python3 "$SCRIPT"
+        ${pkgs.python312.withPackages (ps: [ps.pillow ps.numpy])}/bin/python3 "$SCRIPT"
         # Copy to timestamped file, write flag for .zshrc to reload
         mkdir -p "$HOME/Pictures/wallpapers"
         TARGET="$HOME/Pictures/wallpapers/mokka-$(date +%Y%m%d-%H%M%S).heic"

@@ -1,3 +1,13 @@
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+from unittest.mock import patch
+
+import numpy as np
+from PIL import Image
+
 import unittest
 
 from scripts.mokka import generate
@@ -67,45 +77,86 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(first.size, (240, 160))
         self.assertEqual(first.tobytes(), second.tobytes())
 
-    def test_dot_field_uses_only_muted_palette_colours(self):
-        slot = generate.SLOTS[9]
-        image = generate.generate_slot_image(slot, (240, 160))
-        palette = generate.palette_for_mix(slot["latte_mix"])
-        base = generate.hex_to_rgb(palette["crust"])
-        allowed = {base} | {
-            generate.muted_dot_colour(base, generate.hex_to_rgb(palette[key]))
-            for key in (
-                "surface0",
-                "lavender",
-                "mauve",
-                "blue",
-                "rosewater",
-            )
-        }
-        colours = set(image.get_flattened_data())
-        self.assertGreater(len(colours), 1)
-        self.assertLessEqual(colours, allowed)
+    def test_approved_styles_are_two_colour_and_edge_cropped(self):
+        for style in ("blackhole-circle", "eclipse", "orbital-horizon", "torus"):
+            for size in ((240, 160), (117, 253)):
+                with self.subTest(style=style, size=size):
+                    image = generate.generate_slot_image(generate.SLOTS[0], size, style)
+                    background = generate.hex_to_rgb(generate.MOCHA["base"])
+                    colours = set(image.get_flattened_data())
+                    self.assertEqual(len(colours), 2)
+                    self.assertIn(background, colours)
+                    width, height = size
+                    edges = [
+                        image.crop(box) for box in (
+                            (0, 0, width, 1), (0, height - 1, width, height),
+                            (0, 0, 1, height), (width - 1, 0, width, height),
+                        )
+                    ]
+                    self.assertGreaterEqual(sum(
+                        any(pixel != background for pixel in edge.get_flattened_data())
+                        for edge in edges
+                    ), 2)
 
-    def test_dot_colour_is_blended_toward_the_background(self):
-        base = generate.hex_to_rgb(generate.MOCHA["crust"])
-        accent = generate.hex_to_rgb(generate.MOCHA["lavender"])
-        self.assertEqual(
-            generate.muted_dot_colour(base, accent),
-            generate.lerp3(base, accent, 0.55),
-        )
+    def test_all_slots_keep_identical_geometry_in_each_style(self):
+        for style in generate.STYLES:
+            masks = []
+            for slot in generate.SLOTS:
+                image = generate.generate_slot_image(slot, (240, 160), style)
+                palette = generate.palette_for_mix(slot["latte_mix"])
+                background = generate.hex_to_rgb(palette["base"])
+                masks.append(np.any(np.asarray(image) != background, axis=-1))
+            self.assertTrue(all(np.array_equal(masks[0], mask) for mask in masks))
 
-    def test_dot_colours_change_on_a_regular_lattice(self):
-        slot = generate.SLOTS[9]
-        image = generate.generate_slot_image(slot, (240, 160))
-        base = generate.hex_to_rgb(generate.MOCHA["crust"])
-        centres = [
-            image.getpixel((x, y))
-            for y in range(3, image.height, 7)
-            for x in range(3, image.width, 7)
-        ]
-        self.assertTrue(all(colour != base for colour in centres))
-        self.assertGreaterEqual(len(set(centres)), 3)
-        self.assertEqual(image.getpixel((0, 0)), base)
+    def test_unknown_style_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "unknown style"):
+            generate.generate_slot_image(generate.SLOTS[0], (240, 160), "unknown")
+
+    def test_invalid_dimensions_are_rejected(self):
+        for size in ((0, 160), (240, -1)):
+            with self.assertRaisesRegex(ValueError, "dimensions"):
+                generate.generate_slot_image(generate.SLOTS[0], size)
+
+
+class PipelineTests(unittest.TestCase):
+    def test_png_pipeline_preserves_metadata_without_calling_wallpapper(self):
+        render = generate.generate_slot_image
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(generate, "generate_slot_image", side_effect=
+                              lambda slot, **kw: render(slot, (240, 160), **kw)), \
+                 patch.object(generate.subprocess, "run") as assemble:
+                generate.generate(output_dir=directory, png_only=True)
+            entries = json.loads((Path(directory) / "wallpapper.json").read_text())
+            self.assertEqual(entries, generate.wallpapper_entries(generate.SLOTS))
+            self.assertEqual(len(list(Path(directory).glob("*.png"))), 12)
+            assemble.assert_not_called()
+
+    def test_failed_assembly_preserves_previous_heic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mokka.heic"
+            path.write_bytes(b"previous wallpaper")
+            error = subprocess.CalledProcessError(1, "wallpapper")
+            with patch.object(Path, "is_file", return_value=True), \
+                 patch.object(generate, "generate_slot_image",
+                              return_value=Image.new("RGB", (12, 8))), \
+                 patch.object(generate.subprocess, "run", side_effect=error):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    generate.generate(output_dir=directory)
+            self.assertEqual(path.read_bytes(), b"previous wallpaper")
+            self.assertFalse((Path(directory) / "mokka.pending.heic").exists())
+
+    def test_direct_cli_phone_export(self):
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run([sys.executable, str(Path(generate.__file__).resolve()),
+                            "--phone", "--style", "eclipse", "--output-dir", directory],
+                           check=True, capture_output=True)
+            files = list(Path(directory).glob("*.png"))
+            self.assertEqual(len(files), 2)
+            self.assertFalse((Path(directory) / "wallpapper.json").exists())
+            for path in files:
+                with Image.open(path) as image:
+                    self.assertEqual(image.size, (1170, 2532))
+                    image.verify()
 
 
 if __name__ == "__main__":

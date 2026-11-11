@@ -57,6 +57,7 @@ not all share the same deployment or activation behavior.
   account login shells and services; Herdr reload is separate. The bundle uses
   Zsh on regular hosts, Bash on Plato/Loki and minimal Zsh on Sigyn. See the root
   README for live deployment, backup and Home Manager ownership boundaries.
-- `mokka/` contains the dynamic wallpaper generator and its local tests.
+- [`mokka/`](mokka/README.md) generates four dithered wallpaper styles, time-based
+  Catppuccin HEICs and matching portrait dark/light PNGs; includes local tests.
 
 See the [test guide](../tests/README.md) for the tracked test inventory and invocation style.
