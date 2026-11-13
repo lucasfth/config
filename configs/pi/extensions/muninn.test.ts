@@ -32,6 +32,8 @@ test("Muninn injects mandatory guidance and a bounded prior-note index without r
   assert.match(context, /huginn-web-rules/);
   assert.match(context, /huginn-conventions/);
   assert.match(context, /030-Coding-Style/);
+  assert.ok(reads.includes("tech/Lucas-Development-Decision-Boundaries.md"));
+  assert.match(context, /body:tech\/Lucas-Development-Decision-Boundaries\.md/);
   assert.match(context, /010-Lucas/);
   assert.match(context, /032-Nix-Darwin-Patterns/);
   assert.match(context, /Prior session index/);

@@ -26,6 +26,7 @@ export const COMMON_PATHS = [
   "tech/huginn-conventions.md",
   "life/010-Lucas.md",
   "tech/030-Coding-Style.md",
+  "tech/Lucas-Development-Decision-Boundaries.md",
 ];
 export const TECH_DOCS: Record<string, string[]> = {
   "lucasfth/config": ["tech/032-Nix-Darwin-Patterns.md"],
