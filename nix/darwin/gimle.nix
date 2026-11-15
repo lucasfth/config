@@ -8,7 +8,7 @@
   cfg = config.services.gimle;
   home = "/Users/gimle";
   privateRoot = "/Library/Application Support/Loki";
-  services = ["gateway" "vault" "ask" "browser" "hue"];
+  services = ["gateway" "vault" "browser" "hue"];
   auxiliary = ["tts-tunnel"] ++ lib.optional cfg.legacyHeadless "chrome-browser";
   # launchd can load these jobs before Determinate mounts /nix. A failed
   # posix_spawn never reaches Python or its retry policy; start in macOS instead.
