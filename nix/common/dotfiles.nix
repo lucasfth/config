@@ -82,6 +82,10 @@ in {
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/configs/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast/scripts/invert-scroll.applescript";
       ".local/bin/sigyn-screen".source = "${flakeDir.outPath}/scripts/sigyn-screen";
+      # Experimental plain-text helper only; no provider, service or model deployment.
+      ".local/bin/sigyn-chat".source = pkgs.writeShellScript "sigyn-chat" ''
+        exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/sigyn-chat" "$@"
+      '';
       # Commands only: plugin installation and fresh Resolve launch stay opt-in.
       ".local/bin/install-asciify-ofx".source = pkgs.writeShellScript "install-asciify-ofx" ''
         exec ${pkgs.python3}/bin/python3 "${flakeDir.outPath}/scripts/install-asciify-ofx" "$@"

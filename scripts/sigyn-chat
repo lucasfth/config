@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Experimental plain-text Sigyn helper. No service, tools, retries or prompt logs."""
+import argparse
+import json
+import math
+import os
+import platform
+import re
+import selectors
+import signal
+import subprocess
+import sys
+import time
+
+
+class RequestError(Exception):
+    pass
+
+
+TAG = re.compile(r'<\||<\s*/?\s*think\b', re.IGNORECASE)
+CONTROLS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+
+
+def encode_request(raw):
+    try:
+        prompt = raw.decode('utf-8', errors='strict')
+        if not prompt.strip() or len(raw) > 2048 or TAG.search(prompt) or CONTROLS.search(prompt):
+            raise ValueError()
+        return json.dumps({'prompt': prompt}, ensure_ascii=False).encode('utf-8')
+    except (UnicodeError, ValueError):
+        raise RequestError('invalid_prompt') from None
+
+
+def no_constant(_):
+    raise ValueError()
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError()
+        result[key] = value
+    return result
+
+
+def validate_response(raw):
+    try:
+        if len(raw) > 16384:
+            raise ValueError()
+        data = json.loads(raw.decode('utf-8', errors='strict'), parse_constant=no_constant,
+                          object_pairs_hook=unique_object)
+        keys = {'model', 'adapter', 'text', 'finish_reason', 'prompt_tokens', 'generated_tokens',
+                'prefill_seconds', 'generation_seconds'}
+        if not isinstance(data, dict) or set(data) != keys:
+            raise ValueError()
+        if data['model'] != 'bonsai-2-2b-ptq1' or data['adapter'] != 'uncensored-research-scale-1':
+            raise ValueError()
+        text = data['text']
+        if (not isinstance(text, str) or not text.strip() or len(text.encode('utf-8')) > 8192
+                or TAG.search(text) or CONTROLS.search(text) or data['finish_reason'] != 'stop'):
+            raise ValueError()
+        for key, maximum in [('prompt_tokens', 448), ('generated_tokens', 64)]:
+            if type(data[key]) is not int or not 1 <= data[key] <= maximum:
+                raise ValueError()
+        for key in ('prefill_seconds', 'generation_seconds'):
+            value = data[key]
+            if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 120:
+                raise ValueError()
+        return data
+    except (ValueError, TypeError, UnicodeError, OverflowError, RecursionError):
+        raise RequestError('invalid_model_output') from None
+
+
+def ssh_command(direct):
+    opts = ['-T', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
+            '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=5',
+            '-o', 'ServerAliveCountMax=2']
+    command = "test \"$(id -un)\" = mobile && exec sh /var/mobile/smolmaxxing-trial/infer-guard.sh"
+    inner = ['ssh', *opts, 'sigyn', command]
+    if direct:
+        return inner
+    # All shell text is fixed. User text is sent exclusively through stdin.
+    import shlex
+    return ['ssh', *opts, 'gimle', 'test "$(hostname -s)" = gimle && exec ' + shlex.join(inner)]
+
+
+def stop_owned(proc):
+    if proc.poll() is None:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait(timeout=3)
+        except ProcessLookupError:
+            pass
+
+
+def invoke(payload, direct=False):
+    # The remote guard serializes both hosts using one atomic device-side lock.
+    proc = None
+    try:
+        proc = subprocess.Popen(ssh_command(direct), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, start_new_session=True)
+        proc.stdin.write(payload)
+        proc.stdin.close()
+        output = bytearray()
+        diagnostics = bytearray()
+        deadline = time.monotonic() + 145
+        with selectors.DefaultSelector() as sel:
+            for pipe, buffer, limit in [(proc.stdout, output, 16384), (proc.stderr, diagnostics, 4096)]:
+                os.set_blocking(pipe.fileno(), False)
+                sel.register(pipe, selectors.EVENT_READ, (buffer, limit))
+            while sel.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RequestError('timeout')
+                for key, _ in sel.select(min(remaining, 1)):
+                    chunk = os.read(key.fd, 4096)
+                    if not chunk:
+                        sel.unregister(key.fileobj)
+                        continue
+                    buffer, limit = key.data
+                    buffer.extend(chunk)
+                    if len(buffer) > limit:
+                        raise RequestError('backend_protocol_error')
+        rc = proc.wait(timeout=max(0.01, deadline-time.monotonic()))
+        if rc:
+            if rc == 24:
+                raise RequestError('busy')
+            if rc in (21, 23):
+                raise RequestError('guard_or_backend_failed')
+            raise RequestError('unavailable')
+        receipt = re.fullmatch(rb'GUARD exit=0 reason=none peak_rss_kib=(\d+) lowest_available_mib=(\d+) sampled_seconds=(\d+)\s*', diagnostics)
+        if not receipt:
+            raise RequestError('backend_protocol_error')
+        peak, available, seconds = map(int, receipt.groups())
+        if peak > 716800 or available < 128 or seconds > 120:
+            raise RequestError('guard_or_backend_failed')
+        return validate_response(bytes(output))
+    except RequestError:
+        raise
+    except (OSError, subprocess.SubprocessError):
+        raise RequestError('unavailable') from None
+    finally:
+        if proc is not None:
+            stop_owned(proc)
+            for pipe in (proc.stdin, proc.stdout, proc.stderr):
+                if pipe and not pipe.closed:
+                    pipe.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--json', action='store_true', help='Return validated result with timing metadata')
+    args = parser.parse_args()
+    try:
+        payload = encode_request(sys.stdin.buffer.read(2049))
+        result = invoke(payload, direct=platform.node().split('.')[0] == 'gimle')
+        print(json.dumps(result, ensure_ascii=False) if args.json else result['text'])
+        return 0
+    except RequestError as error:
+        # Only internal allowlisted categories reach this boundary, never backend text.
+        print('sigyn_chat: ' + str(error), file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print('sigyn_chat: cancelled', file=sys.stderr)
+        return 130
+
+
+if __name__ == '__main__':
+    sys.exit(main())

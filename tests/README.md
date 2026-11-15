@@ -51,6 +51,11 @@ macOS-specific tools, or temporary local services/mocks.
   or when local settings are invalid. Run with `python3 tests/spotifast-config.py`.
 - `sigyn-screen.sh` and `sigyn-vnc.sh` exercise the Sigyn helpers with mock
   commands and temporary credentials.
+- `sigyn-chat.py` exercises the experimental chat helper's prompt/response bounds,
+  privacy errors, fixed SSH commands, bounded stream capture, receipts, timeouts
+  and cancellation cleanup with local subprocess fixtures. Run
+  `python3 tests/sigyn-chat.py`; it never opens SSH or runs inference. It does not
+  prove installed agent access, device guards under load, or public-service safety.
 - `nix-health.sh` checks the Nix health helper.
 - `rebuild.zsh` checks macOS/Linux rebuild command selection, strict shell reload, and failure propagation without invoking real sudo or activating a system. It sources `interactive.zsh` directly; it does not cover generated `.zshrc` startup ordering or prove that a deployed shell has loaded the fix.
 - `herdr-host-summary.sh` checks summary ownership plus isolated concurrent collector starts, stop/restart, per-socket locks and unrelated-PID safety. It launches only its own temporary collectors, not a Herdr server or GUI client.

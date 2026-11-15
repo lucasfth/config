@@ -44,6 +44,32 @@ not all share the same deployment or activation behavior.
   Apple Silicon inference runtime. It refuses to overwrite an existing runtime;
   it does not deploy the menu or implicitly accept the licence on rebuild.
 - `sigyn-screen` and `sigyn-vnc` open the corresponding iPad remote sessions.
+- `sigyn-chat [--json]` accepts a short UTF-8 prompt on stdin and runs the experimental
+  Bonsai 2B uncensored adapter on Sigyn, on demand. From Gimle it uses `ssh sigyn`;
+  from the MacBook it uses the existing `ssh gimle` route. Keys/known hosts must
+  already be provisioned; host verification is mandatory. No listener or agent
+  plugin is installed and neither agent's default provider changes.
+  Example: `printf '%s' 'Reply with exactly READY.' | sigyn-chat`.
+  Use `--json` for the validated transport envelope and timings, not a promise of
+  structured model text. Output is untrusted: never execute it or use it for
+  important decisions. Prompts are limited to 2048 bytes / 448 template-inclusive
+  tokens; replies to 64 tokens. Leaked thinking/control tags, truncated replies
+  and invalid backend envelopes fail closed, without stripping or retries.
+  One device-wide lock serializes requests; busy/offline/guard errors remain errors.
+  Requires the separately deployed `/var/mobile/smolmaxxing-trial/infer-guard.sh`,
+  runtime, model and adapter; this CLI does not provision or modify those files.
+  The guard uses sampled 128 MiB available / 700 MiB RSS / 120-second limits, not a
+  hard kernel cap. Screen-off behavior and broad answer quality are unqualified.
+  Home Manager declares `~/.local/bin/sigyn-chat` on the MacBook and Gimle; the
+  declaration does not imply installation. Its normal activation covers the entire
+  selected home generation, not one command. Do not manually link the evaluated
+  wrapper as a substitute for Home Manager activation. Inspect the full generation
+  delta and obtain approval for affected changes before activating; `nrs` also has
+  unrelated system/Homebrew effects. Rollback must use a reviewed Home Manager
+  generation change rather than replacing an individual managed link. Model files
+  and SSH are outside this mapping. Do not run prompts containing
+  secrets; while the helper does not log prompts, the calling agent can retain its
+  tool inputs/outputs in conversation history. No public endpoint is provided.
 - `build-herdr-client.sh` rebuilds/tests the pinned macOS Herdr sidebar patch from
   `configs/herdr/client.patch` and `client-build.env`. Build-only by default;
   `--install` atomically replaces the independent client without restarting servers.
