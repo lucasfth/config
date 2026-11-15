@@ -103,3 +103,10 @@ if command -v pbcopy >/dev/null 2>&1; then
   zle -N copy-command-buffer
   bindkey -M emacs '^X^Y' copy-command-buffer
 fi
+
+# herdr leaves a fresh pane's shell outside the tty's foreground process group
+# until an external command runs, so fzf inside $(...) gets EIO from /dev/tty.
+# Running one external command first makes zsh reclaim the terminal.
+if (( $+functions[__zoxide_zi] )); then
+  zi() { command true; __zoxide_zi "$@" }
+fi
