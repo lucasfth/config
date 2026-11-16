@@ -12,7 +12,7 @@ cleanup() {
   status=$?
   trap - EXIT HUP INT TERM
   if [ "$mounted" = 1 ]; then
-    hdiutil detach "$work/mount" || status=1
+    diskutil eject "$work/mount" || status=1
   fi
   rmdir "$work/mount" 2>/dev/null || true
   rmdir "$work"
@@ -21,6 +21,6 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 mkdir "$work/mount"
-hdiutil attach -readonly -nobrowse -mountpoint "$work/mount" "$image"
+diskutil image attach --readOnly --mountOptions nobrowse --mountPoint "$work/mount" "$image"
 mounted=1
 /bin/sh "$helper" "$work/mount/Gyroflow.ofx.bundle" "$plugin_dir"
