@@ -13,6 +13,7 @@
       "firebase-cli" # Synthetic local Firebase emulators
       "gum" # muninn-viewer picker and checks
       "herdr"
+      "mole" # Deep clean and optimize the Mac
       "spicy-lemonade/tap/salt" # Native verified ciphertext backups
     ]
     else [
