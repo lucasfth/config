@@ -5,7 +5,7 @@
   hostname,
   ...
 }: let
-  enabled = pkgs.stdenv.isDarwin && hostname == "gimle";
+  enabled = pkgs.stdenv.hostPlatform.isDarwin && hostname == "gimle";
   home = config.home.homeDirectory;
   root = "${home}/loki-data/gimle-qwen";
 in {

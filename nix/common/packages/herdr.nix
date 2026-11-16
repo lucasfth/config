@@ -33,5 +33,5 @@
     };
   };
 in {
-  home.packages = lib.optionals pkgs.stdenv.isLinux [herdr];
+  home.packages = lib.optionals pkgs.stdenv.hostPlatform.isLinux [herdr];
 }

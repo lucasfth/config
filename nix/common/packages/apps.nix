@@ -13,13 +13,13 @@
     [
       docker
     ]
-    ++ lib.optionals (stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) [
+    ++ lib.optionals (stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) [
       swiftbar
       jankyborders
       lmstudio
       sioyek
     ]
-    ++ lib.optionals (stdenv.isDarwin && stdenv.hostPlatform.isAarch64 && hostname == "lucas-macbook-pro") [
+    ++ lib.optionals (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isAarch64 && hostname == "lucas-macbook-pro") [
       # Desktop package only: do not import upstream's gateway/service module.
       # Upstream ships only bin/hermes-desktop on Darwin, which runs a bare Electron
       # with no app bundle; window managers such as AeroSpace then ignore it.
@@ -115,7 +115,7 @@
         };
       })
     ]
-    ++ lib.optionals stdenv.isLinux [
+    ++ lib.optionals stdenv.hostPlatform.isLinux [
       nvidia-docker
       ollama
     ];

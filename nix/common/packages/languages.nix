@@ -19,7 +19,7 @@
         then "sha256-tgfpuSNHkKAIEWrlvbccYkO4S5+0KlOp5w/eQcBsU2o="
         else "sha256-HL6d+fJ+a3jRTMvKQ7ZwOkBO957xxGPekB1/CI1OICY=";
     };
-    nativeBuildInputs = lib.optionals pkgs.stdenv.isLinux [pkgs.autoPatchelfHook];
+    nativeBuildInputs = lib.optionals pkgs.stdenv.hostPlatform.isLinux [pkgs.autoPatchelfHook];
     sourceRoot = "zig-${
       if pkgs.stdenv.hostPlatform.isDarwin
       then "aarch64-macos"
@@ -27,7 +27,7 @@
     }-0.17.0";
     dontBuild = true;
     dontStrip = true;
-    dontFixup = pkgs.stdenv.isDarwin;
+    dontFixup = pkgs.stdenv.hostPlatform.isDarwin;
     installPhase = ''
       runHook preInstall
       mkdir -p "$out/bin" "$out/lib"

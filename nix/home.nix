@@ -43,7 +43,7 @@
 
   # ── Fix ~/.nix-profile link (nix-darwin: new nix CLI vs home-manager mismatch) ──
   home.activation.linkNixProfile = lib.hm.dag.entryAfter ["linkGeneration"] (
-    if pkgs.stdenv.isDarwin
+    if pkgs.stdenv.hostPlatform.isDarwin
     then ''
       rm -f "$HOME/.nix-profile"
       ln -sf ${config.home.path} "$HOME/.nix-profile"

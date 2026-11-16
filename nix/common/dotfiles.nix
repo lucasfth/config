@@ -59,7 +59,7 @@ in {
       ".config/ghostty/herdr-shell.conf".source = "${flakeDir.outPath}/configs/ghostty/herdr-shell.conf";
       # LazyGit uses the native macOS config directory when XDG_CONFIG_HOME is unset.
       ${
-        if pkgs.stdenv.isDarwin
+        if pkgs.stdenv.hostPlatform.isDarwin
         then "Library/Application Support/lazygit/config.yml"
         else ".config/lazygit/config.yml"
       }.source = "${flakeDir.outPath}/configs/lazygit/config.yml";
@@ -73,11 +73,11 @@ in {
     // lib.optionalAttrs (hostname != "gimle") {
       "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
     }
-    // lib.optionalAttrs (pkgs.stdenv.isDarwin && hostname == "lucas-macbook-pro") {
+    // lib.optionalAttrs (pkgs.stdenv.hostPlatform.isDarwin && hostname == "lucas-macbook-pro") {
       # The readable backup mount is specific to the laptop.
       "muninn-readable".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/muninn-volume/vault";
     }
-    // lib.optionalAttrs (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) {
+    // lib.optionalAttrs (pkgs.stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) {
       ".aerospace.toml".source = "${flakeDir.outPath}/configs/aerospace/aerospace.toml";
       "Library/Application Support/sioyek/prefs_user.config".source = "${flakeDir.outPath}/configs/sioyek/prefs_user.config";
       "Library/Application Support/com.raycast.macos/Extensions/invert-scroll.applescript".source = "${flakeDir.outPath}/raycast/scripts/invert-scroll.applescript";
@@ -117,11 +117,11 @@ in {
       ".config/btop/themes/catppuccin_mocha.theme".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/configs/btop/themes/catppuccin_mocha.theme";
     };
 
-  home.activation.generateRaycastAiProviders = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateRaycastAiProviders = lib.mkIf (pkgs.stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${generateRaycastAiProviders}
   '');
 
-  home.activation.configureSyntaxHighlight = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.configureSyntaxHighlight = lib.mkIf (pkgs.stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     if /usr/bin/pgrep -x "Syntax Highlight" >/dev/null; then
       echo "Syntax Highlight: quit the app and run apply-syntax-highlight-config to apply preferences."
     else
@@ -129,7 +129,7 @@ in {
     fi
   '');
 
-  home.activation.configureSpotifast = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.configureSpotifast = lib.mkIf (pkgs.stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     if /usr/bin/pgrep -x "Spotifast" >/dev/null; then
       echo "Spotifast: quit the app and run apply-spotifast-config to apply preferences."
     else
@@ -138,7 +138,7 @@ in {
   '');
 
   # ── Mokka dynamic wallpaper generation (macOS only) ─────────
-  home.activation.generateMokka = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.generateMokka = lib.mkIf (pkgs.stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${pkgs.writeShellScript "generate-mokka" ''
       set -euo pipefail
       SCRIPT="$HOME/config/scripts/mokka/generate.py"
@@ -159,7 +159,7 @@ in {
   # ── Sioyek: install into /Applications (macOS only) ──────────
   # Copy (not symlink) so Spotlight indexes it — the nix store is
   # excluded from Spotlight, and Raycast searches Spotlight.
-  home.activation.installSioyek = lib.mkIf (pkgs.stdenv.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
+  home.activation.installSioyek = lib.mkIf (pkgs.stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) (lib.hm.dag.entryAfter ["writeBoundary"] ''
     $DRY_RUN_CMD ${pkgs.writeShellScript "install-sioyek" ''
       set -euo pipefail
       SRC="${pkgs.sioyek}/Applications/sioyek.app"
