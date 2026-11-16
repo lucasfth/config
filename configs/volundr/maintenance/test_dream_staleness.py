@@ -20,6 +20,17 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(watch.assess(vault,state,now)['state'],'healthy')
             note.write_text('external change')
             self.assertIn('dream-output-revision-changed',watch.assess(vault,state,now)['findings'])
+    def test_repeated_findings_ignore_dated_note_but_change_and_recovery_alert(self):
+        fingerprint=lambda result: hashlib.sha256(json.dumps(
+            {'state':result['state'],'findings':result['findings']},sort_keys=True).encode()).hexdigest()
+        degraded={'state':'degraded','note':'dreams/2026-11-01-Dream.md','findings':['remote-reporting-degraded']}
+        next_day={**degraded,'note':'dreams/2026-11-02-Dream.md'}
+        changed={**next_day,'findings':['remote-reporting-degraded','hygiene-chain-stale']}
+        healthy={'state':'healthy','note':'dreams/2026-11-03-Dream.md','findings':[]}
+        self.assertEqual(fingerprint(degraded),fingerprint(next_day))
+        self.assertNotEqual(fingerprint(next_day),fingerprint(changed))
+        self.assertNotEqual(fingerprint(changed),fingerprint(healthy))
+
     def test_no_outputs_and_old_chain_are_not_green(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);state=root/'state';state.mkdir()

@@ -58,7 +58,10 @@ def main():
         result=assess(VAULT,STATE)
         marker=STATE/'watch.json'
         old=json.loads(marker.read_text()) if marker.exists() else {}
-        fingerprint=hashlib.sha256(json.dumps(result,sort_keys=True).encode()).hexdigest()
+        # The note path is date-specific; it is not a finding. Deduplicate on
+        # health state and findings so a new daily note does not re-alert.
+        fingerprint=hashlib.sha256(json.dumps(
+            {'state':result['state'],'findings':result['findings']},sort_keys=True).encode()).hexdigest()
         changed=old.get('fingerprint')!=fingerprint
         save(marker,{'fingerprint':fingerprint,'result':result})
         if changed and result['findings']:
