@@ -75,7 +75,7 @@ def main():
     assert mini["powerRestart"] is True
     assert mini["computerSleep"] == "never"
     assert mini["lokiDaemons"] == [
-        "loki-ask", "loki-browser", "loki-dashboard", "loki-gateway",
+        "loki-browser", "loki-dashboard", "loki-gateway",
         "loki-hue", "loki-muninn-backup", "loki-vault", "loki-volume",
     ], "The persistent host must retain the completed production cutover"
     assert mini["lokiVolume"]["RunAtLoad"] is True
@@ -106,7 +106,7 @@ def main():
         }; in builtins.mapAttrs (_: job: job.serviceConfig) c.config.launchd.daemons''',
     ], cwd=ROOT, text=True))
     assert "gimle-tailscaled" not in production
-    for service in ("gateway", "vault", "ask", "browser", "hue"):
+    for service in ("gateway", "vault", "browser", "hue"):
         job = production["loki-" + service]
         assert job["UserName"] == "gimle" and job["GroupName"] == "staff"
         assert job["EnvironmentVariables"]["HOME"] == "/Users/gimle"
@@ -125,10 +125,10 @@ def main():
         in { production = names true false; auxiliary = names false true; }''',
     ], cwd=ROOT, text=True))
     assert not {"loki-chrome-browser", "loki-tts-tunnel"}.intersection(isolated["production"])
-    assert {"loki-gateway", "loki-vault", "loki-ask", "loki-browser", "loki-hue"}.issubset(isolated["production"])
+    assert {"loki-gateway", "loki-vault", "loki-browser", "loki-hue"}.issubset(isolated["production"])
     assert "loki-tts-tunnel" in isolated["auxiliary"]
     assert "loki-chrome-browser" not in isolated["auxiliary"]
-    assert not {"loki-gateway", "loki-vault", "loki-ask", "loki-browser", "loki-hue", "loki-muninn-backup"}.intersection(isolated["auxiliary"])
+    assert not {"loki-gateway", "loki-vault", "loki-browser", "loki-hue", "loki-muninn-backup"}.intersection(isolated["auxiliary"])
 
     laptop = config("lucas-macbook-pro")
     assert laptop["home"] == "/Users/lucasfreytorreshanson"
