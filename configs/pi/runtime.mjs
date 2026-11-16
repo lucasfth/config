@@ -69,13 +69,76 @@ async function privateJson(filename, value) {
 
 
 function requiredProxyModels() {
-  return ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'].map(id => ({
-    id, name: id, reasoning: true, input: ['text', 'image'],
-    contextWindow: id.startsWith('claude-') ? 1000000 : 1050000, maxTokens: 128000,
-  }));
+  const existing = ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'];
+  const additional = [
+    'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-fable-5-2',
+    'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5-20251101', 'claude-opus-4-1-20250805', 'claude-opus-4-20250514',
+    'claude-sonnet-4-6', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219',
+    'claude-haiku-4-5-20251001', 'claude-3-5-haiku-20241022',
+    'gpt-6-sol', 'gpt-6-astra', 'gpt-6-chat-thinking', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+    'grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning', 'grok-4.20-multi-agent-0309',
+    'grok-4.7', 'grok-4.7-build-fast', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-3-mini', 'grok-3-mini-fast',
+    'grok-composer-2.5-fast', 'grok-build-0.1', 'deepseek-flash', 'meta/muse-glimmer-30b',
+    'nvidia/nemotron-3-super-120b-a12b', 'nvidia/nemotron-3-ultra-550b-a55b', 'mistralai/mistral-large',
+  ];
+  // Metadata follows Pi's bundled model catalogue; Neo does not provide limits.
+  const groups = [
+    [1000000, 128000, ['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6']],
+    [200000, 64000, ['claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']],
+    [1050000, 128000, ['gpt-6-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']],
+    [500000, 128000, ['grok-4.7', 'grok-4.6', 'grok-4.5']],
+    [1000000, 30000, ['grok-4.3']],
+    [256000, 256000, ['grok-build-0.1']],
+    [1000000, 384000, ['deepseek-flash']],
+    [131072, 16384, ['meta/muse-glimmer-30b']],
+  ];
+  const metadata = new Map(groups.flatMap(([contextWindow, maxTokens, ids]) => ids.map(id =>
+    [id, { reasoning: true, input: ['text', 'image'], contextWindow, maxTokens }])));
+  metadata.set('nvidia/nemotron-3-super-120b-a12b', { reasoning: true, input: ['text'], contextWindow: 256000, maxTokens: 32000 });
+  metadata.set('nvidia/nemotron-3-ultra-550b-a55b', { reasoning: true, input: ['text'], contextWindow: 202800, maxTokens: 182520 });
+  metadata.set('mistralai/mistral-large', { reasoning: false, input: ['text'], contextWindow: 128000, maxTokens: 102400 });
+  return [
+    ...existing.map(id => ({ id, name: id, reasoning: true, input: ['text', 'image'],
+      contextWindow: id.startsWith('claude-') ? 1000000 : 1050000, maxTokens: 128000 })),
+    // Unknown IDs retain conservative defaults until their capabilities are established.
+    ...additional.map(id => ({ id, name: id, ...(metadata.get(id) ?? { reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 4096 }) })),
+  ];
 }
 
-export async function prepareRuntime({ agentDir, env = process.env }) {
+async function discoverProxyModels(endpoint, env, fetchModels) {
+  if (!fetchModels) return [];
+  try {
+    const url = new URL(endpoint.href);
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/models`;
+    url.search = ''; url.hash = '';
+    const response = await fetchModels(url.href, {
+      headers: env.NEO_PROXY_API_KEY ? { Authorization: `Bearer ${env.NEO_PROXY_API_KEY}` } : {},
+      signal: AbortSignal.timeout(3000), redirect: 'error',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!Array.isArray(data.data)) throw new Error('invalid response');
+    const ids = [...new Set(data.data.map(model => model?.id).filter(id => typeof id === 'string' && id.length > 0 && id.length <= 256))];
+    const known = new Map(requiredProxyModels().map(model => [model.id, model]));
+    const dataDir = path.join(sourceDir, 'node_modules/@earendil-works/pi-ai/dist/providers/data');
+    for (const file of readdirSync(dataDir).filter(file => file.endsWith('.json')).sort()) {
+      const providers = await jsonFile(path.join(dataDir, file));
+      for (const group of Object.values(providers)) for (const model of Object.values(group)) {
+        if (model?.type === 'chat' && !known.has(model.id)) {
+          const { id, reasoning, input, contextWindow, maxTokens } = model;
+          known.set(id, { id, name: id, reasoning, input, contextWindow, maxTokens });
+        }
+      }
+    }
+    return ids.filter(id => !/(?:image|imagine|video|audio|voice|tts|speech|transcri)/i.test(id))
+      .map(id => known.get(id) ?? { id, name: id, reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 4096 });
+  } catch (error) {
+    console.warn(`pi-native: Neo model discovery unavailable; using cached catalogue (${error.name === 'TimeoutError' ? 'timeout' : 'request failed'}).`);
+    return [];
+  }
+}
+
+export async function prepareRuntime({ agentDir, env = process.env, fetchModels }) {
   agentDir = path.resolve(agentDir);
   const sourceRoles = await jsonFile(path.join(sourceDir, 'roles.json'));
   const roles = { ...sourceRoles, ...await jsonFile(path.join(agentDir, 'roles.json')) };
@@ -157,6 +220,7 @@ export async function prepareRuntime({ agentDir, env = process.env }) {
   const qwen = await jsonFile(path.join(sourceDir, 'qwen-model.json'));
   const models = [...new Map([
     ...requiredProxyModels(),
+    ...await discoverProxyModels(normalizedEndpoint, env, fetchModels),
     ...(configuredModels.providers?.['neo-proxy']?.models ?? []), qwen,
   ].map(model => [model.id, model])).values()];
   const providers = { ...configuredModels.providers, 'neo-proxy': {

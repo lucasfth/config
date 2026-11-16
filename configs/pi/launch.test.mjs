@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -32,6 +34,65 @@ test('runtime preserves model role choices and private MCP credentials on repeat
     const normalized = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
     assert.equal(normalized.providers['neo-proxy'].baseUrl, 'https://proxy.invalid/v1');
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('Neo catalogue includes proxy chat models without advertising media endpoints', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-neo-catalogue-'));
+  try {
+    await prepareRuntime({ agentDir: dir, env: { NEO_PROXY_URL: 'https://proxy.invalid/v1' } });
+    const { providers } = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
+    const ids = providers['neo-proxy'].models.map(model => model.id);
+    for (const id of ['claude-sonnet-5-5', 'grok-4.7', 'deepseek-flash', 'mistralai/mistral-large']) assert.ok(ids.includes(id), id);
+    for (const id of ['gpt-image-2', 'grok-imagine-video', 'grok-tts']) assert.ok(!ids.includes(id), id);
+    const sonnet = providers['neo-proxy'].models.find(model => model.id === 'claude-sonnet-5-5');
+    assert.deepEqual({ input: sonnet.input, contextWindow: sonnet.contextWindow, maxTokens: sonnet.maxTokens, reasoning: sonnet.reasoning },
+      { input: ['text', 'image'], contextWindow: 1000000, maxTokens: 128000, reasoning: true });
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('Neo discovery adds chat models, filters media, preserves overrides and survives outages', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-neo-discovery-'));
+  const env = { NEO_PROXY_URL: 'https://proxy.invalid/v1', NEO_PROXY_API_KEY: 'test-key' };
+  let request;
+  const fetchModels = async (url, options) => {
+    request = { url, options };
+    return { ok: true, json: async () => ({ data: [{ id: 'new-chat-model' }, { id: 'claude-sonnet-5-5' }, { id: 'grok-imagine-video' }, { id: 'grok-tts' }] }) };
+  };
+  try {
+    await prepareRuntime({ agentDir: dir, env, fetchModels });
+    const file = path.join(dir, 'models.json');
+    const config = JSON.parse(await readFile(file, 'utf8'));
+    let models = config.providers['neo-proxy'].models;
+    assert.equal(request.url, 'https://proxy.invalid/v1/models');
+    assert.equal(request.options.headers.Authorization, 'Bearer test-key');
+    assert.ok(models.some(model => model.id === 'new-chat-model'));
+    assert.ok(!models.some(model => model.id === 'grok-imagine-video' || model.id === 'grok-tts'));
+    models.find(model => model.id === 'new-chat-model').contextWindow = 12345;
+    await writeFile(file, JSON.stringify(config));
+    await prepareRuntime({ agentDir: dir, env, fetchModels: async () => { throw new Error('offline'); } });
+    models = JSON.parse(await readFile(file, 'utf8')).providers['neo-proxy'].models;
+    assert.equal(models.find(model => model.id === 'new-chat-model').contextWindow, 12345);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('launcher discovers Neo models from a loopback server', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-neo-launch-'));
+  const requests = [];
+  const server = createServer((req, res) => {
+    requests.push({ path: req.url, authorization: req.headers.authorization });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ id: 'loopback-new-chat' }] }));
+  });
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const env = { ...process.env, PI_CODING_AGENT_DIR: dir, NEO_PROXY_URL: `http://127.0.0.1:${server.address().port}`, NEO_PROXY_API_KEY: 'test-key' };
+    const child = spawn(process.execPath, [path.join(sourceDir, 'launch.mjs'), '--help'], { env, stdio: 'ignore' });
+    const code = await new Promise((resolve, reject) => { child.on('error', reject); child.on('exit', resolve); });
+    assert.equal(code, 0);
+    assert.deepEqual(requests, [{ path: '/v1/models', authorization: 'Bearer test-key' }]);
+    const config = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
+    assert.ok(config.providers['neo-proxy'].models.some(model => model.id === 'loopback-new-chat'));
+  } finally { await new Promise(resolve => server.close(resolve)); await rm(dir, { recursive: true, force: true }); }
 });
 
 test('Mimer uses the OpenAI v1 base path and keeps the Qwen compatibility alias', async () => {
