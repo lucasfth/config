@@ -257,7 +257,7 @@ export default function lokiBrowser(pi: ExtensionAPI): void {
     name: 'loki_browser', label: 'Loki browser (Gimle)',
     exposure: 'deferred',
     description: 'Operate dedicated app tabs on Gimle through its existing loopback CDP tunnel. Actions: open, snapshot, screenshot, click CSS selector, follow_link (single same-origin HTTPS anchor in the owned tab; url is the expected HTTPS destination origin), type noncredential text, same-origin navigate, close. Stops at login/challenge pages. No arbitrary JavaScript, credentials, cookies, storage, unrelated tabs, popup adoption or service start.',
-    promptGuidelines: ['Obtain approval before starting/reconnecting Gimle infrastructure.', 'Use the exact app URL and a dedicated tab. Stop on login/challenge pages. Lucas handles credentials and 2FA.'],
+    promptGuidelines: ['Standing approval (Lucas, 2026-11-16): reconnect the Gimle browser tunnel with ~/config/scripts/gimle-browser start when it is down. Other Gimle infrastructure still needs approval.', 'Use the exact app URL and a dedicated tab. Stop on login/challenge pages. Lucas handles credentials and 2FA.'],
     parameters: Type.Object({
       action: Type.Union(['open','snapshot','screenshot','click','follow_link','type','navigate','close'].map(action => Type.Literal(action))),
       name: Type.String({ minLength: 1, maxLength: 80 }),
