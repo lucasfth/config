@@ -5,7 +5,7 @@
   hostname,
   ...
 }: {
-  homebrew.casks = builtins.filter (name: hostname != "gimle" || !(builtins.elem name ["betterdisplay" "displaylink"])) [
+  homebrew.casks = builtins.filter (name: hostname != "gimle" || !(builtins.elem name ["betterdisplay" "displaylink" "TheBoredTeam/boring-notch/boring-notch"])) [
     # ── Development ─────────────────────────────────────────
     "temurin"
     "android-platform-tools"
@@ -61,5 +61,6 @@
     "tigervnc"
     "wave"
     "yaak"
+    "TheBoredTeam/boring-notch/boring-notch" # notch widget; unsigned, tap strips quarantine
   ];
 }

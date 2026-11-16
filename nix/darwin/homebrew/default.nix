@@ -31,6 +31,7 @@
         "smudge/smudge" # nightlight
         "spicy-lemonade/tap" # Salt encrypted memory backups
         "steipete/tap" # remindctl
+        "TheBoredTeam/boring-notch" # Boring Notch: unsigned app, tap cask strips quarantine (Lucas approved 2026-11-15)
       ];
   };
 }
