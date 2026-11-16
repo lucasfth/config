@@ -70,7 +70,7 @@ test('clean tracked edits produce task-only textual diff; no-change is not revie
       await callbacks.get('before_agent_start')!({ messageType: 'user', prompt: 'explain a concept' }, ctx);
       await callbacks.get('agent_before_settle')!({ outcome: 'completed' }, ctx);
       assert.equal(requests.some(item => item.method === 'spawn'), false);
-      assert.ok(transcriptEntries.some(entry => /no workspace changes detected/.test(entry.data.content)));
+      assert.equal(transcriptEntries.length, 0);
     } finally { await rm(noChange, { recursive: true, force: true }); }
   } finally { await rm(root, { recursive: true, force: true }); }
 });

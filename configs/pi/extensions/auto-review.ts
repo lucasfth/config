@@ -235,7 +235,7 @@ export default function autoReviewExtension(pi: ExtensionAPI, testOptions: { rpc
     let delta: string | undefined;
     try { delta = workspaceDelta(baseline, current); }
     catch (error) { round = MAX_ROUNDS; transcript(`task delta incomplete: ${error instanceof Error ? error.message : String(error)}`); return; }
-    if (!delta) { round = MAX_ROUNDS; transcript('no workspace changes detected; reviewer was not launched.'); return; }
+    if (!delta) { round = MAX_ROUNDS; return; }
     round++; pending = true;
     let report: string;
     try { report = await launchReview(ctx, delta, baseline); }
