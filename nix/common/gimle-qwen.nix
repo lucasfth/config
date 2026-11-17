@@ -27,4 +27,9 @@ in {
       StandardErrorPath = "${home}/Library/Logs/gimle-qwen-error.log";
     };
   };
+  # llama-swap: model swapper for the private endpoint; registry/state live on the encrypted runtime.
+  home.file."local/bin/llama-swap" = lib.mkIf enabled {
+    source = ../../configs/gimle-qwen/llama_swap.py;
+    executable = true;
+  };
 }

@@ -9,12 +9,10 @@ import subprocess
 import sys
 import time
 
-import psutil
-
 lib = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
 lib.proc_pid_rusage.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
 lib.proc_pid_rusage.restype = ctypes.c_int
-LIMIT = 17_000_000_000
+DEFAULT_LIMIT = 17_000_000_000
 
 
 def footprint(pid):
@@ -24,8 +22,25 @@ def footprint(pid):
     return struct.unpack_from('Q', data, 72)[0]
 
 
+def guard_limit(root):
+    """Per-model supervisor stop from swap-state; falls back to the baked limit."""
+    limit = DEFAULT_LIMIT
+    state_path = root / 'swap-state.json'
+    if state_path.is_file():
+        try:
+            data = json.loads(state_path.read_text())
+            guard = data.get('guard_stop') if isinstance(data, dict) else None
+            if isinstance(guard, int) and not isinstance(guard, bool) and 15_000_000_000 <= guard <= 31_000_000_000:
+                limit = guard
+        except (OSError, ValueError):
+            pass
+    return limit
+
+
 def main():
+    import psutil
     root = Path(os.environ['GIMLE_QWEN_ROOT'])
+    limit = guard_limit(root)
     child = subprocess.Popen([sys.executable, str(Path(__file__).with_name('service.py'))], start_new_session=True)
     peak = 0
     reason = None
@@ -52,7 +67,7 @@ def main():
                         if member.is_running() and member.status() != psutil.STATUS_ZOMBIE:
                             raise
                 peak = max(peak, total)
-                if total >= LIMIT:
+                if total >= limit:
                     reason = 'footprint_limit'
                     break
             except (ProcessLookupError, psutil.NoSuchProcess, psutil.AccessDenied):
@@ -69,7 +84,7 @@ def main():
                 os.killpg(child.pid, signal.SIGKILL)
         child.wait()
         (root / 'last-exit.json').write_text(json.dumps({'exit_code': child.returncode,
-            'reason': reason, 'sampled_peak_bytes': peak, 'stop_threshold_bytes': LIMIT,
+            'reason': reason, 'sampled_peak_bytes': peak, 'stop_threshold_bytes': limit,
             'hard_cap': False, 'time': time.time()}) + '\n')
     return 0 if stopping else 1
 

@@ -4,6 +4,8 @@ Optional single-user Qwen3.5 9B provider for Hugi/Pi and Loki. Neither default i
 
 ## Serving contract
 
+> The fixed values below are the **baked defaults**. On a llama-swap deployment the active model, context, memory limit and guard come from `swap-state.json` (written only by llama-swap; see [llama-swap](#llama-swap)).
+
 - M4 Pro, 6-bit target weights; 8-bit KV cache; text only; thinking disabled.
 - Model ID `qwen3.5-9b-6bit`; rendered total context **139264 tokens**, output **1–4096 tokens** (defaults to 1024).
 - Loopback `127.0.0.1:18789`, bearer auth. Only chat, model list and health paths. No model, adapter, draft or template overrides. Only one active completion; overlapping requests get 429.
@@ -42,3 +44,15 @@ Inspect Gimle `launchctl print gui/501/dk.gimle.qwen`, encrypted runtime `last-e
 Rollback optional endpoint: boot out **only** `gui/501/dk.gimle.qwen`; on Hugi boot out `gui/$(id -u)/dk.huginn.gimle-qwen-tunnel`; remove only the optional private client descriptor/provider entry after backing it up. Restore SOUL/config only from the named hash-verified private backups and only on request. Mimer default and gateway require no restoration because they were never changed.
 
 Remaining limitations: cold 128K prefill ~10 minutes; 128K decode ~14 tok/s; only one disk prefix retained, so switching Hugi/Loki sessions can evict it. No claim of broad agent-quality acceptance or hard memory enforcement. MTP tested slower; DFlash cache/server compatibility failed and 128K DFlash exceeded the sampled stop threshold, so neither is enabled.
+## llama-swap
+
+Model swapper for this endpoint, added 2026-11-17. One model is served at a time on :18789.
+
+- `~/.local/bin/llama-swap` (stateless CLI; the nix module ships it). Registry and state live on the encrypted runtime: `~/loki-data/gimle-qwen/swap-registry.json`, `swap-state.json`, `models/<id>/`, and `model`, a symlink to the active weights.
+- The supervised service reads `swap-state.json` at boot and falls back to the baked defaults (the 9B values above) when it is absent. Out-of-range fields - including any guard above the approved 31 GB ceiling - are rejected at boot; nothing serves with an unvalidated budget.
+- `use <id>` = validate entry -> checkout pinned revision (in-volume move) -> atomic model-symlink and state swap -> `launchctl kickstart -k` -> health (two 200s) -> smoke completion. Any failure rolls back to the previous model automatically. `--dry-run` changes nothing.
+- `init` lays the registry around the existing 9B deployment (moves `model/` to `models/<id>/`, recreates the symlink). One-time, first run.
+- `status` reports active/previous/link/budget, the last-exit summary, and guard drift between the running threshold and the registry.
+- `add <id> <repo> <revision> <ctx> <mem-gb> <target-gb> <stop-gb> [weights-gb] [max-output]` registers a model (validated, 31 G ceiling); `fetch`/`use` download it.
+- Journal: `~/loki-data/gimle-qwen/llama-swap.log` (append-only, 0600).
+- The 30B candidate is registered only; it is not deployed or verified until the weight download, `init`, and the smoke swap have run on Gimle.

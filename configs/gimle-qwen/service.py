@@ -15,6 +15,46 @@ MODEL_ID = 'qwen3.5-9b-6bit'
 CONTEXT = 139264
 MAX_OUTPUT = 4096
 MAX_BODY = 8_000_000
+MEMORY_LIMIT = 14_000_000_000
+PROMPT_CACHE_BYTES = 2_500_000_000
+REVISION = '76fe4065e622cf34990d3c13ef80ec8531c9a0f7'
+def apply_swap_state(root):
+    """Apply the llama-swap registry state; baked values are the fallback."""
+    global MODEL_ID, CONTEXT, MAX_OUTPUT, MEMORY_LIMIT, PROMPT_CACHE_BYTES, REVISION
+    path = Path(root) / 'swap-state.json'
+    if not path.is_file():
+        return
+    state = json.loads(path.read_text())
+    if not isinstance(state, dict):
+        raise ValueError('swap-state.json must be an object')
+
+    def value(name, default, kind, lo, hi):
+        v = state.get(name, default)
+        if not isinstance(v, kind) or isinstance(v, bool) or not lo <= v <= hi:
+            raise ValueError(f'swap-state {name} out of range')
+        state.pop(name, None)
+        return v
+
+    model_id = state.get('model_id', MODEL_ID)
+    if not isinstance(model_id, str) or not 3 <= len(model_id) <= 64 or model_id != model_id.lower():
+        raise ValueError('swap-state model_id invalid')
+    state.pop('model_id', None)
+    MODEL_ID = model_id
+    CONTEXT = value('context', CONTEXT, int, 4096, 139264)
+    MAX_OUTPUT = value('max_output', MAX_OUTPUT, int, 1, 8192)
+    MEMORY_LIMIT = value('memory_limit', MEMORY_LIMIT, int, 4_000_000_000, 31_000_000_000)
+    PROMPT_CACHE_BYTES = value('prompt_cache_bytes', PROMPT_CACHE_BYTES, int, 100_000_000, 8_000_000_000)
+    if 'revision' in state:
+        revision = state.pop('revision')
+        if not isinstance(revision, str) or len(revision) != 40 or any(c not in '0123456789abcdef' for c in revision):
+            raise ValueError('swap-state revision invalid')
+        REVISION = revision
+    guard_stop = value('guard_stop', 17_000_000_000, int, 15_000_000_000, 31_000_000_000)
+    guard_target = value('guard_target', 15_000_000_000, int, 1_000_000_000, 31_000_000_000)
+    if guard_target >= guard_stop:
+        raise ValueError('swap-state guard_target must be below guard_stop')
+    if state:
+        raise ValueError('swap-state has unknown fields')
 
 
 def read_key(path):
@@ -83,14 +123,15 @@ def main():
         raise RuntimeError('Expected encrypted Gimle runtime')
     key = read_key(root / 'api-key')
     model = root / 'model'
-    mx.set_memory_limit(14_000_000_000)
+    apply_swap_state(root)
+    mx.set_memory_limit(MEMORY_LIMIT)
     mx.set_cache_limit(256_000_000)
     os.environ['HF_HOME'] = str(root / 'hf-cache')
     os.environ['HF_HUB_OFFLINE'] = '1'
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     checkpoint = root / 'checkpoint'
     checkpoint.mkdir(mode=0o700, exist_ok=True)
-    contract = {'revision': '76fe4065e622cf34990d3c13ef80ec8531c9a0f7', 'kv_bits': 8,
+    contract = {'revision': REVISION, 'kv_bits': 8,
                 'mlx': importlib.metadata.version('mlx'), 'mlx_lm': importlib.metadata.version('mlx-lm'),
                 'config_sha': hashlib.sha256((model / 'config.json').read_bytes()).hexdigest(),
                 'tokenizer_sha': hashlib.sha256((model / 'tokenizer.json').read_bytes()).hexdigest(),
@@ -217,7 +258,7 @@ def main():
     handler.log_message = lambda *args: None
     sys.argv = [sys.argv[0], '--model', str(model), '--host', '127.0.0.1', '--port', '18789',
                 '--kv-bits', '8', '--quantized-kv-start', '0', '--prefill-step-size', '256',
-                '--prompt-cache-size', '1', '--prompt-cache-bytes', '2500000000',
+                '--prompt-cache-size', '1', '--prompt-cache-bytes', str(PROMPT_CACHE_BYTES),
                 '--decode-concurrency', '1', '--prompt-concurrency', '1', '--max-tokens', '1024',
                 '--chat-template-args', '{"enable_thinking":false}', '--log-level', 'ERROR']
     server.main()
