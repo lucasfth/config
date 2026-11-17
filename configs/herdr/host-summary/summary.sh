@@ -108,6 +108,7 @@ wait_for_collector() {
 
 collect() {
   local cpu mem free battery="" value total idle total2 idle2 pages
+  local cpu_temp gpu_temp max_temp temp_icon
   case $(uname -s) in
     Darwin)
       cpu=$(top -l2 -n0 -s1 | awk '/CPU usage/ {gsub(/%/, "", $7); value=100-$7} END {printf "%.0f", value}')
@@ -116,6 +117,7 @@ collect() {
       value=$(pmset -g batt 2>/dev/null || true)
       battery=$(printf '%s\n' "$value" | awk '/InternalBattery/ {if(match($0,/[0-9]+%/)) print substr($0,RSTART,RLENGTH)}')
       cpu="${cpu}%"
+      collect_temp_darwin
       ;;
     Linux)
       if [[ -r /proc/stat ]]; then
@@ -135,13 +137,117 @@ collect() {
         battery="${battery}%"
         break
       done
+      collect_temp_linux
       ;;
     *) printf 'Unsupported host platform\n' >&2; return 1 ;;
   esac
   free=$(df -Pk "$HOME" | awk 'END {printf "%.0f",$4/1048576}')
-  LOAD=" ${cpu}  ${mem}G"
+  
+  # Build load string with temperature icon and max temp
+  if [[ -n "$max_temp" ]]; then
+    LOAD="${temp_icon} ${cpu}  ${mem}G ${max_temp}°C"
+  else
+    LOAD=" ${cpu}  ${mem}G"
+  fi
   STORAGE=" ${free}G"
   [[ -z "$battery" ]] || STORAGE="$STORAGE  $battery"
+}
+
+collect_temp_darwin() {
+  # Apple Silicon thermal sensors require HID/IOKit access that is not
+  # available through standard command-line tools without sudo.
+  # osx-cpu-temp returns 0.0°C on Apple Silicon (Intel-era SMC probes).
+  # powermetrics requires sudo. istats/OSX-cpu-temp are Intel-only.
+  # Leave temps unset so the load line shows CPU/mem without temperature.
+  cpu_temp=""
+  gpu_temp=""
+  set_max_temp_and_icon
+}
+
+collect_temp_linux() {
+  cpu_temp=""
+  gpu_temp=""
+  # CPU temperature from thermal zones
+  for zone in /sys/class/thermal/thermal_zone*/temp; do
+    [[ -r "$zone" ]] || continue
+    local t type
+    t=$(cat "$zone" 2>/dev/null || echo 0)
+    type=$(cat "${zone%/temp}/type" 2>/dev/null || echo "")
+    # Look for CPU-related thermal zones
+    case "$type" in
+      *cpu*|*CPU*|*core*|*Core*|*package*|*Package*|x86_pkg_temp|intel_powerclamp|acpitz)
+        [[ "$t" =~ ^[0-9]+$ ]] && cpu_temp=$((t / 1000))
+        [[ -n "$cpu_temp" ]] && break
+        ;;
+    esac
+  done
+  # Fallback: first available thermal zone
+  if [[ -z "$cpu_temp" ]]; then
+    for zone in /sys/class/thermal/thermal_zone*/temp; do
+      [[ -r "$zone" ]] || continue
+      local t=$(cat "$zone" 2>/dev/null || echo 0)
+      [[ "$t" =~ ^[0-9]+$ ]] && cpu_temp=$((t / 1000))
+      [[ -n "$cpu_temp" ]] && break
+    done
+  fi
+  # GPU temperature: try nvidia-smi first
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    gpu_temp=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 || true)
+  fi
+  # AMD GPU via hwmon
+  if [[ -z "$gpu_temp" ]]; then
+    for hwmon in /sys/class/drm/card*/device/hwmon/hwmon*/temp*_input; do
+      [[ -r "$hwmon" ]] || continue
+      local t=$(cat "$hwmon" 2>/dev/null || echo 0)
+      [[ "$t" =~ ^[0-9]+$ ]] && gpu_temp=$((t / 1000))
+      [[ -n "$gpu_temp" ]] && break
+    done
+  fi
+  # Fallback: sensors command
+  if [[ -z "$cpu_temp" ]] || [[ -z "$gpu_temp" ]]; then
+    if command -v sensors >/dev/null 2>&1; then
+      local sensors_out=$(sensors 2>/dev/null || true)
+      if [[ -z "$cpu_temp" ]]; then
+        cpu_temp=$(printf '%s\n' "$sensors_out" | awk -F'[+°]' '/Core 0|Package id 0|Tctl|CPU Temp/ {print $2; exit}' || true)
+      fi
+      if [[ -z "$gpu_temp" ]]; then
+        gpu_temp=$(printf '%s\n' "$sensors_out" | awk -F'[+°]' '/edge|GPU|temp1.*radeon|amdgpu/ {print $2; exit}' || true)
+      fi
+    fi
+  fi
+  set_max_temp_and_icon
+}
+
+set_max_temp_and_icon() {
+  max_temp=""
+  temp_icon=""  # default thermometer
+  local cpu_t="${cpu_temp:-0}" gpu_t="${gpu_temp:-0}"
+  # Only consider numeric values
+  [[ "$cpu_t" =~ ^[0-9]+$ ]] || cpu_t=0
+  [[ "$gpu_t" =~ ^[0-9]+$ ]] || gpu_t=0
+  if [[ $cpu_t -gt 0 || $gpu_t -gt 0 ]]; then
+    if [[ $cpu_t -ge $gpu_t ]]; then
+      max_temp=$cpu_t
+      # CPU is hottest or equal
+      if [[ $max_temp -ge 80 ]]; then
+        temp_icon=""  # thermometer full (hot)
+      elif [[ $max_temp -ge 60 ]]; then
+        temp_icon=""  # thermometer half (warm)
+      else
+        temp_icon=""  # thermometer low (cool)
+      fi
+    else
+      max_temp=$gpu_t
+      # GPU is hottest
+      if [[ $max_temp -ge 80 ]]; then
+        temp_icon="󰸞"  # fire + thermometer (hot)
+      elif [[ $max_temp -ge 60 ]]; then
+        temp_icon="󰈸"  # fire (warm)
+      else
+        temp_icon=""  # thermometer low (cool)
+      fi
+    fi
+  fi
 }
 
 publish() {
