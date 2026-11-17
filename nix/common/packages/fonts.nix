@@ -5,14 +5,14 @@
 }: let
   obelMono = pkgs.stdenvNoCC.mkDerivation {
     pname = "obel-mono";
-    version = "1.003";
+    version = "1.004";
     src = pkgs.fetchurl {
-      url = "https://typographic.systems/download/ObelMono-1.003-ttf.zip";
-      # Published in https://typographic.systems/install.sh.
+      url = "https://typographic.systems/download/ObelMono-1.004-ttf.zip";
+      # Published in https://typographic.systems/install.sh (VERSION=1.004).
       hash = "sha256-UvOQuxgdsKhH0Y7+n6nnmBSgFzed1bJRrUVvVJUlAh0=";
     };
     nativeBuildInputs = [pkgs.unzip];
-    sourceRoot = "ObelMono-1.003-ttf";
+    sourceRoot = "ObelMono-1.004-ttf";
     dontBuild = true;
     installPhase = ''
       runHook preInstall
