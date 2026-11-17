@@ -251,15 +251,14 @@ set_max_temp_and_icon() {
 }
 
 publish() {
-  local ids wid
+  local ids first_wid
   ids=$("$HERDR" workspace list | jq -er '.result.workspaces | map(.workspace_id) | join("\n")') || return 1
   [[ -n "$ids" ]] || return 0
+  first_wid=$(printf '%s\n' "$ids" | head -1)
+  [[ -n "$first_wid" ]] || return 0
   collect
-  while IFS= read -r wid; do
-    [[ -n "$wid" ]] || continue
-    "$HERDR" workspace report-metadata "$wid" --source "$SOURCE" \
-      --token "host_load=$LOAD" --token "host_storage=$STORAGE" --ttl-ms 20000 >/dev/null
-  done <<< "$ids"
+  "$HERDR" workspace report-metadata "$first_wid" --source "$SOURCE" \
+    --token "host_load=$LOAD" --token "host_storage=$STORAGE" --ttl-ms 20000 >/dev/null
 }
 
 stop() {
