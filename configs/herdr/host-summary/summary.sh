@@ -260,7 +260,6 @@ publish() {
   "$HERDR" workspace report-metadata "$first_wid" --source "$SOURCE" \
     --token "host_load=$LOAD" --token "host_storage=$STORAGE" --ttl-ms 20000 >/dev/null
 }
-}
 
 stop() {
   local pid owner attempt
