@@ -251,19 +251,14 @@ set_max_temp_and_icon() {
 }
 
 publish() {
-  local ids wid first=1
+  local ids wid
   ids=$("$HERDR" workspace list | jq -er '.result.workspaces | map(.workspace_id) | join("\n")') || return 1
   [[ -n "$ids" ]] || return 0
   collect
   while IFS= read -r wid; do
-    if [[ "$first" == 1 ]]; then
-      "$HERDR" workspace report-metadata "$wid" --source "$SOURCE" \
-        --token "host_load=$LOAD" --token "host_storage=$STORAGE" --ttl-ms 20000 >/dev/null
-      first=0
-    else
-      "$HERDR" workspace report-metadata "$wid" --source "$SOURCE" \
-        --clear-token host_load --clear-token host_storage >/dev/null
-    fi
+    [[ -n "$wid" ]] || continue
+    "$HERDR" workspace report-metadata "$wid" --source "$SOURCE" \
+      --token "host_load=$LOAD" --token "host_storage=$STORAGE" --ttl-ms 20000 >/dev/null
   done <<< "$ids"
 }
 
