@@ -14,8 +14,8 @@
   # ── Bootloader ────────────────────────────────────────────────
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.initrd.systemd.enable = true;
-  boot.initrd.systemd.emergencyAccess = true;
+  # boot.initrd.systemd.enable = true;  # removed in NixOS 26.11 (scripted initrd)
+  # boot.initrd.systemd.emergencyAccess = true;
 
   # ── Networking ─────────────────────────────────────────────────
   networking.networkmanager.enable = true;
