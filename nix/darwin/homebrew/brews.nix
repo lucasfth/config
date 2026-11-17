@@ -39,6 +39,7 @@
       "remindctl"
       "sdkman/tap/sdkman-cli"
       "smudge/smudge/nightlight"
+      "tailcat" # Netcat over the Tailscale data plane
       "tmux" # Running sessions use this binary; Nix tmux is a separate copy
       "spicy-lemonade/tap/salt" # Not SaltStack
       "herdr"
