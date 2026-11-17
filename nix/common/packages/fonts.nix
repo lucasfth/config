@@ -9,7 +9,7 @@
     src = pkgs.fetchurl {
       url = "https://typographic.systems/download/ObelMono-1.003-ttf.zip";
       # Published in https://typographic.systems/install.sh.
-      hash = "sha256-QHkdzeyxeetCoKhTzlxNBcXiDrXvGLZydcmu9vDsqB4=";
+      hash = "sha256-UvOQuxgdsKhH0Y7+n6nnmBSgFzed1bJRrUVvVJUlAh0=";
     };
     nativeBuildInputs = [pkgs.unzip];
     sourceRoot = "ObelMono-1.003-ttf";
