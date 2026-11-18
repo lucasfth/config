@@ -56,7 +56,7 @@ in {
     # nix-darwin preserves these as .before-nix-darwin before taking ownership.
     environment.etc."loki/service-run.py" = {
       source = ../../scripts/loki-service-run;
-      knownSha256Hashes = ["f17cea2bb8e8a81deb1918bca7267be4f954f8173bd797addfa0e4ce45cde1de"];
+      knownSha256Hashes = ["abb6b312d7d3c3bb0114708de0f38a45efe62bb76ebbf2d031cb926a8485d27f"];
     };
     environment.etc."loki/backup-obsidian.py" = {
       source = ../../configs/loki/backup_obsidian.py;
