@@ -52,7 +52,4 @@
   );
 
   programs.home-manager.enable = true;
-
-  # Allow unfree packages (slack, etc.)
-  nixpkgs.config.allowUnfree = true;
 }
