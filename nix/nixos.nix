@@ -5,11 +5,15 @@
 # Before first build, generate and copy hardware-configuration.nix:
 #   nixos-generate-config --root /mnt
 #   cp /mnt/etc/nixos/hardware-configuration.nix nix/nixos/hardware-configuration.nix
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   imports = [
     ./nixos
   ];
   programs.zsh.enable = true;
+  home-manager.useGlobalPkgs = true;
 }
