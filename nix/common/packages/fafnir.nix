@@ -1,10 +1,11 @@
 {
   config,
   pkgs,
+  lib,
   ...
-}: let
-  fafnir = import ./fafnir-package.nix {inherit pkgs;};
-in {
-  # Existing shell configuration places ~/.local/bin first; no alias or checkout dependency.
-  home.file.".local/bin/fafnir".source = "${fafnir}/bin/fafnir";
+}: {
+  # fafnir is macOS-only (fafnir-go build fails on Linux without libtiff)
+  home.file = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+    ".local/bin/fafnir".source = "${(import ./fafnir-package.nix {inherit pkgs;})}/bin/fafnir";
+  };
 }
