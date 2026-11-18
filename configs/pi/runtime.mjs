@@ -69,25 +69,18 @@ async function privateJson(filename, value) {
 
 
 function requiredProxyModels() {
-  const existing = ['gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'];
+  const existing = ['gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6.1-sol', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'];
   const additional = [
-    'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-fable-5-2',
-    'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5-20251101', 'claude-opus-4-1-20250805', 'claude-opus-4-20250514',
-    'claude-sonnet-4-6', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219',
-    'claude-haiku-4-5-20251001', 'claude-3-5-haiku-20241022',
-    'gpt-6-sol', 'gpt-6-astra', 'gpt-6-chat-thinking', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
-    'grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning', 'grok-4.20-multi-agent-0309',
-    'grok-4.7', 'grok-4.7-build-fast', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-3-mini', 'grok-3-mini-fast',
+    'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-fable-5-2',
+    'gpt-6-chat-thinking',
+    'grok-4.7', 'grok-4.7-build-fast', 'grok-4.6', 'grok-4.5', 'grok-3-mini', 'grok-3-mini-fast',
     'grok-composer-2.5-fast', 'grok-build-0.1', 'deepseek-flash', 'meta/muse-glimmer-30b',
     'nvidia/nemotron-3-super-120b-a12b', 'nvidia/nemotron-3-ultra-550b-a55b', 'mistralai/mistral-large',
   ];
   // Metadata follows Pi's bundled model catalogue; Neo does not provide limits.
   const groups = [
-    [1000000, 128000, ['claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6']],
-    [200000, 64000, ['claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']],
-    [1050000, 128000, ['gpt-6-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']],
+    [1000000, 128000, ['claude-sonnet-5-5', 'claude-fable-5-1', 'claude-fable-5-2']],
     [500000, 128000, ['grok-4.7', 'grok-4.6', 'grok-4.5']],
-    [1000000, 30000, ['grok-4.3']],
     [256000, 256000, ['grok-build-0.1']],
     [1000000, 384000, ['deepseek-flash']],
     [131072, 16384, ['meta/muse-glimmer-30b']],
