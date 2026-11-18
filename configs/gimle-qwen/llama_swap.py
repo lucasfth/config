@@ -205,12 +205,13 @@ def restart():
     subprocess.run(['launchctl', 'kickstart', '-k', 'gui/%d/%s' % (UID, SERVICE)], check=False)
 
 
-def wait_health(timeout=HEALTH_TIMEOUT_S):
+def wait_health(api_key, timeout=HEALTH_TIMEOUT_S):
     deadline = time.time() + timeout
     ok = 0
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen('http://127.0.0.1:%d/health' % PORT, timeout=3) as r:
+            with urllib.request.urlopen('http://127.0.0.1:%d/health' % PORT, timeout=3,
+                                        headers={'Authorization': 'Bearer ' + api_key}) as r:
                 ok = ok + 1 if r.status == 200 else 0
         except (urllib.error.URLError, OSError):
             ok = 0
@@ -353,7 +354,7 @@ def cmd_use(root, reg, name, dry):
     checkout(name, entry, root)
     point(root, name, entry)
     restart()
-    if not wait_health():
+    if not wait_health(api_key_of(root)):
         if point_or_none(root, cur, prev_entry) is False:
             die('%s: unhealthy and rollback failed; manual recovery needed' % name, 2)
         journal(root, {'event': 'swap-failed', 'to': name, 'rolled_back': cur})
@@ -377,7 +378,7 @@ def point_or_none(root, name, entry):
     try:
         point(root, name, entry)
         restart()
-        return wait_health()
+        return wait_health(api_key_of(root))
     except Exception:
         return False
 
@@ -397,7 +398,7 @@ def cmd_rollback(root, reg, dry):
     entry = validate_entry(prev, models[prev])
     point(root, prev, entry)
     restart()
-    if not wait_health():
+    if not wait_health(api_key_of(root)):
         journal(root, {'event': 'rollback-failed', 'to': prev})
         die('rollback to %s did not become healthy; manual recovery needed' % prev, 2)
     reg['active'] = prev

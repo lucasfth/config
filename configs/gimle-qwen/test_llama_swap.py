@@ -342,5 +342,39 @@ class PointTests(unittest.TestCase):
             self.assertTrue(os.readlink(root / 'model').endswith('models/%s' % self.ENTRY['model_id']))
             state = json.loads((root / 'swap-state.json').read_text())
             self.assertEqual(sorted(state), sorted(llama_swap.state_for(self.ENTRY)))
+
+
+class HealthAuthTests(unittest.TestCase):
+    def test_wait_health_sends_bearer(self):
+        # 2026-11-18: the endpoint auths every route; an unauthenticated
+        # /health probe hangs wait_health until timeout (401 is not a 200).
+        calls = {}
+
+        class fake_cm:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake_urlopen(url, timeout=None, headers=None):
+            calls.setdefault('n', 0)
+            calls['n'] += 1
+            calls['url'] = url
+            calls['headers'] = headers
+            return fake_cm()
+
+        real = llama_swap.urllib.request.urlopen
+        llama_swap.urllib.request.urlopen = fake_urlopen
+        try:
+            self.assertTrue(llama_swap.wait_health('k' * 32, timeout=10))
+        finally:
+            llama_swap.urllib.request.urlopen = real
+        self.assertEqual(calls['headers'], {'Authorization': 'Bearer ' + 'k' * 32})
+        self.assertTrue(calls['url'].endswith('/health'))
+
+
 if __name__ == '__main__':
     unittest.main()
