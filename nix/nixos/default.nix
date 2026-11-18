@@ -67,16 +67,16 @@
     options = "--delete-older-than 14d";
   };
 
-  # ── Python overrides for freyr (fix flaky test in python3.12-backrefs) ─────
+  # ── Python overrides for freyr (fix observed test_timeout failure in python3.12-backrefs) ─────
   nixpkgs.overlays = [
     (final: prev: {
-      python312Packages =
-        prev.python312Packages
-        // {
-          backrefs = prev.python312Packages.backrefs.overridePythonAttrs (old: {
+      python312 = prev.python312.override {
+        packageOverrides = pyFinal: pyPrev: {
+          backrefs = pyPrev.backrefs.overridePythonAttrs (_: {
             doCheck = false;
           });
         };
+      };
     })
   ];
 
