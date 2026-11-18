@@ -28,7 +28,7 @@ in {
     };
   };
   # llama-swap: model swapper for the private endpoint; registry/state live on the encrypted runtime.
-  home.file."local/bin/llama-swap" = lib.mkIf enabled {
+  home.file.".local/bin/llama-swap" = lib.mkIf enabled {
     source = ../../configs/gimle-qwen/llama_swap.py;
     executable = true;
   };
