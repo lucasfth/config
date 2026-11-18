@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for llama-swap state handling. System python; no MLX, no network."""
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -281,5 +282,65 @@ class InitDryRunTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in root.iterdir()), ['model'])
 
 
+class InitCrashRecoveryTests(unittest.TestCase):
+    def test_symlink_repair_completes_registry(self):
+        # Incident shape 2026-11-18: weights renamed to models/<id>, model/ is a
+        # symlink to it, no registry yet. init must converge without touching the service.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            weights = root / 'models' / llama_swap.BUILTIN_ID
+            weights.mkdir(parents=True)
+            (weights / 'config.json').write_text('{}')
+            (weights / 'tokenizer.json').write_text('{}')
+            (weights / 'chat_template.jinja').write_text('')
+            (weights / 'w.safetensors').write_bytes(b'x')
+            os.symlink('models/%s' % llama_swap.BUILTIN_ID, root / 'model')
+            self.assertEqual(llama_swap.cmd_init(root, dry=True), 0)
+            self.assertFalse((root / 'swap-registry.json').exists())
+            self.assertEqual(llama_swap.cmd_init(root, dry=False), 0)
+            reg = json.loads((root / 'swap-registry.json').read_text())
+            self.assertEqual(reg['active'], llama_swap.BUILTIN_ID)
+            self.assertEqual(reg['previous'], None)
+            self.assertTrue((root / 'model').is_symlink())
+            journal = (root / 'llama-swap.log').read_text().strip().splitlines()
+            self.assertEqual(len(journal), 1)
+            self.assertEqual(json.loads(journal[0])['event'], 'init')
+
+    def test_missing_model_dir_still_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) 
+            (root / 'models').mkdir()
+            with self.assertRaises(SystemExit):
+                llama_swap.cmd_init(root, dry=False)
+
+
+class PointTests(unittest.TestCase):
+    ENTRY = {
+        'model_id': 'model-qwen35',
+        'repo': 'org/model-qwen35',
+        'revision': 'a' * 40,
+        'context': 32768,
+        'max_output': 2048,
+        'memory_limit': 28_000_000_000,
+        'prompt_cache_bytes': 2_500_000_000,
+        'guard_target': 29_000_000_000,
+        'guard_stop': 31_000_000_000,
+    }
+
+    def test_point_creates_link_and_state(self):
+        # Regression 2026-11-18: Point.lexists() raised AttributeError mid-swap.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            weights = root / 'models' / self.ENTRY['model_id']
+            weights.mkdir(parents=True)
+            (weights / 'config.json').write_text('{}')
+            (weights / 'tokenizer.json').write_text('{}')
+            (weights / 'chat_template.jinja').write_text('')
+            (weights / 'w.safetensors').write_bytes(b'x')
+            llama_swap.point(root, self.ENTRY['model_id'], dict(self.ENTRY))
+            self.assertTrue((root / 'model').is_symlink())
+            self.assertTrue(os.readlink(root / 'model').endswith('models/%s' % self.ENTRY['model_id']))
+            state = json.loads((root / 'swap-state.json').read_text())
+            self.assertEqual(sorted(state), sorted(llama_swap.state_for(self.ENTRY)))
 if __name__ == '__main__':
     unittest.main()

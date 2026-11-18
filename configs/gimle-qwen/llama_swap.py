@@ -194,7 +194,7 @@ def point(root, name, entry):
     if not complete(models / name):
         raise ValueError('%s: weights missing; run fetch first' % name)
     nxt = models / ('.link-%d' % os.getpid())
-    if nxt.lexists():
+    if os.path.lexists(nxt):
         nxt.unlink()
     os.symlink(models / name, nxt)
     os.replace(nxt, root / 'model')
