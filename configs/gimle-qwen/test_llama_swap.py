@@ -348,7 +348,7 @@ class HealthAuthTests(unittest.TestCase):
     def test_wait_health_sends_bearer(self):
         # 2026-11-18: the endpoint auths every route; an unauthenticated
         # /health probe hangs wait_health until timeout (401 is not a 200).
-        calls = {}
+        args = {}
 
         class fake_cm:
             status = 200
@@ -359,11 +359,10 @@ class HealthAuthTests(unittest.TestCase):
             def __exit__(self, *a):
                 return False
 
-        def fake_urlopen(url, timeout=None, headers=None):
-            calls.setdefault('n', 0)
-            calls['n'] += 1
-            calls['url'] = url
-            calls['headers'] = headers
+        def fake_urlopen(req, timeout=None):
+            # real urlopen() contract: (request, timeout). A string url or a
+            # stray 'headers=' kwarg TypeErrors before the assertion can pass.
+            args['req'] = req
             return fake_cm()
 
         real = llama_swap.urllib.request.urlopen
@@ -372,8 +371,9 @@ class HealthAuthTests(unittest.TestCase):
             self.assertTrue(llama_swap.wait_health('k' * 32, timeout=10))
         finally:
             llama_swap.urllib.request.urlopen = real
-        self.assertEqual(calls['headers'], {'Authorization': 'Bearer ' + 'k' * 32})
-        self.assertTrue(calls['url'].endswith('/health'))
+        self.assertIsInstance(args['req'], llama_swap.urllib.request.Request)
+        self.assertEqual(args['req'].full_url, 'http://127.0.0.1:%d/health' % llama_swap.PORT)
+        self.assertEqual(args['req'].get_header('Authorization'), 'Bearer ' + 'k' * 32)
 
 
 if __name__ == '__main__':

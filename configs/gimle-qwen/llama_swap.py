@@ -210,8 +210,9 @@ def wait_health(api_key, timeout=HEALTH_TIMEOUT_S):
     ok = 0
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen('http://127.0.0.1:%d/health' % PORT, timeout=3,
-                                        headers={'Authorization': 'Bearer ' + api_key}) as r:
+            req = urllib.request.Request('http://127.0.0.1:%d/health' % PORT,
+                                         headers={'Authorization': 'Bearer ' + api_key})
+            with urllib.request.urlopen(req, timeout=3) as r:
                 ok = ok + 1 if r.status == 200 else 0
         except (urllib.error.URLError, OSError):
             ok = 0
