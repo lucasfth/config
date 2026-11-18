@@ -67,6 +67,19 @@
     options = "--delete-older-than 14d";
   };
 
+  # ── Python overrides for freyr (fix flaky test in python3.12-backrefs) ─────
+  nixpkgs.overlays = [
+    (final: prev: {
+      python312Packages =
+        prev.python312Packages
+        // {
+          backrefs = prev.python312Packages.backrefs.overridePythonAttrs (old: {
+            doCheck = false;
+          });
+        };
+    })
+  ];
+
   # ── Docker ─────────────────────────────────────────────────────
   virtualisation.docker = {
     enable = true;
