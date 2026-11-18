@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -157,14 +158,16 @@ class CompleteTests(unittest.TestCase):
             (d / name).write_bytes(b'\0' * size)
         return d
 
-    def test_complete_requires_all_files_and_tensors(self):
+    def test_complete_requires_core_and_tensors(self):
         with tempfile.TemporaryDirectory() as tmp:
             d = self.make(tmp, ['config.json', 'tokenizer.json', 'chat_template.jinja'], [('w-00001.safetensors', 1)])
             self.assertTrue(llama_swap.complete(d))
             (d / 'chat_template.jinja').unlink()
+            self.assertTrue(llama_swap.complete(d))  # optional: absent in some layouts
+            (d / 'tokenizer.json').unlink()
             self.assertFalse(llama_swap.complete(d))
         with tempfile.TemporaryDirectory() as tmp:
-            d = self.make(tmp, ['config.json', 'tokenizer.json', 'chat_template.jinja'], [('w-00001.safetensors', 0)])
+            d = self.make(tmp, ['config.json', 'tokenizer.json'], [('w-00001.safetensors', 0)])
             self.assertFalse(llama_swap.complete(d))
 
     def test_weights_ok_size_floor(self):
@@ -375,6 +378,84 @@ class HealthAuthTests(unittest.TestCase):
         self.assertEqual(args['req'].full_url, 'http://127.0.0.1:%d/health' % llama_swap.PORT)
         self.assertEqual(args['req'].get_header('Authorization'), 'Bearer ' + 'k' * 32)
 
+
+
+
+class CheckoutCompletionTests(unittest.TestCase):
+    """Regression 2026-11-18: chat_template.jinja is absent from
+    mlx-community/Qwen3-30B-A3B-4bit; it must not be a required file."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_tree_without_chat_template_is_complete(self):
+        m = self.root / 'm'
+        m.mkdir()
+        (m / 'config.json').write_text('{}')
+        (m / 'tokenizer.json').write_text('{}')
+        (m / 'w.safetensors').write_bytes(b'0' * 16)
+        self.assertTrue(llama_swap.complete(m))
+
+    def test_missing_core_fails(self):
+        m = self.root / 'm'
+        m.mkdir()
+        (m / 'tokenizer.json').write_text('{}')
+        (m / 'w.safetensors').write_bytes(b'0' * 16)
+        self.assertFalse(llama_swap.complete(m))
+
+    def test_no_weights_fails(self):
+        m = self.root / 'm'
+        m.mkdir()
+        (m / 'config.json').write_text('{}')
+        (m / 'tokenizer.json').write_text('{}')
+        self.assertFalse(llama_swap.complete(m))
+
+
+class CheckoutFailureRetentionTests(unittest.TestCase):
+    """Regression 2026-11-18: a failed checkout must keep its partial and journal
+    the missing set instead of rmtree-ing the evidence."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_failed_checkout_keeps_partial_and_journals(self):
+        (self.root / 'venv' / 'bin').mkdir(parents=True)
+        (self.root / 'venv' / 'bin' / 'python').write_text('#!/bin/sh\n')
+        (self.root / 'models').mkdir(mode=0o700)
+        (self.root / 'api-key').write_text('k' * 32)
+        os.chmod(self.root / 'api-key', 0o600)
+        entry = {'model_id': 'm2', 'repo': 'x/y', 'revision': 'abcd1234' * 5,
+                 'context': 4096, 'max_output': 512, 'memory_limit': 8_000_000_000,
+                 'prompt_cache_bytes': 100_000_000, 'guard_target': 15_000_000_000,
+                 'guard_stop': 16_000_000_000}
+
+        class _RC:
+            returncode = 1
+
+        real_run = llama_swap.subprocess.run
+        llama_swap.subprocess.run = lambda *a, **k: _RC()
+        try:
+            with self.assertRaises(SystemExit):
+                llama_swap.checkout('m2', entry, self.root)
+        finally:
+            llama_swap.subprocess.run = real_run
+        parts = list((self.root / 'models').glob('.partial-m2-*'))
+        self.assertEqual(len(parts), 1)
+        entries = [json.loads(l) for l in (self.root / 'llama-swap.log').read_text().splitlines()]
+        e = [x for x in entries if x.get('event') == 'checkout-failed']
+        self.assertTrue(e)
+        self.assertTrue(e[-1].get('kept'))
+        allowed = list(llama_swap.CORE_FILES) + ['*.safetensors']
+        self.assertTrue(e[-1].get('missing'))
+        self.assertTrue(all(m0 in allowed for m0 in e[-1]['missing']))
 
 if __name__ == '__main__':
     unittest.main()

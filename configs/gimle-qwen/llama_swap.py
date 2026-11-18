@@ -59,7 +59,9 @@ INT_FIELDS = (('context', 4096, 139264),
               ('guard_target', 1_000_000_000, GUARD_MAX),
               ('guard_stop', 15_000_000_000, GUARD_MAX))
 
-REQUIRED_FILES = ('config.json', 'tokenizer.json', 'chat_template.jinja')
+# config.json and tokenizer.json are the boot requirements; chat_template.jinja is
+# optional (present in some mlx-community checkpoints, absent in others).
+CORE_FILES = ('config.json', 'tokenizer.json')
 
 
 def die(msg, code=1):
@@ -137,7 +139,7 @@ def state_for(entry):
 def complete(weights_dir):
     if not weights_dir.is_dir():
         return False
-    if not all((weights_dir / f).is_file() for f in REQUIRED_FILES):
+    if not all((weights_dir / f).is_file() for f in CORE_FILES):
         return False
     tensors = list(weights_dir.glob('*.safetensors'))
     return bool(tensors) and all(t.stat().st_size > 0 for t in tensors)
@@ -167,7 +169,12 @@ def checkout(name, entry, root):
     venv_python = root / 'venv' / 'bin' / 'python'
     if not venv_python.is_file():
         die('missing venv python: %s' % venv_python)
-    tmp = models / ('.%s.%d' % (name, os.getpid()))
+    leftover = sorted(models.glob('.partial-%s-*' % name))
+    if leftover:
+        tmp = leftover[-1]
+        print('llama-swap: resuming prior partial models/%s' % tmp.name)
+    else:
+        tmp = models / ('.%s.%d' % (name, os.getpid()))
     code = ('from huggingface_hub import snapshot_download\n'
             'p = snapshot_download(repo_id=%r, revision=%r, local_dir=%r)\n'
             'print(p)\n' % (entry['repo'], entry['revision'], str(tmp)))
@@ -177,8 +184,20 @@ def checkout(name, entry, root):
     print('llama-swap: checking out %s@%s -> %s' % (entry['repo'], entry['revision'][:8], name))
     proc = subprocess.run([str(venv_python), '-c', code], env=env)
     if proc.returncode != 0 or not complete(tmp) or not weights_ok(tmp, entry):
-        shutil.rmtree(tmp, ignore_errors=True)
-        die('%s: HF checkout failed or incomplete' % name)
+        # Keep the partial and its location: never discard checkout evidence.
+        missing = [f for f in CORE_FILES if not (tmp / f).is_file()]
+        if not list(tmp.glob('*.safetensors')):
+            missing.append('*.safetensors')
+        partial = tmp
+        try:
+            partial = models / ('.partial-%s-%d' % (name, int(time.time())))
+            os.replace(tmp, partial)
+        except OSError:
+            pass
+        journal(root, {'event': 'checkout-failed', 'id': name, 'rc': proc.returncode,
+                       'missing': missing or ['weights floor'], 'kept': partial.name})
+        die('%s: HF checkout failed or incomplete (missing: %s); partial kept at models/%s'
+            % (name, ', '.join(missing) or 'weights floor', partial.name))
     if dest.exists():
         stale = models / ('.stale-%d' % os.getpid())
         os.replace(dest, stale)
