@@ -69,7 +69,7 @@ async function privateJson(filename, value) {
 
 
 function requiredProxyModels() {
-  const existing = ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'];
+  const existing = ['gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'claude-opus-5-5', 'claude-haiku-5-5'];
   const additional = [
     'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-fable-5-2',
     'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-opus-4-5-20251101', 'claude-opus-4-1-20250805', 'claude-opus-4-20250514',
@@ -218,10 +218,13 @@ export async function prepareRuntime({ agentDir, env = process.env, fetchModels 
   });
   const configuredModels = await jsonFile(path.join(agentDir, 'models.json'));
   const qwen = await jsonFile(path.join(sourceDir, 'qwen-model.json'));
+  const requiredModels = requiredProxyModels();
+  const requiredIds = new Set(requiredModels.map(model => model.id));
   const models = [...new Map([
-    ...requiredProxyModels(),
+    ...requiredModels,
     ...await discoverProxyModels(normalizedEndpoint, env, fetchModels),
-    ...(configuredModels.providers?.['neo-proxy']?.models ?? []), qwen,
+    // Required metadata is authoritative for known models; stale persisted entries for the same id would otherwise win.
+    ...(configuredModels.providers?.['neo-proxy']?.models ?? []).filter(model => !requiredIds.has(model.id)), qwen,
   ].map(model => [model.id, model])).values()];
   const providers = { ...configuredModels.providers, 'neo-proxy': {
     ...configuredModels.providers?.['neo-proxy'],

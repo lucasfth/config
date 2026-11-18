@@ -95,6 +95,28 @@ test('launcher discovers Neo models from a loopback server', async () => {
   } finally { await new Promise(resolve => server.close(resolve)); await rm(dir, { recursive: true, force: true }); }
 });
 
+test('required catalogue metadata overrides stale persisted proxy entries', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-runtime-stale-'));
+  try {
+    const env = { NEO_PROXY_URL: 'https://proxy.invalid/v1', NEO_PROXY_API_KEY: 'test-key' };
+    await prepareRuntime({ agentDir: dir, env });
+    const file = path.join(dir, 'models.json');
+    const config = JSON.parse(await readFile(file, 'utf8'));
+    const ids = ['gpt-6.2-sol', 'gpt-6.2-astra'];
+    config.providers['neo-proxy'].models = config.providers['neo-proxy'].models
+      .filter(model => !ids.includes(model.id))
+      .concat(ids.map(id => ({ id, name: id, reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 4096 })));
+    await writeFile(file, JSON.stringify(config));
+    await prepareRuntime({ agentDir: dir, env });
+    const models = JSON.parse(await readFile(file, 'utf8')).providers['neo-proxy'].models;
+    for (const id of ids) {
+      const model = models.find(entry => entry.id === id);
+      assert.deepEqual({ contextWindow: model.contextWindow, maxTokens: model.maxTokens, reasoning: model.reasoning },
+        { contextWindow: 1050000, maxTokens: 128000, reasoning: true });
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('Mimer uses the OpenAI v1 base path and keeps the Qwen compatibility alias', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-mimer-runtime-'));
   try {
