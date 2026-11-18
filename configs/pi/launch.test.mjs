@@ -95,25 +95,45 @@ test('launcher discovers Neo models from a loopback server', async () => {
   } finally { await new Promise(resolve => server.close(resolve)); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('required catalogue metadata overrides stale persisted proxy entries', async () => {
+test('required metadata wins and offline fallback keeps persisted entries during discovery outage', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-runtime-stale-'));
   try {
     const env = { NEO_PROXY_URL: 'https://proxy.invalid/v1', NEO_PROXY_API_KEY: 'test-key' };
     await prepareRuntime({ agentDir: dir, env });
     const file = path.join(dir, 'models.json');
     const config = JSON.parse(await readFile(file, 'utf8'));
-    const ids = ['gpt-6.2-sol', 'gpt-6.2-astra'];
+    const configIds = ['gpt-6.2-sol', 'gpt-6.2-astra'];
+    const stale = id => ({ id, name: id, reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 4096 });
     config.providers['neo-proxy'].models = config.providers['neo-proxy'].models
-      .filter(model => !ids.includes(model.id))
-      .concat(ids.map(id => ({ id, name: id, reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 4096 })));
+      .filter(model => !configIds.includes(model.id) && model.id !== 'gpt-6.1-terra')
+      .concat(configIds.map(stale), stale('gpt-6.1-terra'));
     await writeFile(file, JSON.stringify(config));
     await prepareRuntime({ agentDir: dir, env });
     const models = JSON.parse(await readFile(file, 'utf8')).providers['neo-proxy'].models;
-    for (const id of ids) {
+    for (const id of configIds) {
       const model = models.find(entry => entry.id === id);
       assert.deepEqual({ contextWindow: model.contextWindow, maxTokens: model.maxTokens, reasoning: model.reasoning },
         { contextWindow: 1050000, maxTokens: 128000, reasoning: true });
     }
+    assert.ok(models.some(model => model.id === 'gpt-6.1-terra' && model.contextWindow === 32768),
+      'persisted non-required entry is retained as the offline fallback while discovery is unavailable');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('persisted entries for retired models are dropped once discovery returns a live catalogue', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pi-runtime-live-drop-'));
+  try {
+    const env = { NEO_PROXY_URL: 'https://proxy.invalid/v1', NEO_PROXY_API_KEY: 'test-key' };
+    const fetchModels = async () => ({ ok: true, json: async () => ({ data: [{ id: 'gpt-6-luna' }] }) });
+    await prepareRuntime({ agentDir: dir, env, fetchModels });
+    const file = path.join(dir, 'models.json');
+    const config = JSON.parse(await readFile(file, 'utf8'));
+    config.providers['neo-proxy'].models.push({ id: 'gpt-6.1-terra', name: 'gpt-6.1-terra', reasoning: false, input: ['text'], contextWindow: 32768, maxTokens: 4096 });
+    await writeFile(file, JSON.stringify(config));
+    await prepareRuntime({ agentDir: dir, env, fetchModels });
+    const ids = JSON.parse(await readFile(file, 'utf8')).providers['neo-proxy'].models.map(model => model.id);
+    assert.ok(!ids.includes('gpt-6.1-terra'), 'stale persisted entry must be dropped when discovery succeeds');
+    assert.ok(ids.includes('gpt-6-luna'));
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

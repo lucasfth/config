@@ -213,11 +213,14 @@ export async function prepareRuntime({ agentDir, env = process.env, fetchModels 
   const qwen = await jsonFile(path.join(sourceDir, 'qwen-model.json'));
   const requiredModels = requiredProxyModels();
   const requiredIds = new Set(requiredModels.map(model => model.id));
+  const discovered = await discoverProxyModels(normalizedEndpoint, env, fetchModels);
   const models = [...new Map([
     ...requiredModels,
-    ...await discoverProxyModels(normalizedEndpoint, env, fetchModels),
-    // Required metadata is authoritative for known models; stale persisted entries for the same id would otherwise win.
-    ...(configuredModels.providers?.['neo-proxy']?.models ?? []).filter(model => !requiredIds.has(model.id)), qwen,
+    ...discovered,
+    // Required metadata is authoritative for known ids; a stale persisted duplicate must not win.
+    // With a live catalogue, persisted entries for ids no longer served are stale relics and are
+    // dropped; the persisted list is retained as the offline fallback when discovery is unavailable.
+    ...(configuredModels.providers?.['neo-proxy']?.models ?? []).filter(model => !requiredIds.has(model.id) && (discovered.length === 0 || discovered.some(d => d.id === model.id))), qwen,
   ].map(model => [model.id, model])).values()];
   const providers = { ...configuredModels.providers, 'neo-proxy': {
     ...configuredModels.providers?.['neo-proxy'],
