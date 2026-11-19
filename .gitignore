@@ -97,3 +97,6 @@ omp-fylgje/
 # Worktrees and brainstorm artifacts
 .worktrees/
 .superpowers/
+
+# Nix-managed node deps (root-level npm artifact; no root package.json)
+package-lock.json
