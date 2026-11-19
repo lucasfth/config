@@ -250,8 +250,8 @@ export async function prepareRuntime({ agentDir, env = process.env, fetchModels 
       models: [{ id: 'qwen3.5-9b-6bit', name: 'Gimle Qwen3.5 9B (6-bit MLX)', reasoning: false, input: ['text'],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 139264, maxTokens: 4096,
         compat: { supportsStore: false, supportsDeveloperRole: false, supportsReasoningEffort: false, maxTokensField: 'max_tokens' } },
-        { id: 'qwen3-30b-a3b-4bit', name: 'Gimle Qwen3 30B (4-bit MLX)', reasoning: false, input: ['text'],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 4096,
+        { id: 'qwen3.5-9b-4bit', name: 'Gimle Qwen3.5 9B (4-bit MLX)', reasoning: false, input: ['text'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 139264, maxTokens: 4096,
         compat: { supportsStore: false, supportsDeveloperRole: false, supportsReasoningEffort: false, maxTokensField: 'max_tokens' } }] };
   }
   await privateJson(path.join(agentDir, 'models.json'), { ...configuredModels, providers });
