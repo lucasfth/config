@@ -16,7 +16,6 @@
     ++ lib.optionals (stdenv.hostPlatform.isDarwin && builtins.elem hostname ["lucas-macbook-pro" "gimle"]) [
       swiftbar
       jankyborders
-      lmstudio
       sioyek
     ]
     ++ lib.optionals (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isAarch64 && hostname == "lucas-macbook-pro") [
