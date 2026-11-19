@@ -79,7 +79,7 @@ def main():
         os.execv(command[0], command)
         return
     if service == 'vault':
-        node = HOME / 'tools/node-26.7.0-darwin-arm64/bin/node'
+        node = HOME / 'tools/node-26.12.1-darwin-arm64/bin/node'
         assert node.is_file(), 'Native managed Node missing'
         os.environ['READ_CODE_NODE'] = str(node)
     os.environ['HERMES_HOME'] = str(HOME)
