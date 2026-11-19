@@ -7,7 +7,7 @@ Optional single-user Qwen3.5 9B provider for Hugi/Pi and Loki. Neither default i
 > The fixed values below are the **baked defaults**. On a llama-swap deployment the active model, context, memory limit and guard come from `swap-state.json` (written only by llama-swap; see [llama-swap](#llama-swap)).
 
 - M4 Pro, 6-bit target weights; 8-bit KV cache; text only; thinking disabled.
-- Model ID `qwen3.5-9b-6bit`; rendered total context **139264 tokens**, output **1–4096 tokens** (defaults to 1024).
+- Models served by the single slot (one active at a time; switched was itself is `llama-swap`): `qwen3.5-9b-6bit` (context **139264 tokens**) and `qwen3-30b-a3b-4bit` (context **32768 tokens**). Output **1–4096 tokens** (defaults to 1024).
 - Loopback `127.0.0.1:18789`, bearer auth. Only chat, model list and health paths. No model, adapter, draft or template overrides. Only one active completion; overlapping requests get 429.
 - MLX 14 GB allocator guideline, 256 MB free cache. Supervisor samples process-tree physical footprint about every 50ms and stops at **17,000,000,000 bytes**. This is not a hard cap; Lucas explicitly accepted transient overshoot risk. Target remains 15 GB.
 - Exact-prefix snapshot under encrypted `~/loki-data/gimle-qwen/checkpoint/`, includes recurrent state. Cache identity binds model revision, runtime, template/tokenizer/config and KV precision. Atomic metadata publication; one snapshot retained. Cached prefixes contain private prompt data; never publish them.
@@ -21,7 +21,7 @@ The agent was initially installed with `scripts/gimle-qwen-install --activate`. 
 
 Installation reuses the already-qualified model snapshot by hardlink; model files must not be edited in place. Subsequent source updates require an explicit service update/restart. Installer refuses an existing plist. No automatic restart after footprint stop; inspect `last-exit.json` before starting again. This LaunchAgent requires a logged-in user domain and an already mounted encrypted volume; unattended boot recovery is not qualified.
 
-Hugi client setup: `python3 scripts/gimle-qwen-client`. Private key/config under `~/.local/share/gimle-qwen`, existing-key strict SSH forwarding via `dk.huginn.gimle-qwen-tunnel`. Pi runtime loads this optional descriptor on next launch. Select **`gimle/qwen3.5-9b-6bit`** in `/model`. The current in-memory model catalogue may require a new Pi launch. No roles/defaults changed.
+Hugi client setup: `python3 scripts/gimle-qwen-client`. Private key/config under `~/.local/share/gimle-qwen`, existing-key strict SSH forwarding via `dk.huginn.gimle-qwen-tunnel`. Pi runtime loads this optional descriptor on next launch. Select **`gimle/qwen3.5-9b-6bit`** or **`gimle/qwen3-30b-a3b-4bit`** in `/model`. Only the model the endpoint currently holds answers. The current in-memory model catalogue may require a new Pi launch. No roles/defaults changed.
 
 Loki: `scripts/gimle-qwen-loki` adds custom provider **`gimle-qwen`** to private config, preserving all defaults/comments and prior exact bytes. Explicit `chat_completions` mode; provider-specific 1200s request/1100s stale timeout. In Hermes use **`/model gimle-qwen`**, then select the listed model if prompted. Root default remains Mimer. Full gateway hot-reload/model selection UI not exercised; fresh actual provider resolver and agent were exercised.
 
