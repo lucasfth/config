@@ -287,6 +287,36 @@ class InitDryRunTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in root.iterdir()), ['model'])
 
 
+class SupervisorCapTests(unittest.TestCase):
+    # All gates share one ceiling (env, cli, boot, monitor). Regression 2026-11-19:
+    # the 37G envelope shipped without the supervisor, so >33G entries fell back to
+    # the baked 17G default. Exercises the real supervise.guard_limit in-process.
+    def _sp(self):
+        import types, importlib.util
+        import os as _os
+        spec = importlib.util.spec_from_file_location('spmod', _os.path.join(_os.path.dirname(llama_swap.__file__), 'supervise.py'))
+        m = types.ModuleType(spec.name); spec.loader.exec_module(m)
+        return m
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory(); self.addCleanup(self._td.cleanup)
+        self.root = os.path.join(self._td.name, 'root'); os.makedirs(self.root)
+        self.sp = self._sp()
+    def _write(self, state):
+        path = os.path.join(self.root, 'swap-state.json')
+        full = {'revision': '76fe4065e622cf34990d3c13ef80ec8531c9a0f7', 'context': 139264,
+                'memory_limit': 14_000_000_000, 'guard_target': 15_000_000_000,
+                'guard_stop': 17_000_000_000, 'model_id': 'qwen3.5-9b-6bit',
+                'max_output': 4096}
+        full.update(state)
+        with open(path, 'w') as f:
+            json.dump(full, f)
+        os.chmod(path, 0o600)
+    def test_at_ceiling_accepted(self):
+        self._write({'guard_stop': 37_000_000_000, 'guard_target': 35_000_000_000})
+        self.assertEqual(self.sp.guard_limit(llama_swap.Path(self.root)), 37_000_000_000)
+    def test_above_ceiling_rejected_to_default(self):
+        self._write({'guard_stop': 38_000_000_000, 'guard_target': 36_000_000_000})
+        self.assertEqual(self.sp.guard_limit(llama_swap.Path(self.root)), 17_000_000_000)
 class InitCrashRecoveryTests(unittest.TestCase):
     def test_symlink_repair_completes_registry(self):
         # Incident shape 2026-11-18: weights renamed to models/<id>, model/ is a

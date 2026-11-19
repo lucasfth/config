@@ -30,7 +30,7 @@ def guard_limit(root):
         try:
             data = json.loads(state_path.read_text())
             guard = data.get('guard_stop') if isinstance(data, dict) else None
-            if isinstance(guard, int) and not isinstance(guard, bool) and 15_000_000_000 <= guard <= 33_000_000_000:
+            if isinstance(guard, int) and not isinstance(guard, bool) and 15_000_000_000 <= guard <= 37_000_000_000:
                 limit = guard
         except (OSError, ValueError):
             pass
