@@ -355,6 +355,65 @@ def cmd_status(reg, root):
     return 0
 
 
+
+
+class SwapError(RuntimeError):
+    """A switch failed; the service state may have been rolled back internally."""
+
+def perform_switch(root, name, do_restart=True):
+    """Switch the held model to `name` using validated registry state.
+
+    Returns (entry, tps) when a switch ran, (entry, None) when already active.
+    Raises SwapError on any failure (rollback handled before raising). With
+    do_restart=False the in-process caller must relaunch the service itself;
+    health/smoke are then the new process's boot verification."""
+    reg = private_json(root / 'swap-registry.json')
+    models = reg.get('models', {})
+    if name not in models:
+        raise SwapError('unknown model %s; run llama-swap list' % name)
+    entry = validate_entry(name, models[name])
+    cur = reg.get('active')
+    if cur == name:
+        return entry, None
+    if cur not in models:
+        raise SwapError('registry has no active model; run llama-swap init or fix the registry')
+    prev_entry = validate_entry(cur, models[cur])
+    def fail(msg):
+        if do_restart:
+            if point_or_none(root, cur, prev_entry) is False:
+                raise SwapError(msg + '; and rollback failed; manual recovery needed')
+        else:
+            try:
+                point(root, cur, prev_entry)
+            except Exception:
+                raise SwapError(msg + '; and rollback failed; manual recovery needed')
+        journal(root, {'event': 'swap-failed', 'to': name, 'rolled_back': cur})
+        raise SwapError(msg + '; rolled back to %s' % cur)
+    try:
+        checkout(name, entry, root)
+        point(root, name, entry)
+    except Exception as exc:
+        fail('%s: switch interrupted' % name)
+    if do_restart:
+        try:
+            restart()
+            if not wait_health(api_key_of(root)):
+                raise SwapError('service did not become healthy')
+        except Exception as exc:
+            fail('%s: unhealthy after restart' % name)
+        try:
+            tps = smoke(api_key_of(root), entry['model_id'])
+        except Exception as exc:
+            journal(root, {'event': 'swap-failed-smoke', 'to': name, 'rolled_back': cur, 'error': str(exc)})
+            raise SwapError('%s: smoke check failed; rolled back to %s' % (name, cur)) from exc
+    else:
+        tps = None
+    reg['active'] = name
+    reg['previous'] = cur
+    save_atomic(root / 'swap-registry.json', reg)
+    journal(root, {'event': 'swap', 'from': cur, 'to': name, 'tok_per_s': round(tps, 2) if tps else None})
+    return entry, tps
+
 def cmd_use(root, reg, name, dry):
     models = reg.get('models', {})
     if name not in models:
@@ -368,32 +427,12 @@ def cmd_use(root, reg, name, dry):
         print('llama-swap: would swap %s -> %s (ctx=%d memory_limit=%.0fG guard_stop=%.0fG)'
               % (cur, name, entry['context'], entry['memory_limit'] / 1e9, entry['guard_stop'] / 1e9))
         return 0
-    if cur not in models:
-        die('registry has no active model; run llama-swap init or fix the registry')
-    prev_entry = validate_entry(cur, models[cur])
-    checkout(name, entry, root)
-    point(root, name, entry)
-    restart()
-    if not wait_health(api_key_of(root)):
-        if point_or_none(root, cur, prev_entry) is False:
-            die('%s: unhealthy and rollback failed; manual recovery needed' % name, 2)
-        journal(root, {'event': 'swap-failed', 'to': name, 'rolled_back': cur})
-        die('%s: service did not become healthy; rolled back to %s' % (name, cur), 2)
     try:
-        tps = smoke(api_key_of(root), entry['model_id'])
-    except Exception as exc:
-        if point_or_none(root, cur, prev_entry) is False:
-            die('%s: smoke failed and rollback failed; manual recovery needed' % name, 2)
-        journal(root, {'event': 'swap-failed-smoke', 'to': name, 'rolled_back': cur, 'error': str(exc)})
-        die('%s: smoke generation failed (%s); rolled back to %s' % (name, exc, cur), 2)
-    reg['active'] = name
-    reg['previous'] = cur
-    save_atomic(root / 'swap-registry.json', reg)
-    journal(root, {'event': 'swap', 'from': cur, 'to': name, 'tok_per_s': round(tps, 2)})
-    print('llama-swap: active=%s smoke=%.1f tok/s' % (name, tps))
+        entry, tps = perform_switch(root, name, do_restart=True)
+    except SwapError as exc:
+        die(str(exc), 2)
+    print('llama-swap: active=%s smoke=%s tok/s' % (name, '%.1f' % tps if tps else 'n/a'))
     return 0
-
-
 def point_or_none(root, name, entry):
     try:
         point(root, name, entry)
