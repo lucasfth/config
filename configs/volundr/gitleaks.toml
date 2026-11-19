@@ -18,6 +18,13 @@ paths = ['''(^|/)(skills/spotify/SKILL\.md|sanitized/publication/loki/media/spot
 regexTarget = "match"
 regexes = ['''CLIENT_ID:CLIENT_SECRET''']
 
+
+[[allowlists]]
+description = "Test fixtures for privacy gate; intentional credential-shaped patterns"
+condition = "AND"
+paths = ['''(^|/)(configs/volundr/learning/tests/test_privacy_gate\.py)$''']
+regexTarget = "line"
+regexes = ['''.*''']
 [[rules]]
 id = "hex-basic-auth-pair"
 description = "Credential-shaped client ID and secret, including Spotify examples"

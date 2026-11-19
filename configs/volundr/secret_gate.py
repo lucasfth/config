@@ -10,7 +10,7 @@ import tarfile
 import sys
 
 POLICY = Path(__file__).with_name('gitleaks.toml')
-POLICY_SHA256 = '20f9f5b3ccfce8e1f5bc8d61ef041f10486095b2a09642c92d1b808a5ec95922'
+POLICY_SHA256 = '91a156db98a53a11d4cbad9b53cb238e26325377a85a50e850706e8d5c2550ee'
 
 
 def scan(repo, mode='tree', revision=None, binary='gitleaks', policy=None):
