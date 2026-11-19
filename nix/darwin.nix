@@ -12,6 +12,7 @@
     ./darwin/services.nix
     ./darwin/davinci-resolve.nix
     ./darwin/gimle.nix
+    ./darwin/hermes-cache-cleanup.nix
     ./darwin/homebrew
   ];
 
