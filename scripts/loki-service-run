@@ -56,7 +56,7 @@ def service_runtime(service):
             LIVE / 'update-staging-20261118-v0.23.2/hermes-loki-v0.23.2',
             HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3',
         )
-    return SOURCE, HOME / 'tools/python-3.14.7+20260901-darwin-arm64/bin/python3'
+    return SOURCE, HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3'
 
 
 def main():
