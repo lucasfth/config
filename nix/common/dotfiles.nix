@@ -54,7 +54,10 @@ in {
     {
       # ── Cross-platform dotfiles ─────────────────────────────────
       ".config/starship.toml".source = "${flakeDir.outPath}/configs/starship/starship.toml";
-      ".config/ghostty/config".source = "${flakeDir.outPath}/configs/ghostty/config";
+      ".config/ghostty/config" = {
+        source = "${flakeDir.outPath}/configs/ghostty/config";
+        force = hostname == "freyr";
+      };
       ".config/ghostty/config.ghostty".source = "${flakeDir.outPath}/configs/ghostty/config.ghostty";
       ".config/ghostty/herdr-shell.conf".source = "${flakeDir.outPath}/configs/ghostty/herdr-shell.conf";
       # LazyGit uses the native macOS config directory when XDG_CONFIG_HOME is unset.
@@ -64,7 +67,10 @@ in {
         else ".config/lazygit/config.yml"
       }.source = "${flakeDir.outPath}/configs/lazygit/config.yml";
       ".tmux.conf".source = "${flakeDir.outPath}/configs/tmux/tmux.conf";
-      ".config/zed/settings.json".source = "${flakeDir.outPath}/configs/zed/settings.json";
+      ".config/zed/settings.json" = {
+        source = "${flakeDir.outPath}/configs/zed/settings.json";
+        force = hostname == "freyr";
+      };
 
       # ── config-add helper (cross-platform) ────────────────────
       ".local/bin/config-add".source = "${flakeDir.outPath}/scripts/config-add";
