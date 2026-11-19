@@ -42,22 +42,14 @@
   };
 
   # ── Fix ~/.nix-profile link (nix-darwin: new nix CLI vs home-manager mismatch) ──
-  home.activation.linkNixProfile =
-    lib.hm.dag.entryAfter ["linkGeneration"] (
-      if pkgs.stdenv.hostPlatform.isDarwin
-      then ''
-        rm -f "$HOME/.nix-profile"
-        ln -sf ${config.home.path} "$HOME/.nix-profile"
-      ''
-      else
-        ""
-        # ── Exclude zed/ghostty from HM on Linux (masking-config manages them) ──
-        xdg.configFile
-    =
-    lib.optionalAttrs (pkgs.stdenv.hostPlatform.isLinux) {
-      "zed/settings.json".source = null;
-      "ghostty/config".source = null;
-    };
+  home.activation.linkNixProfile = lib.hm.dag.entryAfter ["linkGeneration"] (
+    if pkgs.stdenv.hostPlatform.isDarwin
+    then ''
+      rm -f "$HOME/.nix-profile"
+      ln -sf ${config.home.path} "$HOME/.nix-profile"
+    ''
+    else ""
+  );
 
   programs.home-manager.enable = true;
 }
