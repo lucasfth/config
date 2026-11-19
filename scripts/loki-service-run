@@ -50,13 +50,11 @@ def auxiliary_command(service):
 
 
 def service_runtime(service):
-    # Keep auxiliary MCP services on their existing closure during the Hermes upgrade.
-    if service == 'gateway':
-        return (
-            LIVE / 'update-staging-20261118-v0.23.2/hermes-loki-v0.23.2',
-            HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3',
-        )
-    return SOURCE, HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3'
+    # hermes-source lost its committed dependency environment; all services share the v0.23.2 runtime.
+    return (
+        LIVE / 'update-staging-20261118-v0.23.2/hermes-loki-v0.23.2',
+        HOME / 'tools/python-3.14.9+20261021-darwin-arm64/bin/python3',
+    )
 
 
 def main():
