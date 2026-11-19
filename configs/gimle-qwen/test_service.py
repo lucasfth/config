@@ -1,7 +1,9 @@
+import hashlib
 import importlib.util
 import pathlib
 import tempfile
 import unittest
+from pathlib import Path
 
 spec = importlib.util.spec_from_file_location('service', pathlib.Path(__file__).with_name('service.py'))
 service = importlib.util.module_from_spec(spec)
@@ -66,6 +68,21 @@ class PolicyTests(unittest.TestCase):
             p.chmod(0o644)
             with self.assertRaises(PermissionError):
                 service.read_key(p)
+
+
+
+
+class ShaFileOrNoneTests(unittest.TestCase):
+    def test_present_file_hashes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / 'x.bin'
+            f.write_bytes(b'abc123')
+            self.assertEqual(service.sha_file_or_none(f),
+                             hashlib.sha256(b'abc123').hexdigest())
+
+    def test_missing_file_is_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(service.sha_file_or_none(Path(tmp) / 'nope.jinja'))
 
 
 if __name__ == '__main__':

@@ -110,6 +110,15 @@ def validate_request(body):
     return {**body, 'model': 'default_model', 'max_tokens': limit}
 
 
+
+# Boot contract file digests. chat_template.jinja is legitimately absent from
+# some mlx-community checkpoints; config/tokenizer are always required at load.
+def sha_file_or_none(path):
+    if not path.is_file():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def main():
     import mlx.core as mx
     from mlx_lm import server
@@ -133,9 +142,9 @@ def main():
     checkpoint.mkdir(mode=0o700, exist_ok=True)
     contract = {'revision': REVISION, 'kv_bits': 8,
                 'mlx': importlib.metadata.version('mlx'), 'mlx_lm': importlib.metadata.version('mlx-lm'),
-                'config_sha': hashlib.sha256((model / 'config.json').read_bytes()).hexdigest(),
-                'tokenizer_sha': hashlib.sha256((model / 'tokenizer.json').read_bytes()).hexdigest(),
-                'template_sha': hashlib.sha256((model / 'chat_template.jinja').read_bytes()).hexdigest()}
+                'config_sha': sha_file_or_none(model / 'config.json'),
+                'tokenizer_sha': sha_file_or_none(model / 'tokenizer.json'),
+                'template_sha': sha_file_or_none(model / 'chat_template.jinja')}
     identity = hashlib.sha256(json.dumps(contract, sort_keys=True).encode()).hexdigest()
     original_fetch = LRUPromptCache.fetch_nearest_cache
     original_tokenize = server.ResponseGenerator._tokenize
