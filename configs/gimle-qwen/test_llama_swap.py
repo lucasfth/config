@@ -72,12 +72,12 @@ class ApplySwapStateTests(unittest.TestCase):
                     service.apply_swap_state(self.root)
 
     def test_guard_stop_above_cap_rejected(self):
-        self.write_state({'guard_stop': 34_000_000_000})
+        self.write_state({'guard_stop': 39_000_000_000})
         with self.assertRaises(ValueError):
             service.apply_swap_state(self.root)
 
     def test_guard_stop_at_cap_accepted(self):
-        self.write_state({'guard_stop': 31_000_000_000, 'guard_target': 29_000_000_000})
+        self.write_state({'guard_stop': 37_000_000_000, 'guard_target': 35_000_000_000})
         service.apply_swap_state(self.root)
 
     def test_guard_target_must_be_below_stop(self):
@@ -121,9 +121,9 @@ class ValidateEntryTests(unittest.TestCase):
         self.assertEqual(result['model_id'], 'qwen3.5-9b-6bit')
 
     def test_guard_at_cap_valid_above_cap_rejected(self):
-        llama_swap.validate_entry('big', self.entry(guard_stop=31_000_000_000, guard_target=29_000_000_000))
+        llama_swap.validate_entry('big', self.entry(guard_stop=37_000_000_000, guard_target=35_000_000_000))
         with self.assertRaises(ValueError):
-            llama_swap.validate_entry('big', self.entry(guard_stop=34_000_000_000))
+            llama_swap.validate_entry('big', self.entry(guard_stop=39_000_000_000))
 
     def test_guard_target_must_be_below_stop(self):
         with self.assertRaises(ValueError):
@@ -198,7 +198,7 @@ class GuardLimitTests(unittest.TestCase):
         self.assertEqual(supervise.guard_limit(self.root), 33_000_000_000)
 
     def test_out_of_range_falls_back_to_baked(self):
-        self.write_state({'guard_stop': 34_000_000_000})
+        self.write_state({'guard_stop': 39_000_000_000})
         self.assertEqual(supervise.guard_limit(self.root), supervise.DEFAULT_LIMIT)
 
     def test_bool_guard_falls_back(self):
@@ -260,7 +260,7 @@ class AddRegistryTests(unittest.TestCase):
     def test_add_over_cap_rejected(self):
         with self.assertRaises(SystemExit):
             llama_swap.cmd_add(self.root, self.load(), 'too-big',
-                               ['org/repo', 'a' * 40, '32768', '28', '29', '34'], dry=False)
+                               ['org/repo', 'a' * 40, '32768', '28', '29', '39'], dry=False)
 
     def test_add_fractional_gb_rejected(self):
         with self.assertRaises(SystemExit):

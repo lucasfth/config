@@ -35,7 +35,7 @@ UID = 501
 VOLUME = '/Users/gimle/loki-data'
 DEFAULT_ROOT = '/Users/gimle/loki-data/gimle-qwen'
 PORT = 18789
-GUARD_MAX = 33_000_000_000  # 2026-11-19: raised 31->33G for the 30B 131K option (Lucas, option 1)
+GUARD_MAX = 37_000_000_000  # 2026-11-19: raised 33->37G measurement envelope (Lucas, option 1) - envelope for 131K peak measurement; the D guard value itself stays a registry file (<=37)
 HEALTH_TIMEOUT_S = 300
 SMOKE_TIMEOUT_S = 180
 
