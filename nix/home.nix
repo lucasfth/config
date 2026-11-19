@@ -51,11 +51,5 @@
     else ""
   );
 
-  # ── Exclude zed/ghostty from HM (managed by obel-mono masking-config) ──
-  xdg.configFile = lib.optionalAttrs (pkgs.stdenv.hostPlatform.isLinux) {
-    "zed/settings.json".source = null;
-    "ghostty/config".source = null;
-  };
-
   programs.home-manager.enable = true;
 }
