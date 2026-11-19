@@ -70,10 +70,6 @@ in {
       ".local/bin/config-add".source = "${flakeDir.outPath}/scripts/config-add";
       ".local/bin/sigyn-vnc".source = "${flakeDir.outPath}/scripts/sigyn-vnc";
     }
-    // lib.optionalAttrs (hostname == "freyr") {
-      ".config/zed/settings.json".force = true;
-      ".config/ghostty/config".force = true;
-    }
     // lib.optionalAttrs (hostname != "gimle") {
       "muninn".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Desktop/code/muninn";
     }
