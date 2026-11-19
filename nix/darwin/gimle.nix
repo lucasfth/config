@@ -51,6 +51,7 @@ in {
     power.sleep.computer = "never";
 
     environment.etc."loki/volume-mount.py".source = ../../scripts/loki-volume-mount;
+    environment.etc."loki/volume-watchdog.py".source = ../../scripts/loki-volume-watchdog;
     environment.etc."loki/dashboard-run.py" = lib.mkIf cfg.dashboardAtBoot {source = ../../scripts/loki-dashboard-run;};
     # Adopt only the exact reviewed files left by the one-time bootstrap/rollback.
     # nix-darwin preserves these as .before-nix-darwin before taking ownership.
@@ -154,6 +155,20 @@ in {
             ProcessType = "Background";
             StandardOutPath = "/var/log/loki-volume.log";
             StandardErrorPath = "/var/log/loki-volume-error.log";
+          };
+        };
+
+        # Evidence capture only: never restarts or kills. Uses the macOS python and
+        # internal-disk logs so it still works when /nix or the data volume stalls.
+        loki-volume-watchdog = lib.mkIf cfg.production {
+          serviceConfig = {
+            Label = "dk.loki.volume-watchdog";
+            ProgramArguments = ["/usr/bin/python3" "/etc/loki/volume-watchdog.py"];
+            StartInterval = 60;
+            RunAtLoad = false;
+            ProcessType = "Background";
+            StandardOutPath = "/var/log/loki-watchdog.out";
+            StandardErrorPath = "/var/log/loki-watchdog.err";
           };
         };
 

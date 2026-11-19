@@ -1,0 +1,197 @@
+#!/usr/bin/python3
+"""Detect a stalled Loki data volume and capture evidence before anyone restarts.
+
+Runs every minute from launchd as root. Read-only against Loki state except for
+one small probe file. Never restarts, kills or unmounts anything.
+
+Checks:
+  1. /Users/gimle/loki-data is a real mount (otherwise the probe would test the
+     internal disk and falsely pass).
+  2. A child process writes and fsyncs a probe file on the volume within
+     PROBE_TIMEOUT seconds. A stuck probe is left alone (it may be in
+     uninterruptible I/O wait); its pid is remembered and counts as a stall
+     until it exits.
+  3. The gateway heartbeat (gateway_state.json updated_at) is fresh.
+
+On the first failing run of an incident it writes a bundle to
+/var/log/loki-watchdog/incident-<time>/ (spindump, ps, mount, launchctl) and
+appends one line to /var/log/loki-watchdog.log. Logs stay on the internal disk
+so they remain writable when the volume is not.
+"""
+import datetime
+import json
+import os
+import subprocess
+import sys
+import time
+
+DATA = os.environ.get("LOKI_WATCHDOG_DATA", "/Users/gimle/loki-data")
+LOG_DIR = os.environ.get("LOKI_WATCHDOG_LOG_DIR", "/var/log")
+REQUIRE_MOUNT = os.environ.get("LOKI_WATCHDOG_REQUIRE_MOUNT", "1") == "1"
+PROBE_TIMEOUT = 10
+HEARTBEAT_MAX_AGE = 300
+INCIDENT_COOLDOWN = 1800
+SERVICES = ["volume", "gateway", "vault", "browser", "hue"]
+
+LOG = os.path.join(LOG_DIR, "loki-watchdog.log")
+STATE = os.path.join(LOG_DIR, "loki-watchdog.state.json")
+BUNDLES = os.path.join(LOG_DIR, "loki-watchdog")
+
+PROBE_CODE = (
+    "import os,sys\n"
+    "p=sys.argv[1]\n"
+    "f=open(p,'wb'); f.write(b'x'*4096); f.flush(); os.fsync(f.fileno()); f.close()\n"
+    "os.unlink(p)\n"
+)
+
+
+def now():
+    return datetime.datetime.now().astimezone()
+
+
+def log(msg):
+    with open(LOG, "a") as fh:
+        fh.write(f"{now().isoformat(timespec='seconds')} {msg}\n")
+
+
+def load_state():
+    try:
+        with open(STATE) as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
+
+
+def save_state(state):
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(state, fh)
+    os.replace(tmp, STATE)
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def run(cmd, timeout, out):
+    """Run a diagnostic with a hard deadline; never wait on a stuck process."""
+    try:
+        with open(out, "wb") as fh:
+            p = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT, start_new_session=True)
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                if p.poll() is not None:
+                    return
+                time.sleep(0.5)
+            with open(out, "ab") as more:
+                more.write(f"\n[watchdog] timed out after {timeout}s, left running pid {p.pid}\n".encode())
+    except Exception as exc:
+        with open(out, "ab") as more:
+            more.write(f"\n[watchdog] could not run {cmd[0]}: {exc}\n".encode())
+
+
+def probe(state):
+    """Return (ok, detail)."""
+    old = state.get("probe_pid")
+    if old and alive(old):
+        return False, f"earlier probe pid {old} still blocked"
+    state.pop("probe_pid", None)
+    path = os.path.join(DATA, f".watchdog-probe-{os.getpid()}")
+    p = subprocess.Popen(
+        [sys.executable, "-c", PROBE_CODE, path],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+    )
+    start = time.time()
+    while time.time() - start < PROBE_TIMEOUT:
+        rc = p.poll()
+        if rc is not None:
+            return rc == 0, f"write+fsync {time.time() - start:.2f}s rc={rc}"
+        time.sleep(0.25)
+    state["probe_pid"] = p.pid
+    return False, f"write+fsync did not finish in {PROBE_TIMEOUT}s (probe pid {p.pid})"
+
+
+def heartbeat():
+    """Return (ok, detail). The read runs in a child so a stall cannot hang us."""
+    path = os.path.join(DATA, "live/hermes/gateway_state.json")
+    code = "import json,sys;print(json.load(open(sys.argv[1])).get('updated_at',''))"
+    try:
+        r = subprocess.run([sys.executable, "-c", code, path], capture_output=True, text=True, timeout=PROBE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return False, "gateway_state.json read timed out"
+    if r.returncode != 0 or not r.stdout.strip():
+        return False, "gateway_state.json unreadable"
+    try:
+        ts = datetime.datetime.fromisoformat(r.stdout.strip())
+    except ValueError:
+        return False, "gateway_state.json updated_at unparseable"
+    age = (datetime.datetime.now(datetime.timezone.utc) - ts).total_seconds()
+    return age <= HEARTBEAT_MAX_AGE, f"heartbeat age {age:.0f}s"
+
+
+def capture(reason):
+    stamp = now().strftime("%Y%m%d-%H%M%S")
+    d = os.path.join(BUNDLES, f"incident-{stamp}")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    with open(os.path.join(d, "reason.txt"), "w") as fh:
+        fh.write(reason + "\n")
+    run(["/bin/ps", "-axo", "pid,ppid,etime,stat,wchan,command"], 10, os.path.join(d, "ps.txt"))
+    run(["/sbin/mount"], 5, os.path.join(d, "mount.txt"))
+    run(["/bin/df", "-h"], 10, os.path.join(d, "df.txt"))
+    for svc in SERVICES:
+        run(["/bin/launchctl", "print", f"system/dk.loki.{svc}"], 8, os.path.join(d, f"launchctl-{svc}.txt"))
+    # Kernel stacks of blocked processes are the part we lacked last time.
+    run(["/usr/sbin/spindump", "-notarget", "10", "10", "-o", os.path.join(d, "spindump.txt")], 40,
+        os.path.join(d, "spindump.out"))
+    run(["/usr/bin/log", "show", "--last", "10m", "--style", "compact", "--predicate",
+         'process == "kernel" OR process CONTAINS "diskimages" OR process == "diskarbitrationd" '
+         'OR eventMessage CONTAINS[c] "apfs" OR eventMessage CONTAINS[c] "fsync"'],
+        40, os.path.join(d, "unified-log-10m.txt"))
+    return d
+
+
+def main():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    state = load_state()
+    failures = []
+
+    if REQUIRE_MOUNT and not os.path.ismount(DATA):
+        failures.append("volume not mounted")
+    else:
+        ok, detail = probe(state)
+        if not ok:
+            failures.append(detail)
+        ok, detail = heartbeat()
+        if not ok:
+            failures.append(detail)
+
+    t = time.time()
+    if failures:
+        reason = "; ".join(failures)
+        if t - state.get("last_incident", 0) >= INCIDENT_COOLDOWN:
+            d = capture(reason)
+            state["last_incident"] = t
+            log(f"STALL {reason} -> {d}")
+        elif state.get("last_reason") != reason:
+            log(f"STALL (ongoing) {reason}")
+        state["last_reason"] = reason
+        state["failing"] = True
+    else:
+        if state.get("failing"):
+            log("RECOVERED")
+        elif t - state.get("last_ok_log", 0) >= 3600:
+            log("ok")
+            state["last_ok_log"] = t
+        state["failing"] = False
+        state.pop("last_reason", None)
+    save_state(state)
+
+
+if __name__ == "__main__":
+    main()
