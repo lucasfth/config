@@ -178,14 +178,14 @@ in {
       }
     ];
 
-    # Hermes regenerable cache cleanup and log rotation (disabled until activated on Gimle)
-    # services.hermes-cache-cleanup = {
-    #   enable = true;
-    #   schedule = "daily";
-    #   alertThreshold = 85;
-    #   keepLogCount = 2;
-    #   maxLogSize = "100M";
-    # };
+    # Hermes regenerable cache cleanup and log rotation
+    services.hermes-cache-cleanup = {
+      enable = true;
+      schedule = "daily";
+      alertThreshold = 85;
+      keepLogCount = 2;
+      maxLogSize = "100M";
+    };
 
     # Gate emission, not merely Disabled: activation uses launchctl load -w.
     # Service runners verify encrypted-volume readiness before opening state.
