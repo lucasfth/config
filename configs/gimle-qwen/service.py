@@ -49,8 +49,8 @@ def apply_swap_state(root):
         if not isinstance(revision, str) or len(revision) != 40 or any(c not in '0123456789abcdef' for c in revision):
             raise ValueError('swap-state revision invalid')
         REVISION = revision
-    guard_stop = value('guard_stop', 17_000_000_000, int, 15_000_000_000, 31_000_000_000)
-    guard_target = value('guard_target', 15_000_000_000, int, 1_000_000_000, 31_000_000_000)
+    guard_stop = value('guard_stop', 17_000_000_000, int, 15_000_000_000, 33_000_000_000)
+    guard_target = value('guard_target', 15_000_000_000, int, 1_000_000_000, 33_000_000_000)
     if guard_target >= guard_stop:
         raise ValueError('swap-state guard_target must be below guard_stop')
     if state:
