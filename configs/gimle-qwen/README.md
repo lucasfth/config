@@ -56,3 +56,7 @@ Model swapper for this endpoint, added 2026-11-17. One model is served at a time
 - `add <id> <repo> <revision> <ctx> <mem-gb> <target-gb> <stop-gb> [weights-gb] [max-output]` registers a model (validated, 31 G ceiling); `fetch`/`use` download it.
 - Journal: `~/loki-data/gimle-qwen/llama-swap.log` (append-only, 0600).
 - `qwen3-30b-a3b-4bit` was deployed, measured, and decommissioned 2026-11-19 (weights removed on Gimle; registry entry dropped); only the two Qwen3.5 9B quants remain switchable.
+
+### On-demand switching (auto-swap, 2026-11-19)
+
+`POST /v1/chat/completions` with `model: <registered id>` loads that model when it is not the held one — validated, journaled, rolled back on any miss — and answers once with 429 `switching to <id>; retry the same request`; the relaunched process serves the requested model (in-request switch time, worst case ~2 minutes). `/v1/models` lists every registered model whose weights are present, with the held one flagged `active: true`. Standing lineup: `qwen3.5-9b-4bit` (default), `qwen3.5-9b-6bit`, `qwen3.5-9b-8bit` (higher quality).

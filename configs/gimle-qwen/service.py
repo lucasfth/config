@@ -11,6 +11,8 @@ import sys
 import time
 import threading
 
+import llama_swap as lx
+
 MODEL_ID = 'qwen3.5-9b-6bit'
 CONTEXT = 139264
 MAX_OUTPUT = 4096
@@ -56,6 +58,59 @@ def apply_swap_state(root):
     if state:
         raise ValueError('swap-state has unknown fields')
 
+
+def roster_entries(root):
+    """Every registered model whose weights are complete on disk; the held one first, flagged."""
+    try:
+        reg = json.loads((root / 'swap-registry.json').read_text())
+    except Exception:
+        return [{'id': MODEL_ID, 'active': True}]
+    seen = set()
+    rows = []
+    for name, entry in (reg.get('models') or {}).items():
+        try:
+            mid = entry.get('model_id', name)
+        except AttributeError:
+            continue
+        if mx_complete(root / 'models' / name) and mid not in seen:
+            seen.add(mid)
+            rows.append({'id': mid, 'active': reg.get('active') == name})
+    if MODEL_ID not in seen:
+        rows.insert(0, {'id': MODEL_ID, 'active': True})
+    return rows
+
+def mx_complete(weights_dir):
+    try:
+        return lx.complete(weights_dir)
+    except Exception:
+        return False
+
+def pending_switch(root, current_id, want_id, slot):
+    """Handle a request for a registered model that is not the held one.
+    Returns ('none', None), ('switched', entry), ('busy', None) or ('error', msg)."""
+    try:
+        reg = json.loads((root / 'swap-registry.json').read_text())
+    except Exception:
+        return ('none', None)
+    name = None
+    for cand, entry in (reg.get('models') or {}).items():
+        try:
+            if entry.get('model_id') == want_id and mx_complete(root / 'models' / cand):
+                name = cand
+                break
+        except AttributeError:
+            continue
+    if name is None or reg.get('active') == name:
+        return ('none', None)
+    if not slot.acquire(blocking=False):
+        return ('busy', None)
+    try:
+        entry, _ = lx.perform_switch(root, name, do_restart=False)
+    except Exception as exc:
+        slot.release()
+        return ('error', str(exc))
+    slot.release()
+    return ('switched', entry)
 
 def read_key(path):
     info = path.lstat()
@@ -232,7 +287,9 @@ def main():
         if not authorized(self):
             return reply(self, 401, {'error': 'Unauthorized'})
         if self.path == '/v1/models':
-            return reply(self, 200, {'object': 'list', 'data': [{'id': MODEL_ID, 'object': 'model', 'owned_by': 'gimle'}]})
+            return reply(self, 200, {'object': 'list',
+                          'data': [{'id': r['id'], 'object': 'model', 'owned_by': 'gimle', 'active': r['active']}
+                                   for r in roster_entries(root)]})
         if self.path != '/health':
             return reply(self, 404, {'error': 'Not found'})
         return get(self)
@@ -242,11 +299,27 @@ def main():
             return reply(self, 401, {'error': 'Unauthorized'})
         if self.path != '/v1/chat/completions':
             return reply(self, 404, {'error': 'Not found'})
+        raw = None
         try:
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= MAX_BODY or self.headers.get('Transfer-Encoding'):
                 raise ValueError('Invalid request size')
-            body = validate_request(json.loads(self.rfile.read(length)))
+            raw = json.loads(self.rfile.read(length))
+        except (ValueError, TypeError):
+            return reply(self, 400, {'error': 'Invalid chat request or limit'})
+        want = raw.get('model') if isinstance(raw, dict) else None
+        if isinstance(want, str) and want not in (MODEL_ID, 'default_model'):
+            action, detail = pending_switch(root, MODEL_ID, want, request_slot)
+            if action == 'switched':
+                reply(self, 429, {'error': 'switching to %s; retry the same request' % want})
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+                return
+            if action == 'busy':
+                return reply(self, 429, {'error': 'model switch is in flight; retry after the active request'})
+            if action == 'error':
+                return reply(self, 503, {'error': 'model switch to %s failed: %s' % (want, detail)})
+        try:
+            body = validate_request(raw)
         except (ValueError, TypeError):
             return reply(self, 400, {'error': 'Invalid chat request or limit'})
         if not request_slot.acquire(blocking=False):

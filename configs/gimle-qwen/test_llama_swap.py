@@ -489,5 +489,60 @@ class CheckoutFailureRetentionTests(unittest.TestCase):
         self.assertTrue(e[-1].get('missing'))
         self.assertTrue(all(m0 in allowed for m0 in e[-1]['missing']))
 
+class PerformSwitchTests(unittest.TestCase):
+    def _root(self):
+        root = Path(tempfile.mkdtemp(prefix='ps-'))
+        (root / 'models').mkdir()
+        for name in ('a', 'b'):
+            d = root / 'models' / name
+            d.mkdir()
+            (d / 'config.json').write_text('{}')
+            (d / 'tokenizer.json').write_text('{}')
+            (d / 'model-00001-of-00001.safetensors').write_bytes(b'x')
+        (root / 'api-key').write_text('k')
+        os.chmod(root / 'api-key', 0o600)
+        return root
+
+    def _entry(self, mid, name):
+        return {'model_id': mid, 'repo': 'org/repo-' + name, 'revision': 'a' * 40,
+                'context': 32768, 'max_output': 512, 'memory_limit': 12_000_000_000,
+                'prompt_cache_bytes': 1_000_000_000, 'guard_target': 10_000_000_000,
+                'guard_stop': 15_900_000_000, 'weights_bytes': None}
+
+    def _reg(self, root):
+        reg = {'active': 'a', 'previous': None,
+               'models': {'a': self._entry('mid-a', 'a'), 'b': self._entry('mid-b', 'b')}}
+        regp = root / 'swap-registry.json'
+        regp.write_text(json.dumps(reg)); os.chmod(regp, 0o600)
+        return reg
+
+    def test_unregistered_switch_is_an_error(self):
+        root = self._root()
+        self._reg(root)
+        with self.assertRaises(llama_swap.SwapError):
+            llama_swap.perform_switch(root, 'zzz', do_restart=False)
+
+    def test_active_is_a_noop(self):
+        root = self._root()
+        self._reg(root)
+        entry, tps = llama_swap.perform_switch(root, 'a', do_restart=False)
+        self.assertEqual(entry['model_id'], 'mid-a')
+        self.assertIsNone(tps)
+
+    def test_in_process_switch_updates_point_state_and_registry(self):
+        root = self._root()
+        self._reg(root)
+        entry, tps = llama_swap.perform_switch(root, 'b', do_restart=False)
+        self.assertEqual(entry['model_id'], 'mid-b')
+        reg = json.loads((root / 'swap-registry.json').read_text())
+        self.assertEqual(reg['active'], 'b')
+        self.assertEqual(reg['previous'], 'a')
+        state = json.loads((root / 'swap-state.json').read_text())
+        self.assertEqual(state['model_id'], 'mid-b')
+        self.assertTrue((root / 'model').is_symlink() or (root / 'model').exists())
+        events = [json.loads(l) for l in (root / 'llama-swap.log').read_text().splitlines()]
+        self.assertTrue([e for e in events if e.get('event') == 'swap' and e.get('to') == 'b'])
+
+
 if __name__ == '__main__':
     unittest.main()
