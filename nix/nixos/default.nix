@@ -45,6 +45,14 @@
     extraGroups = ["wheel" "docker" "networkmanager"];
     shell = pkgs.zsh;
   };
+  users.users.bn = {
+    isNormalUser = true;
+    extraGroups = ["video" "networkmanager"];
+    shell = pkgs.zsh;
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILUeG60x8YPAyKq8lHlLkWJ7PSWMA9QT1UDZDjhBsV45 bn@mac.local"
+    ];
+  };
 
   # ── Nix settings ───────────────────────────────────────────────
   nix.settings = {
