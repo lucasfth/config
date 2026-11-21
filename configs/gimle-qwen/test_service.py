@@ -124,6 +124,25 @@ class SwitchAndRosterTests(unittest.TestCase):
         active = [r for r in rows if r['active']]
         self.assertEqual([r['id'] for r in active], ['mid-a'])
 
+    def test_advertised_registry_key_is_switchable_without_explicit_model_id(self):
+        import threading
+        root = self._root()
+        entry = self._entry('b')
+        del entry['model_id']
+        # Model ids must be 3+ characters; use the real registered quant's shape.
+        name = 'qwen3.5-9b-8bit'
+        (root / 'models' / 'b').rename(root / 'models' / name)
+        self._frozen(root / 'swap-registry.json', json.dumps(
+            {'active': 'a', 'models': {'a': self._entry('mid-a'), name: entry}}))
+        self._frozen(root / 'swap-state.json', json.dumps(
+            {'model_id': 'mid-a', 'context': 32768, 'max_output': 512,
+             'memory_limit': 12_000_000_000, 'prompt_cache_bytes': 1_000_000_000,
+             'guard_stop': 15_900_000_000, 'guard_target': 10_000_000_000}))
+        self.assertIn(name, [row['id'] for row in service.roster_entries(root)])
+        action, detail = service.pending_switch(root, 'mid-a', name, threading.Lock())
+        self.assertEqual(action, 'switched', detail)
+        self.assertEqual(json.loads((root / 'swap-state.json').read_text())['model_id'], name)
+
     def test_pending_switch_only_for_registered_loaded_models(self):
         import threading
         root = self._root()

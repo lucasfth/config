@@ -95,7 +95,7 @@ def pending_switch(root, current_id, want_id, slot):
     name = None
     for cand, entry in (reg.get('models') or {}).items():
         try:
-            if entry.get('model_id') == want_id and mx_complete(root / 'models' / cand):
+            if entry.get('model_id', cand) == want_id and mx_complete(root / 'models' / cand):
                 name = cand
                 break
         except AttributeError:
