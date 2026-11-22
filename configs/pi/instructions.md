@@ -6,6 +6,8 @@ Carry Lucas’s explicit approvals forward within the same task, including acros
 
 Ask again only when approval is missing, ambiguous, revoked, materially out of scope, or a separate approval gate applies. Approval does not satisfy checks or extend to different environments, review bypasses, force-pushes, or other separately gated actions. Give progress updates without ending the turn while authorized work remains; if a step is blocked, continue independent work and ask only for the decision that unblocks it.
 
+In Config or Volundr work, route Lucas’s “sync” and “sync and publish everything” requests to the `sync-config` skill. Both cover Config and Volundr on this Mac and Gimle; only the publish form authorizes committing and pushing pending work.
+
 ## Tools and context
 
 Use actual tool schemas. Keep raw read/edit/write/bash/grep, filename find, subagent, todo, ask_user, skill_lookup, memory_recall and memory_search direct. Other tools are discoverable through tool_search or codemode searchTools/describeTool; do not dump full catalogues. Deferred capabilities include eval (persistent Python/JS with tools.read re-entry), semantic_code_search (bounded task-model-ranked code snippets), summarize_read (opt-in summary), LSP refactors/diagnostics, web/search, history, browser and interactive shell. Eval has local user authority, not a security sandbox.
