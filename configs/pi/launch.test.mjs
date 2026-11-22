@@ -319,12 +319,10 @@ test('optional Gimle provider uses private loopback access without changing role
     const { roles } = await prepareRuntime({ agentDir: dir, env });
     const { providers } = JSON.parse(await readFile(path.join(dir, 'models.json'), 'utf8'));
     assert.equal(providers.gimle.baseUrl, env.GIMLE_QWEN_BASE_URL);
-    assert.equal(providers.gimle.models[0].id, 'qwen3.5-9b-6bit');
-    assert.equal(providers.gimle.models[0].contextWindow, 139264);
-    assert.equal(providers.gimle.models[1].id, 'qwen3.5-9b-4bit');
-    assert.equal(providers.gimle.models[1].contextWindow, 139264);
-    assert.equal(providers.gimle.models[2].id, 'qwen3.5-9b-8bit');
-    assert.equal(providers.gimle.models[2].contextWindow, 139264);
+    assert.deepEqual(providers.gimle.models.map(model => [model.id, model.contextWindow]), [
+      ['qwen3.5-9b-4bit', 139264],
+      ['qwen3.5-9b-8bit', 139264],
+    ]);
     assert.equal(providers.gimle.apiKey, '!cat /private/gimle-key');
     assert.notEqual(roles.default.provider, 'gimle');
     await assert.rejects(prepareRuntime({ agentDir: dir, env: { ...env, GIMLE_QWEN_BASE_URL: 'http://public.invalid/v1' } }), /loopback/);

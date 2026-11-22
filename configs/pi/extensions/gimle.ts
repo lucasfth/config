@@ -158,7 +158,10 @@ function requireApp(state: PageState, origin: string): void {
 type OwnedApp = { origin: string; handoffOrigin?: string };
 
 export function requireAssignedApp(state: PageState, tab: OwnedApp, action: string): void {
-  const allowed = state.origin === tab.origin || (action !== 'follow_link' && state.origin === tab.handoffOrigin);
+  // Temporary (Lucas approved in chat, 2026-11-20): the local e2e tab may be taken to the Resurs
+  // integration flow by the app's own link. Login, MitID and challenge pages still stop via state.blocked. Revert after the test.
+  const e2eHandoff = tab.origin === 'http://127.0.0.1:3111' && state.origin === 'https://flow.integration.resurs.com';
+  const allowed = state.origin === tab.origin || e2eHandoff || (action !== 'follow_link' && state.origin === tab.handoffOrigin);
   if (!allowed) throw new Error('Unexpected app redirect; stop and ask Lucas.');
   if (state.blocked) throw verificationError(state);
 }

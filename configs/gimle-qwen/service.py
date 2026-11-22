@@ -140,14 +140,16 @@ def load_checkpoint(loader, path):
         return None
 
 
-def validate_request(body):
-    if not isinstance(body, dict) or body.get('model') not in (MODEL_ID, 'default_model'):
+def validate_request(body, *, model_id=None, max_output=None):
+    model_id = MODEL_ID if model_id is None else model_id
+    max_output = MAX_OUTPUT if max_output is None else max_output
+    if not isinstance(body, dict) or body.get('model') not in (model_id, 'default_model'):
         raise ValueError('Unknown model')
     if any(field in body for field in ('adapters', 'draft_model', 'chat_template', 'chat_template_kwargs', 'max_completion_tokens')):
         raise ValueError('Model, draft and template overrides are disabled')
     limit = body.get('max_tokens', 1024)
-    if type(limit) is not int or not 1 <= limit <= MAX_OUTPUT:
-        raise ValueError(f'max_tokens must be 1..{MAX_OUTPUT}')
+    if type(limit) is not int or not 1 <= limit <= max_output:
+        raise ValueError(f'max_tokens must be 1..{max_output}')
     if body.get('n', 1) != 1 or 'max_completion_tokens' in body:
         raise ValueError('Only one bounded completion is supported')
     messages = body.get('messages')
@@ -268,6 +270,7 @@ def main():
     handler = server.APIHandler
     post = handler.do_POST
     get = handler.do_GET
+    worker_mode = os.environ.get('GIMLE_QWEN_WORKER') == '1'
     request_slot = threading.Lock()
 
     def reply(self, status, body):
@@ -292,6 +295,12 @@ def main():
                                    for r in roster_entries(root)]})
         if self.path != '/health':
             return reply(self, 404, {'error': 'Not found'})
+        if worker_mode:
+            original = self.end_headers
+            def end_headers():
+                self.send_header('X-Gimle-Model', MODEL_ID)
+                return original()
+            self.end_headers = end_headers
         return get(self)
 
     def do_post(self):
@@ -308,7 +317,7 @@ def main():
         except (ValueError, TypeError):
             return reply(self, 400, {'error': 'Invalid chat request or limit'})
         want = raw.get('model') if isinstance(raw, dict) else None
-        if isinstance(want, str) and want not in (MODEL_ID, 'default_model'):
+        if not worker_mode and isinstance(want, str) and want not in (MODEL_ID, 'default_model'):
             action, detail = pending_switch(root, MODEL_ID, want, request_slot)
             if action == 'switched':
                 reply(self, 429, {'error': 'switching to %s; retry the same request' % want})
@@ -338,7 +347,8 @@ def main():
     handler.do_POST = do_post
     handler.do_OPTIONS = lambda self: reply(self, 405, {'error': 'Not allowed'})
     handler.log_message = lambda *args: None
-    sys.argv = [sys.argv[0], '--model', str(model), '--host', '127.0.0.1', '--port', '18789',
+    sys.argv = [sys.argv[0], '--model', str(model), '--host', '127.0.0.1',
+                '--port', '18790' if worker_mode else '18789',
                 '--kv-bits', '8', '--quantized-kv-start', '0', '--prefill-step-size', '256',
                 '--prompt-cache-size', '1', '--prompt-cache-bytes', str(PROMPT_CACHE_BYTES),
                 '--decode-concurrency', '1', '--prompt-concurrency', '1', '--max-tokens', '1024',

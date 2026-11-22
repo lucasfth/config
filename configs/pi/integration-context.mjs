@@ -48,25 +48,34 @@ try {
   const advertised = request.tools?.map(tool => tool.function?.name ?? tool.name) ?? [];
   assert.ok(!advertised.includes('interactive_shell'));
   assert.ok(!advertised.includes('eval'));
+  assert.ok(advertised.includes('skill_lookup'), 'Provider receives the skill lookup schema');
   const prompt = request.messages.filter(message=>message.role==='system'||message.role==='developer').map(message=>typeof message.content==='string'?message.content:JSON.stringify(message.content)).join('\n');
   const metadata = prompt.match(/<skills>[\s\S]*?<\/skills>/)?.[0] ?? '';
-  // Enforce the approved 48,000-character budget at the canonical checkout path.
-  // Isolated worktree names are longer; account for that path-only overhead
-  // without dropping guides, descriptions or the actual request measurement.
-  const canonicalRoot = path.join(os.homedir(), 'Desktop/code/config');
-  const displayPath = filename => filename.startsWith(os.homedir() + path.sep) ? '~/' + filename.slice(os.homedir().length + 1) : filename;
-  const pathOverhead = resourceLoader.getSkills().skills.filter(skill => !skill.disableModelInvocation && skill.filePath.startsWith(repoDir + path.sep)).reduce((total, skill) => total + displayPath(skill.filePath).length - displayPath(canonicalRoot + skill.filePath.slice(repoDir.length)).length, 0);
-  const canonicalSkillMetadataCharacters = metadata.length - pathOverhead;
-  const skillMetadataBudget = 48000;
-  assert.ok(metadata.length > 0 && canonicalSkillMetadataCharacters < skillMetadataBudget, `Canonical skill metadata exceeds its ${skillMetadataBudget}-character budget: ${canonicalSkillMetadataCharacters}; actual request ${metadata.length}; path overhead ${pathOverhead}`);
+  const skills = resourceLoader.getSkills().skills.filter(skill => !skill.disableModelInvocation);
+  for (const { name, description, filePath } of skills) {
+    const cue = description.replace(/\s+/g, ' ').trim();
+    assert.ok(metadata.split('\n').includes(`${name}: ${cue.length > 180 ? cue.slice(0, 179) + '…' : cue}`), `Missing routing cue: ${name}`);
+    assert.ok(!metadata.includes(filePath), `Full skill path leaked into startup: ${name}`);
+  }
+  assert.ok(metadata.length > 0 && metadata.length < 35000);
   const schemaChars = JSON.stringify(request.tools ?? []).length;
   assert.ok(schemaChars < 50659, 'Direct schemas smaller than baseline');
-  console.log(JSON.stringify({ activeTools: active, deferredTools: tools.filter(tool => tool.exposure === 'deferred').map(tool => tool.name), systemPromptCharacters: prompt.length, skillMetadataCharacters: metadata.length, canonicalSkillMetadataCharacters, worktreePathOverhead: pathOverhead, requestToolSchemaCharacters: schemaChars, baseline: { systemPromptCharacters: 31560, skillMetadataCharacters: 14399, toolSchemaCharacters: 50659 }, scope: 'Actual provider-request capture plus disclosed canonical-path metadata normalization; no Muninn/advisor network; characters not tokenizer counts' }, null, 2));
+  console.log(JSON.stringify({ systemPromptCharacters: prompt.length, skillMetadataCharacters: metadata.length, requestToolSchemaCharacters: schemaChars, skillCount: skills.length, scope: 'Provider request capture; characters, not tokenizer counts' }, null, 2));
   const searchTool=session.extensionRunner.getToolDefinition('tool_search');
   assert.ok(searchTool);
   const found=await searchTool.execute('discover-eval',{query:'persistent Python JavaScript eval interpreter',limit:1},undefined,undefined,session.extensionRunner.createToolContext('discover-eval',undefined));
   assert.ok(found.details.loaded.includes('eval'),'Deferred eval discovered through native tool_search');
   assert.ok(session.getActiveToolNames().includes('eval'),'Discovery activates deferred eval for next request');
+  assert.ok(active.includes('skill_lookup'), 'Skill lookup is directly available');
+  const skillTool = session.extensionRunner.getToolDefinition('skill_lookup');
+  assert.ok(skillTool);
+  for (const name of ['systematic-debugging', 'social-venue-list', 'verification-before-completion']) {
+    const expected = skills.find(skill => skill.name === name);
+    assert.ok(expected);
+    const result = await skillTool.execute('lookup-skill', { name }, undefined, undefined, session.extensionRunner.createToolContext('lookup-skill', undefined));
+    assert.ok(result.content[0].text.includes(expected.filePath));
+    assert.ok(result.content[0].text.includes(expected.description));
+  }
 } finally {
   if (session) await session.extensionRunner.emit({ type: 'session_shutdown', reason: 'quit' });
   session?.dispose();

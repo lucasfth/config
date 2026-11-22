@@ -14,7 +14,30 @@ in {
     enable = true;
     config = {
       Label = "dk.gimle.qwen";
-      ProgramArguments = ["${root}/venv/bin/python" "${../../configs/gimle-qwen}/supervise.py"];
+      # The login agent can start before the private volume or its Nix interpreter is ready.
+      ProgramArguments = [
+        "/bin/sh"
+        "-c"
+        ''
+          attempts=0
+          until /bin/df -P "$1" | /usr/bin/awk -v volume="$1" 'NR == 2 && substr($0, length($0) - length(volume)) == " " volume {ready=1} END {exit !ready}' \
+            && "$2" --version >/dev/null 2>&1
+          do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 60 ]; then
+              echo "Gimle Qwen: volume or Python not ready after 118 seconds: $1" >&2
+              exit 75
+            fi
+            /bin/sleep 2
+          done
+          shift
+          exec "$@"
+        ''
+        "gimle-qwen-boot"
+        "${home}/loki-data"
+        "${root}/venv/bin/python"
+        "${../../configs/gimle-qwen}/supervise.py"
+      ];
       EnvironmentVariables = {
         HOME = home;
         GIMLE_QWEN_ROOT = root;

@@ -292,10 +292,11 @@ class SupervisorCapTests(unittest.TestCase):
     # the 37G envelope shipped without the supervisor, so >33G entries fell back to
     # the baked 17G default. Exercises the real supervise.guard_limit in-process.
     def _sp(self):
-        import types, importlib.util
+        import importlib.util
         import os as _os
         spec = importlib.util.spec_from_file_location('spmod', _os.path.join(_os.path.dirname(llama_swap.__file__), 'supervise.py'))
-        m = types.ModuleType(spec.name); spec.loader.exec_module(m)
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
         return m
     def setUp(self):
         self._td = tempfile.TemporaryDirectory(); self.addCleanup(self._td.cleanup)
@@ -317,6 +318,50 @@ class SupervisorCapTests(unittest.TestCase):
     def test_above_ceiling_rejected_to_default(self):
         self._write({'guard_stop': 38_000_000_000, 'guard_target': 36_000_000_000})
         self.assertEqual(self.sp.guard_limit(llama_swap.Path(self.root)), 17_000_000_000)
+
+    def test_running_supervisor_uses_updated_guard_and_records_it(self):
+        from unittest.mock import Mock, patch
+
+        self._write({'guard_stop': 16_000_000_000})
+        child = Mock(pid=42, returncode=-9)
+        child.poll.return_value = None
+        parent = Mock()
+        parent.pid = child.pid
+        parent.children.return_value = []
+        psutil = types.SimpleNamespace(Process=Mock(return_value=parent),
+                                      NoSuchProcess=ProcessLookupError, AccessDenied=PermissionError)
+        samples = iter((15_000_000_000, 18_000_000_000, 19_000_000_000))
+        with (patch.dict(os.environ, {'GIMLE_QWEN_ROOT': self.root}),
+              patch.dict(sys.modules, {'psutil': psutil}),
+              patch.object(self.sp.subprocess, 'Popen', return_value=child),
+              patch.object(self.sp.signal, 'signal'),
+              patch.object(self.sp.os, 'killpg'),
+              patch.object(self.sp, 'footprint', side_effect=lambda pid: next(samples) if pid == child.pid else 0),
+              patch.object(self.sp.time, 'sleep', side_effect=lambda _: self._write({'guard_stop': 19_000_000_000})) as sleep):
+            self.assertEqual(self.sp.main(), 1)
+        self.assertEqual(sleep.call_count, 2)
+        receipt = json.loads((Path(self.root) / 'last-exit.json').read_text())
+        self.assertEqual(receipt['reason'], 'footprint_limit')
+        self.assertEqual(receipt['stop_threshold_bytes'], 19_000_000_000)
+        self.assertEqual(receipt['sampled_peak_bytes'], 19_000_000_000)
+
+    def test_supervisor_reaps_worker_after_gateway_disappears(self):
+        import signal
+        from unittest.mock import Mock, patch
+
+        child = Mock(pid=42, returncode=-9)
+        child.poll.return_value = None
+        with (patch.dict(os.environ, {'GIMLE_QWEN_ROOT': self.root, 'GIMLE_QWEN_GATEWAY_PID': '123'}),
+              patch.dict(sys.modules, {'psutil': types.SimpleNamespace()}),
+              patch.object(self.sp.os, 'getppid', side_effect=[123, 1]),
+              patch.object(self.sp.subprocess, 'Popen', return_value=child),
+              patch.object(self.sp.signal, 'signal'),
+              patch.object(self.sp.os, 'killpg') as killpg):
+            self.assertEqual(self.sp.main(), 1)
+        killpg.assert_called_once_with(child.pid, signal.SIGKILL)
+        self.assertEqual(json.loads((Path(self.root) / 'last-exit.json').read_text())['reason'], 'gateway_exit')
+
+
 class InitCrashRecoveryTests(unittest.TestCase):
     def test_symlink_repair_completes_registry(self):
         # Incident shape 2026-11-18: weights renamed to models/<id>, model/ is a

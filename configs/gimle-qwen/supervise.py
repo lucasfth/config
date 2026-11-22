@@ -41,7 +41,9 @@ def main():
     import psutil
     root = Path(os.environ['GIMLE_QWEN_ROOT'])
     limit = guard_limit(root)
-    child = subprocess.Popen([sys.executable, str(Path(__file__).with_name('service.py'))], start_new_session=True)
+    gateway = os.environ.get('GIMLE_QWEN_GATEWAY_PID')
+    if gateway is not None and os.getppid() != int(gateway):
+        return 1
     peak = 0
     reason = None
     stopping = False
@@ -52,10 +54,14 @@ def main():
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    child = subprocess.Popen([sys.executable, str(Path(__file__).with_name('service.py'))], start_new_session=True)
     try:
         while child.poll() is None:
             if stopping:
                 reason = 'service_stop'
+                break
+            if gateway is not None and os.getppid() != int(gateway):
+                reason = 'gateway_exit'
                 break
             try:
                 parent = psutil.Process(child.pid)
@@ -67,6 +73,8 @@ def main():
                         if member.is_running() and member.status() != psutil.STATUS_ZOMBIE:
                             raise
                 peak = max(peak, total)
+                # service.py can exec in place after atomically changing swap-state.
+                limit = guard_limit(root)
                 if total >= limit:
                     reason = 'footprint_limit'
                     break

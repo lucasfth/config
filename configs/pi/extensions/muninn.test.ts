@@ -34,7 +34,11 @@ test("Muninn injects mandatory guidance and a bounded prior-note index without r
   assert.match(context, /030-Coding-Style/);
   assert.ok(reads.includes("tech/Lucas-Development-Decision-Boundaries.md"));
   assert.match(context, /body:tech\/Lucas-Development-Decision-Boundaries\.md/);
-  assert.match(context, /010-Lucas/);
+  assert.ok(!reads.includes('life/010-Lucas.md'));
+  assert.match(context, /Personal profile: `life\/010-Lucas\.md`/);
+  assert.match(context, /Muninn MCP/);
+  assert.doesNotMatch(context, /body:life/);
+  assert.match(await createMemoryRecall(client)(['life/010-Lucas.md']), /body:life\/010-Lucas\.md/);
   assert.match(context, /032-Nix-Darwin-Patterns/);
   assert.match(context, /Prior session index/);
   assert.match(context, /projects\/lucasfth\/config\/work\/6\.md/);
@@ -112,4 +116,26 @@ test("Muninn rejects missing bearer tokens before making an HTTP request", async
     if (previous === undefined) delete process.env.MUNINN_MCP_TOKEN;
     else process.env.MUNINN_MCP_TOKEN = previous;
   }
+});
+
+test("recall reads a social note and rejects unsafe paths without implying an outage", async () => {
+  const { client, reads } = clientWith([]);
+  const venue = "social/venues/fixture-venue.md";
+  assert.match(await createMemoryRecall(client)([venue]), /body:social\/venues\/fixture-venue\.md/);
+  const result = await createMemoryRecall(client)(["personal-notes/private.md", "social/../personal-notes/private.md", "social/venue.json"]);
+  assert.deepEqual(reads, [venue]);
+  assert.equal((result.match(/Rejected unsafe Muninn note path/g) ?? []).length, 3);
+  assert.match(result, /tech\/.*life\/.*projects\/.*social\//);
+  assert.match(result, /memory_search.*vault_search/);
+  assert.match(result, /not an MCP outage/);
+  assert.match(result, /Do not search local vault copies/);
+});
+
+test("venue recall preserves source date and status next to the citation path", async () => {
+  const { client } = clientWith([]);
+  client.read = async () => ({ content: '---\ntitle: Fixture\ncreated: 2026-11-19\nupdated: 2026-11-20\nstatus: to-visit\n---\nVenue body' });
+  const result = await createMemoryRecall(client)(['social/venues/fixture.md']);
+  assert.match(result, /### social\/venues\/fixture\.md\n\nNote frontmatter: created 2026-11-19; status to-visit/);
+  assert.match(result, /Cite the exact note path/);
+  assert.doesNotMatch(result, /2026-11-20/);
 });
