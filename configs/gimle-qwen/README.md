@@ -7,7 +7,7 @@ Optional single-user Qwen3.5 9B provider for Hugi/Pi and Loki. Neither default i
 > The fixed values below are the **baked defaults**. On a llama-swap deployment the active model, context, memory limit and guard come from `swap-state.json` (written only by llama-swap; see [llama-swap](#llama-swap)).
 
 - M4 Pro, 6-bit target weights; 8-bit KV cache; text only; thinking disabled.
-- Models served by the single slot (one active at a time; switched was itself is `llama-swap`): `qwen3.5-9b-6bit` (context **139264 tokens**) and `qwen3.5-9b-4bit` (context **139264 tokens**). Output **1–4096 tokens** (defaults to 1024).
+- One quant is held at a time. Huginn’s source catalog offers `qwen3.5-9b-4bit` (preferred local quant) and `qwen3.5-9b-8bit`, each with a configured 139264-token context and a 4096-token output limit. Removing 6-bit from the Pi catalog did not remove its registry entry or weights.
 - Loopback `127.0.0.1:18789`, bearer auth. Only chat, model list and health paths. No model, adapter, draft or template overrides. Only one active completion; overlapping requests get 429.
 - MLX 14 GB allocator guideline, 256 MB free cache. Supervisor samples process-tree physical footprint about every 50ms and stops at **17,000,000,000 bytes**. This is not a hard cap; Lucas explicitly accepted transient overshoot risk. Target remains 15 GB.
 - Exact-prefix snapshot under encrypted `~/loki-data/gimle-qwen/checkpoint/`, includes recurrent state. Cache identity binds model revision, runtime, template/tokenizer/config and KV precision. Atomic metadata publication; one snapshot retained. Cached prefixes contain private prompt data; never publish them.
@@ -21,7 +21,7 @@ The agent was initially installed with `scripts/gimle-qwen-install --activate`. 
 
 Installation reuses the already-qualified model snapshot by hardlink; model files must not be edited in place. Subsequent source updates require an explicit service update/restart. Installer refuses an existing plist. No automatic restart after footprint stop; inspect `last-exit.json` before starting again. This LaunchAgent requires a logged-in user domain and an already mounted encrypted volume; unattended boot recovery is not qualified.
 
-Hugi client setup: `python3 scripts/gimle-qwen-client`. Private key/config under `~/.local/share/gimle-qwen`, existing-key strict SSH forwarding via `dk.huginn.gimle-qwen-tunnel`. Pi runtime loads this optional descriptor on next launch. Select **`gimle/qwen3.5-9b-6bit`** or **`gimle/qwen3.5-9b-4bit`** in `/model`. Only the model the endpoint currently holds answers. The current in-memory model catalogue may require a new Pi launch. No roles/defaults changed.
+Hugi client setup: `python3 scripts/gimle-qwen-client`. The private descriptor and key live under `~/.local/share/gimle-qwen`; MacBook access uses the existing authenticated loopback SSH tunnel. A new Pi launch generates the catalog; its only Gimle options are **`gimle/qwen3.5-9b-4bit`** and **`gimle/qwen3.5-9b-8bit`**. Catalog visibility does not prove endpoint readiness or successful switching. No roles/defaults changed.
 
 Loki: `scripts/gimle-qwen-loki` adds custom provider **`gimle-qwen`** to private config, preserving all defaults/comments and prior exact bytes. Explicit `chat_completions` mode; provider-specific 1200s request/1100s stale timeout. In Hermes use **`/model gimle-qwen`**, then select the listed model if prompted. Root default remains Mimer. Full gateway hot-reload/model selection UI not exercised; fresh actual provider resolver and agent were exercised.
 
@@ -41,6 +41,10 @@ A matching disk checkpoint is selected over an in-memory prefix only when it sav
 
 Inspect Gimle `launchctl print gui/501/dk.gimle.qwen`, encrypted runtime `last-exit.json`, and `~/Library/Logs/gimle-qwen-error.log`. `KeepAlive=false` intentionally leaves a footprint-triggered process stopped instead of repeatedly crashing/loading. Start/restart only with operator approval.
 
+**Recovery hold (2026-11-22):** the endpoint is down. A scoped gateway activation failed with `launchctl bootstrap` status 5, and loading the restored original job failed the same way. The original store-backed `supervise.py` plist, registry and state match their backup bytes; the `model` symlink matches the backup and points to 4-bit. The restored 8-bit registry entry has no explicit `model_id`; its approved limits are a 19 GB sampled footprint stop and a 20 GB MLX allocator limit. Snapshot: `~/loki-data/gimle-qwen/rollback-gateway.61p9og1u/`. The job is absent from `gui/501` and neither port 18789 nor 18790 was listening at the last check.
+
+Pending operator approval: bootstrap **the verified original plist once**, then check authenticated `/health` and a real 4-bit completion. If bootstrap returns status 5 again, stop and diagnose launchd; do not retry in a loop or modify the registry.
+
 Rollback optional endpoint: boot out **only** `gui/501/dk.gimle.qwen`; on Hugi boot out `gui/$(id -u)/dk.huginn.gimle-qwen-tunnel`; remove only the optional private client descriptor/provider entry after backing it up. Restore SOUL/config only from the named hash-verified private backups and only on request. Mimer default and gateway require no restoration because they were never changed.
 
 Remaining limitations: cold 128K prefill ~10 minutes; 128K decode ~14 tok/s; only one disk prefix retained, so switching Hugi/Loki sessions can evict it. No claim of broad agent-quality acceptance or hard memory enforcement. MTP tested slower; DFlash cache/server compatibility failed and 128K DFlash exceeded the sampled stop threshold, so neither is enabled.
@@ -57,6 +61,6 @@ Model swapper for this endpoint, added 2026-11-17. One model is served at a time
 - Journal: `~/loki-data/gimle-qwen/llama-swap.log` (append-only, 0600).
 - `qwen3-30b-a3b-4bit` was deployed, measured, and decommissioned 2026-11-19 (weights removed on Gimle; registry entry dropped); only the two Qwen3.5 9B quants remain switchable.
 
-### On-demand switching (auto-swap, 2026-11-19)
+### On-demand switching (not live)
 
-`POST /v1/chat/completions` with `model: <registered id>` loads that model when it is not the held one — validated, journaled, rolled back on any miss — and answers once with 429 `switching to <id>; retry the same request`; the relaunched process serves the requested model (in-request switch time, worst case ~2 minutes). `/v1/models` lists every registered model whose weights are present, with the held one flagged `active: true`. Standing lineup: `qwen3.5-9b-4bit` (default), `qwen3.5-9b-6bit`, `qwen3.5-9b-8bit` (higher quality).
+The gateway is stub-tested only: it keeps the public connection open while replacing the guarded worker, then forwards the same request. Its roster excludes 6-bit. The restored `supervise.py` service uses the older `429`/retry handoff if recovered. Before calling the gateway working, verify a live 4-bit → 8-bit → 4-bit round trip through Huginn, one prompt per direction, no manual resend, exactly one journaled swap each way, and the 19 GB supervisor threshold for 8-bit.
