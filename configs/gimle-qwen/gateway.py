@@ -138,10 +138,15 @@ def handler_for(models, key):
             return hmac.compare_digest(self.headers.get('Authorization', ''), 'Bearer ' + key)
 
         def reply(self, status, data):
+            payload = json.dumps(data).encode()
             self.send_response(status)
             self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.send_header('Connection', 'close')
+            self.close_connection = True
             self.end_headers()
-            self.wfile.write(json.dumps(data).encode())
+            self.wfile.write(payload)
+            self.wfile.flush()
 
         def forward(self, method, body=None):
             try:
@@ -181,16 +186,23 @@ def handler_for(models, key):
                 return self.reply(401, {'error': 'Unauthorized'})
             if self.path != '/v1/chat/completions':
                 return self.reply(404, {'error': 'Not found'})
+            # Consume a bounded body before returning busy/unavailable, so close
+            # does not reset the connection with unread request bytes.
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= service.MAX_BODY or self.headers.get('Transfer-Encoding'):
+                    raise ValueError('Invalid request size')
+                self.connection.settimeout(10)
+                body = json.loads(self.rfile.read(size))
+            except (OSError, ValueError, TypeError):
+                return self.reply(400, {'error': 'Invalid chat request or limit'})
+            self.connection.settimeout(1200)
             if not models.slot.acquire(blocking=False):
                 return self.reply(429, {'error': 'Single-user model is busy; retry after the active request'})
             try:
                 if models.unavailable:
                     return self.reply(503, {'error': models.unavailable})
                 try:
-                    size = int(self.headers.get('Content-Length', '0'))
-                    if not 0 < size <= service.MAX_BODY or self.headers.get('Transfer-Encoding'):
-                        raise ValueError('Invalid request size')
-                    body = json.loads(self.rfile.read(size))
                     reg = json.loads(models.reg_path.read_text())
                     entries = models.entries(reg)
                     want = body.get('model') if isinstance(body, dict) else None
