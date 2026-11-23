@@ -17,7 +17,8 @@ import service
 WORKER_PORT = lx.WORKER_PORT
 MODELS = (lx.BUILTIN_ID, lx.INKLING_ID)
 INKLING_CHAT_FIELDS = frozenset(('model', 'messages', 'max_tokens', 'temperature', 'top_p',
-                                 'stop', 'stream', 'stream_options', 'tools', 'tool_choice', 'n', 'seed'))
+                                 'stop', 'stream', 'stream_options', 'tools', 'tool_choice', 'n', 'seed',
+                                 'reasoning_effort'))
 WORKER_ERRORS = (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired, http.client.HTTPException)
 
 
@@ -227,13 +228,24 @@ def handler_for(models, key):
                     if want == lx.INKLING_ID:
                         if body.keys() - INKLING_CHAT_FIELDS:
                             raise ValueError('Unsupported Inkling chat field')
-                        # Pi sends the previous reasoning alongside assistant tool calls.
+                        # Hermes sends a portable reasoning hint. Keep the worker's qualified low profile.
+                        if 'reasoning_effort' in validated and validated.pop('reasoning_effort') not in (
+                                'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
+                            return self.reply(400, {'error': 'Invalid reasoning_effort value'})
+                        # Pi and Hermes send previous reasoning alongside assistant tool calls.
+                        messages = []
                         for message in validated['messages']:
                             allowed = {'role', 'content', 'tool_calls', 'tool_call_id', 'name'}
-                            if message['role'] == 'assistant' and isinstance(message.get('reasoning_content'), str):
-                                allowed.add('reasoning_content')
+                            if message['role'] == 'assistant':
+                                allowed.update(k for k in ('reasoning', 'reasoning_content')
+                                               if isinstance(message.get(k), str))
                             if message.keys() - allowed:
                                 raise ValueError('Unsupported Inkling message field')
+                            message = dict(message)
+                            if 'reasoning' in message:
+                                message.setdefault('reasoning_content', message.pop('reasoning'))
+                            messages.append(message)
+                        validated['messages'] = messages
                     body = {**validated, 'model': want}
                 except (ValueError, TypeError, KeyError):
                     return self.reply(400, {'error': 'Invalid chat request or limit'})

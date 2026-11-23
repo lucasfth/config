@@ -49,7 +49,8 @@ class StubWorker:
     @contextmanager
     def connection(self, method, path, body=None, timeout=None):
         assert method == 'POST' and path == '/v1/chat/completions'
-        assert json.loads(body)['model'] == self.active
+        self.last_body = json.loads(body)
+        assert self.last_body['model'] == self.active
         yield StubResponse(self.active)
 
 
@@ -179,15 +180,29 @@ class GatewayTests(unittest.TestCase):
 
     def test_inkling_accepts_assistant_reasoning_in_tool_history(self):
         history = [{'role': 'user', 'content': 'Use test tool'},
-                   {'role': 'assistant', 'content': None, 'reasoning_content': 'Synthetic prior reasoning',
+                   {'role': 'assistant', 'content': None, 'reasoning': 'Synthetic prior reasoning',
+                    'reasoning_content': 'Synthetic prior reasoning',
                     'tool_calls': [{'id': 'call_1', 'type': 'function',
                                     'function': {'name': 'test_tool', 'arguments': '{}'}}]},
                    {'role': 'tool', 'tool_call_id': 'call_1', 'content': 'Ready'}]
-        for field, value in [('reasoning_content', 7), ('reasoning_details', [])]:
+        for field, value in [('reasoning_content', 7), ('reasoning', []), ('reasoning_details', [])]:
             invalid = [history[0], {**history[1], field: value}, history[2]]
             self.assertEqual(self.chat(self.inkling, messages=invalid)[0], 400)
         self.assertEqual(self.worker.events, [])
         self.assertEqual(self.chat(self.inkling, messages=history)[0], 200)
+        replayed = self.worker.last_body['messages'][1]
+        self.assertNotIn('reasoning', replayed)
+        self.assertEqual(replayed['reasoning_content'], 'Synthetic prior reasoning')
+
+    def test_hermes_reasoning_effort_preserves_inkling_serving_profile(self):
+        for value in ('unlimited', -1, {'budget': -1}):
+            status, body = self.chat(self.inkling, reasoning_effort=value)
+            self.assertEqual(status, 400)
+            self.assertIn('reasoning_effort', body['error'])
+        self.assertEqual(self.worker.events, [])
+        for value in ('minimal', 'medium', 'high', 'xhigh', 'max', 'ultra', 'low', 'none'):
+            self.assertEqual(self.chat(self.inkling, reasoning_effort=value)[0], 200)
+            self.assertNotIn('reasoning_effort', self.worker.last_body)
 
     def test_heavy_model_rejects_native_output_override_before_switch(self):
         self.assertEqual(self.chat(self.inkling, n_predict=-1)[0], 400)

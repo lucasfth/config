@@ -6,6 +6,8 @@ Optional single-user local model provider for Hugi/Pi and Loki. Neither default 
 
 The gateway starts with Qwen 4-bit. Select Inkling explicitly for a request; a subsequent `default_model` request selects Qwen again. The worker remains on the selected model between requests.
 
+Hermes desktop: start on Qwen 4-bit, then switch the session to Inkling. Hermes refuses a fresh agent on an advertised context below 64,000 tokens; the in-session switch uses Inkling's actual 32,768-token window. The gateway accepts standard reasoning-effort hints but keeps Inkling on its qualified low profile. It normalizes Hermes's assistant `reasoning` replay field to `reasoning_content` for tool continuation.
+
 | Model | Worker | Served context (tokens) | Footprint stop (bytes) |
 | --- | --- | ---: | ---: |
 | `qwen3.5-9b-4bit` (startup and `default_model`) | MLX, 8-bit KV | 139264 | 16000000000 |
