@@ -2,6 +2,14 @@
   "mcpServers": {
     "vercel": { "type": "http", "url": "https://mcp.vercel.com" },
     "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp" },
+    "slack": {
+      "command": "ssh",
+      "args": [
+        "gimle",
+        "HERMES_HOME=$HOME/.hermes-pi-bridge /Users/gimle/loki-data/live/hermes/installs/05fdb53c68a56955/environments/23c11931a57941d5b444813df6c75e07/venv/bin/python $HOME/config/configs/pi/workers/slack-bridge/slack_bridge.py"
+      ],
+      "description": "Slack read and write (acts as Lucas) via the Nous connector gateway, run on Gimle with a Pi-only Nous session."
+    },
     "webflow": {
       "type": "http",
       "url": "https://mcp.webflow.com/mcp",
