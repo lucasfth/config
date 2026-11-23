@@ -36,7 +36,7 @@ class LokiConfigTests(unittest.TestCase):
             provider = result['providers']['gimle-qwen']
             self.assertEqual(provider['base_url'], 'http://127.0.0.1:18789/v1')
             self.assertEqual(provider['models'], {'qwen3.5-9b-4bit': {'context_length': 139264},
-                                                  'inkling-2-mini': {'context_length': 32768}})
+                                                  'inkling-2-mini': {'context_length': 65536}})
             self.assertEqual(provider['request_timeout_seconds'], 1200)
             self.assertEqual(result['providers']['mimer-qwen'], initial['providers']['mimer-qwen'])
             self.assertEqual(result['model'], initial['model'])

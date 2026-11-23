@@ -104,17 +104,25 @@ class GatewayTests(unittest.TestCase):
 
     def test_one_request_each_way_and_only_two_advertised(self):
         for want in (self.inkling, self.four):
-            status, data = self.chat(want)
+            status, data = self.chat(want, stream=True)
             self.assertEqual(status, 200)
             self.assertEqual(data['model'], want)
+            self.assertEqual(self.worker.last_body.get('return_progress'), True if want == self.inkling else None)
             status, roster = self.request('/v1/models')
             self.assertEqual(status, 200)
             self.assertEqual({row['id'] for row in roster['data']}, {self.four, self.inkling})
             self.assertEqual([row['id'] for row in roster['data'] if row['active']], [want])
+            self.assertEqual(next(row['context_length'] for row in roster['data'] if row['id'] == self.inkling), 65536)
         self.assertEqual(self.worker.events, [('stop', self.four), ('start', self.inkling),
                                               ('stop', self.inkling), ('start', self.four)])
         self.assertEqual([(e['event'], e['from'], e['to']) for e in self.journal()],
                          [('swap', self.four, self.inkling), ('swap', self.inkling, self.four)])
+
+    def test_progress_is_not_a_client_override(self):
+        self.assertEqual(self.chat(self.inkling, stream=True, return_progress=True)[0], 400)
+        self.assertEqual(self.worker.events, [])
+        self.assertEqual(self.chat(self.inkling)[0], 200)
+        self.assertNotIn('return_progress', self.worker.last_body)
 
     def test_failed_load_rolls_back_without_answering_wrong_model(self):
         self.worker.fail = {self.inkling}

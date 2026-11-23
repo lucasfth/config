@@ -20,7 +20,7 @@ original = yaml.safe_load(before)
 entry = {'name': 'gimle-qwen', 'base_url': 'http://127.0.0.1:18789/v1',
          'api_key': (root / 'api-key').read_text().strip(), 'context_length': 139264,
          'models': {'qwen3.5-9b-4bit': {'context_length': 139264},
-                    'inkling-2-mini': {'context_length': 32768}},
+                    'inkling-2-mini': {'context_length': 65536}},
          'api_mode': 'chat_completions', 'model': 'qwen3.5-9b-4bit'}
 text = before.decode()
 existing = original.get('custom_providers', [])

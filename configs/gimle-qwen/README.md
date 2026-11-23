@@ -6,12 +6,12 @@ Optional single-user local model provider for Hugi/Pi and Loki. Neither default 
 
 The gateway starts with Qwen 4-bit. Select Inkling explicitly for a request; a subsequent `default_model` request selects Qwen again. The worker remains on the selected model between requests.
 
-Hermes desktop: start on Qwen 4-bit, then switch the session to Inkling. Hermes refuses a fresh agent on an advertised context below 64,000 tokens; the in-session switch uses Inkling's actual 32,768-token window. The gateway accepts standard reasoning-effort hints but keeps Inkling on its qualified low profile. It normalizes Hermes's assistant `reasoning` replay field to `reasoning_content` for tool continuation.
+Hermes desktop: Inkling serves 65,536 tokens, satisfying Hermes's 64,000-token initialization floor without a context override. Inkling streams native prefill progress so Hermes can distinguish ongoing computation from a stalled stream without increasing the stale timeout. On Gimle, the qualification run took 42m 35s to prefill 60,701 cold input tokens; this is a capacity increase, not a speedup. A warm tool continuation re-evaluated just 29 tokens. The gateway accepts standard reasoning-effort hints but keeps Inkling on its qualified low profile. It normalizes Hermes's assistant `reasoning` replay field to `reasoning_content` for tool continuation.
 
 | Model | Worker | Served context (tokens) | Footprint stop (bytes) |
 | --- | --- | ---: | ---: |
 | `qwen3.5-9b-4bit` (startup and `default_model`) | MLX, 8-bit KV | 139264 | 16000000000 |
-| `inkling-2-mini` (explicit opt-in) | llama.cpp + Metal, UD-Q4_K_M | 32768 | 26000000000 |
+| `inkling-2-mini` (explicit opt-in) | llama.cpp + Metal, UD-Q4_K_M | 65536 | 26000000000 |
 
 One worker at a time. Text only; output **1–4096 tokens** (defaults to 1024). Inkling uses low reasoning effort.
 - Loopback `127.0.0.1:18789`, bearer auth. Only chat, model list and health paths. No model, adapter, draft or template overrides. Only one active completion; overlapping requests get 429.

@@ -246,6 +246,9 @@ def handler_for(models, key):
                                 message.setdefault('reasoning_content', message.pop('reasoning'))
                             messages.append(message)
                         validated['messages'] = messages
+                        if validated.get('stream') is True:
+                            # Real llama.cpp progress chunks reset Hermes's no-chunk watchdog.
+                            validated['return_progress'] = True
                     body = {**validated, 'model': want}
                 except (ValueError, TypeError, KeyError):
                     return self.reply(400, {'error': 'Invalid chat request or limit'})

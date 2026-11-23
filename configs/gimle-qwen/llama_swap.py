@@ -58,7 +58,7 @@ INKLING = {
     'repo': 'unsloth/Inkling-2-Mini-GGUF',
     'revision': '45fd08764f2b0bf16b03a5483a80e5c7aaec8772',
     'weights_bytes': 16_610_544_608,
-    'context': 32768,
+    'context': 65536,
     'memory_limit': 24_000_000_000,
     'guard_target': 24_000_000_000,
     'guard_stop': 26_000_000_000,
