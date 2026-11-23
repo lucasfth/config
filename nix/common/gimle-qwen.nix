@@ -21,11 +21,11 @@ in {
         ''
           attempts=0
           until /bin/df -P "$1" | /usr/bin/awk -v volume="$1" 'NR == 2 && substr($0, length($0) - length(volume)) == " " volume {ready=1} END {exit !ready}' \
-            && "$2" --version >/dev/null 2>&1
+            && "$2" -c 'import sys; sys.exit(sys.version_info[:2] != (3, 12))' >/dev/null 2>&1
           do
             attempts=$((attempts + 1))
             if [ "$attempts" -ge 60 ]; then
-              echo "Gimle Qwen: volume or Python not ready after 118 seconds: $1" >&2
+              echo "Gimle Qwen: volume or Python 3.12 not ready after 118 seconds: $1" >&2
               exit 75
             fi
             /bin/sleep 2
@@ -36,7 +36,7 @@ in {
         "gimle-qwen-boot"
         "${home}/loki-data"
         "${root}/venv/bin/python"
-        "${../../configs/gimle-qwen}/supervise.py"
+        "${../../configs/gimle-qwen}/gateway.py"
       ];
       EnvironmentVariables = {
         HOME = home;

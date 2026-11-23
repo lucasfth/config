@@ -12,7 +12,9 @@ import time
 lib = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
 lib.proc_pid_rusage.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
 lib.proc_pid_rusage.restype = ctypes.c_int
-DEFAULT_LIMIT = 17_000_000_000
+import llama_swap as lx
+
+DEFAULT_LIMIT = lx.BUILTIN['guard_stop']
 
 
 def footprint(pid):
@@ -37,10 +39,30 @@ def guard_limit(root):
     return limit
 
 
-def main():
+def worker_command(root, model_id):
+    if model_id is None:
+        return [sys.executable, str(Path(__file__).with_name('service.py'))]
+    if model_id != lx.INKLING_ID or os.environ.get('GIMLE_QWEN_WORKER') != '1':
+        raise ValueError('Unsupported supervised worker')
+    from service import read_key
+
+    key = root / 'api-key'
+    read_key(key)  # Refuse weak, non-owned or non-private key files before spawning.
+    model = root / 'models' / model_id
+    if not lx.model_ready(model, lx.INKLING):
+        raise ValueError('Missing pinned Inkling weights')
+    server = root / 'runtime' / 'llama-server-690b87d'
+    return [str(server), '--model', str(model / lx.INKLING_FILE), '--alias', model_id,
+            '--host', '127.0.0.1', '--port', str(lx.WORKER_PORT), '--api-key-file', str(key),
+            '--ctx-size', str(lx.INKLING['context']), '--n-predict', str(lx.INKLING['max_output']),
+            '--parallel', '1', '--gpu-layers', 'all', '--no-context-shift', '--cache-ram', '0',
+            '--jinja', '--reasoning-effort', 'low', '--no-ui', '--no-slots', '--verbosity', '3']
+
+
+def main(model_id=None):
     import psutil
     root = Path(os.environ['GIMLE_QWEN_ROOT'])
-    limit = guard_limit(root)
+    limit = lx.INKLING['guard_stop'] if model_id == lx.INKLING_ID else guard_limit(root)
     gateway = os.environ.get('GIMLE_QWEN_GATEWAY_PID')
     if gateway is not None and os.getppid() != int(gateway):
         return 1
@@ -54,7 +76,10 @@ def main():
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    child = subprocess.Popen([sys.executable, str(Path(__file__).with_name('service.py'))], start_new_session=True)
+    command = worker_command(root, model_id)
+    # Prevent LLAMA_ARG_* from silently overriding the qualified worker profile.
+    env = {k: v for k, v in os.environ.items() if not k.startswith('LLAMA_ARG_')} if model_id else None
+    child = subprocess.Popen(command, start_new_session=True, env=env)
     try:
         while child.poll() is None:
             if stopping:
@@ -74,7 +99,8 @@ def main():
                             raise
                 peak = max(peak, total)
                 # service.py can exec in place after atomically changing swap-state.
-                limit = guard_limit(root)
+                if model_id is None:
+                    limit = guard_limit(root)
                 if total >= limit:
                     reason = 'footprint_limit'
                     break
@@ -98,4 +124,4 @@ def main():
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(main(*sys.argv[1:]))

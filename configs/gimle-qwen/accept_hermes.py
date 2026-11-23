@@ -20,7 +20,7 @@ live = yaml.safe_load((Path.home() / '.hermes/config.yaml').read_text())
 entry = next(p for p in live['custom_providers'] if p['name'] == 'gimle-qwen')
 assert entry['base_url'] == 'http://127.0.0.1:18789/v1'
 assert live['model']['provider'] == 'mimer-qwen'
-(sandbox / 'config.yaml').write_text(yaml.safe_dump({'model': {'provider': 'gimle-qwen', 'default': 'qwen3.5-9b-6bit', 'context_length': 139264}, 'custom_providers': [entry], 'compression': {'enabled': False}, 'memory': {'memory_enabled': False, 'user_profile_enabled': False}, 'checkpoints': {'enabled': False}}))
+(sandbox / 'config.yaml').write_text(yaml.safe_dump({'model': {'provider': 'gimle-qwen', 'default': 'qwen3.5-9b-4bit', 'context_length': 139264}, 'custom_providers': [entry], 'compression': {'enabled': False}, 'memory': {'memory_enabled': False, 'user_profile_enabled': False}, 'checkpoints': {'enabled': False}}))
 shutil.copyfile(Path.home() / '.hermes/SOUL.md', sandbox / 'SOUL.md')
 os.environ['HERMES_HOME'] = str(sandbox)
 os.environ['TERMINAL_CWD'] = str(sandbox)
@@ -32,7 +32,7 @@ def audit(event, args):
         raise PermissionError('Only loopback inference permitted')
 sys.addaudithook(audit)
 from hermes_cli.runtime_provider import resolve_runtime_provider
-runtime = resolve_runtime_provider(requested='gimle-qwen', target_model='qwen3.5-9b-6bit')
+runtime = resolve_runtime_provider(requested='gimle-qwen', target_model='qwen3.5-9b-4bit')
 assert runtime['base_url'] == entry['base_url'] and runtime['api_key'] == entry['api_key']
 from agent.prompt_builder import load_soul_md
 loaded = load_soul_md(home_override=sandbox)
@@ -49,7 +49,7 @@ import model_tools
 model_tools.get_tool_definitions = lambda *a, **k: [{'type': 'function', 'function': schema}]
 from run_agent import AIAgent
 streamed = []
-agent = AIAgent(provider=runtime['provider'], base_url=runtime['base_url'], api_key=runtime['api_key'], api_mode='chat_completions', model='qwen3.5-9b-6bit', enabled_toolsets=[], max_iterations=3, max_tokens=512, quiet_mode=True, skip_context_files=True, skip_memory=True, skip_background_review=True, load_soul_identity=True, cwd=str(sandbox), checkpoints_enabled=False, request_overrides={'temperature': 0}, stream_delta_callback=lambda *args, **kwargs: streamed.append(bool(args or kwargs)))
+agent = AIAgent(provider=runtime['provider'], base_url=runtime['base_url'], api_key=runtime['api_key'], api_mode='chat_completions', model='qwen3.5-9b-4bit', enabled_toolsets=[], max_iterations=3, max_tokens=512, quiet_mode=True, skip_context_files=True, skip_memory=True, skip_background_review=True, load_soul_identity=True, cwd=str(sandbox), checkpoints_enabled=False, request_overrides={'temperature': 0}, stream_delta_callback=lambda *args, **kwargs: streamed.append(bool(args or kwargs)))
 start = time.monotonic()
 result = agent.run_conversation('Call gimle_receipt with id receipt-731, then report the total and payment status. Do not invent the result.')
 final = result.get('final_response', '')

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { streamSimple } from './node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js';
 const config = JSON.parse(await readFile(path.join(os.homedir(), '.local/share/gimle-qwen/client.json'), 'utf8'));
 const apiKey = (await readFile(config.keyFile, 'utf8')).trim();
-const model = { id: 'qwen3.5-9b-6bit', provider: 'gimle', api: 'openai-completions', baseUrl: config.baseUrl,
+const model = { id: 'qwen3.5-9b-4bit', provider: 'gimle', api: 'openai-completions', baseUrl: config.baseUrl,
   reasoning: false, input: ['text'], contextWindow: 139264, maxTokens: 4096, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   compat: { supportsStore: false, supportsDeveloperRole: false, supportsReasoningEffort: false, maxTokensField: 'max_tokens' } };
 const messages = [{ role: 'system', content: 'Use only the supplied fixture. Return the receipt code exactly.', timestamp: 0 },

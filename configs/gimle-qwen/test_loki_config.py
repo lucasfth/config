@@ -24,7 +24,9 @@ class LokiConfigTests(unittest.TestCase):
             initial = {'model': {'provider': 'mimer-qwen', 'default': 'existing'},
                        'providers': {'gimle-qwen': {'request_timeout_seconds': 1200},
                                      'mimer-qwen': {'base_url': 'http://existing.invalid/v1'}},
+                       'custom_providers': [{'name': 'gimle-qwen', 'base_url': 'http://127.0.0.1:18789/v1'}],
                        'unrelated': {'preserve': True}}
+            original_tail = 'unrelated:\n  preserve: true\n'
             config.write_text(yaml.safe_dump(initial, sort_keys=False))
             with patch('socket.gethostname', return_value='gimle'), patch('os.getuid', return_value=501), \
                     patch.object(Path, 'home', return_value=home), patch.object(Path, 'is_mount', return_value=True), \
@@ -33,11 +35,13 @@ class LokiConfigTests(unittest.TestCase):
             result = yaml.safe_load(config.read_text())
             provider = result['providers']['gimle-qwen']
             self.assertEqual(provider['base_url'], 'http://127.0.0.1:18789/v1')
-            self.assertEqual(provider['models'], ['qwen3.5-9b-6bit'])
+            self.assertEqual(provider['models'], {'qwen3.5-9b-4bit': {'context_length': 139264},
+                                                  'inkling-2-mini': {'context_length': 32768}})
             self.assertEqual(provider['request_timeout_seconds'], 1200)
             self.assertEqual(result['providers']['mimer-qwen'], initial['providers']['mimer-qwen'])
             self.assertEqual(result['model'], initial['model'])
             self.assertEqual(result['unrelated'], initial['unrelated'])
+            self.assertTrue(config.read_text().endswith(original_tail))
 
 
 if __name__ == '__main__':

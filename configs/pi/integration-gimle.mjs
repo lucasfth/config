@@ -16,11 +16,14 @@ try {
   await writeFile(path.join(dir, 'settings.json'), JSON.stringify(settings));
   await writeFile(path.join(dir, 'mcp.json'), '{"mcpServers":{}}');
   const runtime = await ModelRuntime.create({ modelsPath: path.join(dir, 'models.json'), authPath: path.join(dir, 'auth.json') });
-  const model = runtime.getModel('gimle', 'qwen3.5-9b-6bit');
+  const modelId = process.env.GIMLE_QWEN_TEST_MODEL || 'qwen3.5-9b-4bit';
+  assert.ok(['qwen3.5-9b-4bit', 'inkling-2-mini'].includes(modelId));
+  const model = runtime.getModel('gimle', modelId);
   assert.ok(model, 'Native model registry loads Gimle');
   const auth = await runtime.getAuth(model);
   assert.ok(auth?.auth.apiKey);
-  const options = { apiKey: auth.auth.apiKey, maxTokens: 256, signal: AbortSignal.timeout(180000), temperature: 0 };
+  const options = { apiKey: auth.auth.apiKey, maxTokens: modelId === 'inkling-2-mini' ? 2048 : 256,
+    signal: AbortSignal.timeout(180000), temperature: 0 };
   const tool = { name: 'gimle_probe', description: 'Return a synthetic test receipt without side effects.', parameters: Type.Object({ value: Type.String() }) };
   const messages = [
     { role: 'system', content: 'Follow the user instructions. Use only the supplied synthetic tool.', toolsAdded: [tool], timestamp: 0 },
@@ -53,5 +56,5 @@ try {
     await session.prompt('Reply exactly GIMLE_SESSION_VERIFIED.');
     assert.match(session.getLastAssistantText(), /GIMLE_SESSION_VERIFIED/);
   } finally { clearTimeout(timer); session.dispose(); }
-  console.log(JSON.stringify({ provider: 'gimle', streamedDeltas: textEvents, tool: call.name, toolArguments: call.arguments, toolResultContinuation: true, nativeSession: true, unauthorizedRejected: true }));
+  console.log(JSON.stringify({ provider: 'gimle', model: modelId, streamedDeltas: textEvents, tool: call.name, toolArguments: call.arguments, toolResultContinuation: true, nativeSession: true, unauthorizedRejected: true }));
 } finally { await rm(dir, { recursive: true, force: true }); }

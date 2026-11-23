@@ -1,0 +1,15 @@
+diff --git a/tools/server/server-http.cpp b/tools/server/server-http.cpp
+index 0244d4a..9d19a4d 100644
+--- a/tools/server/server-http.cpp
++++ b/tools/server/server-http.cpp
+@@ -337,9 +337,6 @@ bool server_http_context::init_listener(const common_params & params) {
+     // Public endpoints - API routes plus all embedded UI assets
+     static const std::unordered_set<std::string> get_public_endpoints = []() {
+-        std::unordered_set<std::string> endpoints {
+-            "/health",
+-            "/v1/health",
+-        };
++        std::unordered_set<std::string> endpoints;
+         endpoints.insert(frontend_paths.begin(), frontend_paths.end());
+         return endpoints;
+     }();

@@ -27,9 +27,9 @@ providers:
     api_keys:
       gimle-qwen: ${GIMLE_QWEN_API_KEY}
     models:
-      - id: qwen3.5-9b-6bit
+      - id: qwen3.5-9b-4bit
         name: Qwen3.5-9B (Gimle)
-        description: Qwen3.5-9B 6-bit MLX on Gimle via SSH tunnel
+        description: Qwen3.5-9B 4-bit MLX on Gimle via SSH tunnel
         context: 139264
         abilities:
           temperature:

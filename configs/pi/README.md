@@ -338,4 +338,4 @@ Current verification: **142 automated tests passed**, typecheck passed, and a st
 
 ## Optional Gimle model
 
-The private single-user MLX endpoint is optional: select `gimle/qwen3.5-9b-6bit` in `/model` after a fresh launch. Canonical serving/activation, SSH client setup, acceptance evidence, memory limits and rollback are documented in [`configs/gimle-qwen`](../gimle-qwen/README.md). Private credentials stay outside Git; no role or default model is changed.
+The private single-user Gimle endpoint is optional: select `gimle/qwen3.5-9b-4bit` (MLX default) or `gimle/inkling-2-mini` (GGUF) in `/model` after a fresh launch. Canonical serving/activation, SSH client setup, acceptance evidence, memory limits and rollback are documented in [`configs/gimle-qwen`](../gimle-qwen/README.md). Private credentials stay outside Git; no role or default model is changed.

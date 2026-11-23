@@ -13,13 +13,15 @@ import threading
 
 import llama_swap as lx
 
-MODEL_ID = 'qwen3.5-9b-6bit'
-CONTEXT = 139264
-MAX_OUTPUT = 4096
+MODEL_ID = lx.BUILTIN_ID
+CONTEXT = lx.BUILTIN['context']
+MAX_OUTPUT = lx.BUILTIN['max_output']
 MAX_BODY = 8_000_000
-MEMORY_LIMIT = 14_000_000_000
-PROMPT_CACHE_BYTES = 2_500_000_000
-REVISION = '76fe4065e622cf34990d3c13ef80ec8531c9a0f7'
+MEMORY_LIMIT = lx.BUILTIN['memory_limit']
+PROMPT_CACHE_BYTES = lx.BUILTIN['prompt_cache_bytes']
+REVISION = lx.BUILTIN['revision']
+
+
 def apply_swap_state(root):
     """Apply the llama-swap registry state; baked values are the fallback."""
     global MODEL_ID, CONTEXT, MAX_OUTPUT, MEMORY_LIMIT, PROMPT_CACHE_BYTES, REVISION
@@ -51,8 +53,8 @@ def apply_swap_state(root):
         if not isinstance(revision, str) or len(revision) != 40 or any(c not in '0123456789abcdef' for c in revision):
             raise ValueError('swap-state revision invalid')
         REVISION = revision
-    guard_stop = value('guard_stop', 17_000_000_000, int, 15_000_000_000, 37_000_000_000)
-    guard_target = value('guard_target', 15_000_000_000, int, 1_000_000_000, 37_000_000_000)
+    guard_stop = value('guard_stop', lx.BUILTIN['guard_stop'], int, 15_000_000_000, lx.GUARD_MAX)
+    guard_target = value('guard_target', lx.BUILTIN['guard_target'], int, 1_000_000_000, lx.GUARD_MAX)
     if guard_target >= guard_stop:
         raise ValueError('swap-state guard_target must be below guard_stop')
     if state:
@@ -348,7 +350,7 @@ def main():
     handler.do_OPTIONS = lambda self: reply(self, 405, {'error': 'Not allowed'})
     handler.log_message = lambda *args: None
     sys.argv = [sys.argv[0], '--model', str(model), '--host', '127.0.0.1',
-                '--port', '18790' if worker_mode else '18789',
+                '--port', str(lx.WORKER_PORT if worker_mode else lx.PORT),
                 '--kv-bits', '8', '--quantized-kv-start', '0', '--prefill-step-size', '256',
                 '--prompt-cache-size', '1', '--prompt-cache-bytes', str(PROMPT_CACHE_BYTES),
                 '--decode-concurrency', '1', '--prompt-concurrency', '1', '--max-tokens', '1024',

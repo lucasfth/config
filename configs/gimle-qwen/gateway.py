@@ -1,4 +1,4 @@
-"""Keep the public socket alive while replacing the supervised MLX worker."""
+"""Keep the private socket alive while replacing the supervised model worker."""
 import hmac
 import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,8 +14,10 @@ import time
 import llama_swap as lx
 import service
 
-WORKER_PORT = 18790
-MODELS = ('qwen3.5-9b-4bit', 'qwen3.5-9b-8bit')
+WORKER_PORT = lx.WORKER_PORT
+MODELS = (lx.BUILTIN_ID, lx.INKLING_ID)
+INKLING_CHAT_FIELDS = frozenset(('model', 'messages', 'max_tokens', 'temperature', 'top_p',
+                                 'stop', 'stream', 'stream_options', 'tools', 'tool_choice', 'n', 'seed'))
 WORKER_ERRORS = (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired, http.client.HTTPException)
 
 
@@ -28,18 +30,26 @@ class Worker:
     def start(self, model_id):
         if self.process is not None and self.process.poll() is None:
             raise RuntimeError('Previous supervisor is still running')
-        self.process = subprocess.Popen([sys.executable, str(Path(__file__).with_name('supervise.py'))],
-                                        env={**os.environ, 'GIMLE_QWEN_WORKER': '1',
-                                             'GIMLE_QWEN_GATEWAY_PID': str(os.getpid()),
-                                             'GIMLE_QWEN_ROOT': str(self.root)})
+        args = [sys.executable, str(Path(__file__).with_name('supervise.py'))]
+        if model_id == lx.INKLING_ID:
+            args.append(model_id)
+        self.process = subprocess.Popen(args, env={**os.environ, 'GIMLE_QWEN_WORKER': '1',
+                                                   'GIMLE_QWEN_GATEWAY_PID': str(os.getpid()),
+                                                   'GIMLE_QWEN_ROOT': str(self.root)})
         try:
             deadline = time.monotonic() + lx.HEALTH_TIMEOUT_S
             while self.process.poll() is None and time.monotonic() < deadline:
                 try:
                     with self.connection('GET', '/health', timeout=2) as response:
-                        if response.status == 200 and response.getheader('X-Gimle-Model') == model_id:
+                        if response.status != 200:
+                            raise RuntimeError('Worker is not ready')
+                        if model_id != lx.INKLING_ID and response.getheader('X-Gimle-Model') == model_id:
                             return
-                except (OSError, http.client.HTTPException):
+                    if model_id == lx.INKLING_ID:
+                        with self.connection('GET', '/v1/models', timeout=2) as response:
+                            if response.status == 200 and [row['id'] for row in json.load(response)['data']] == [model_id]:
+                                return
+                except (OSError, http.client.HTTPException, RuntimeError, ValueError, KeyError):
                     pass
                 time.sleep(0.5)
             raise RuntimeError('Guarded model worker did not become healthy')
@@ -50,7 +60,7 @@ class Worker:
     def stop(self):
         if self.process is not None and self.process.poll() is None:
             self.process.terminate()
-            # Do not kill the supervisor: it owns cleanup of the MLX process group.
+            # Do not kill the supervisor: it owns cleanup of the worker process group.
             self.process.wait(timeout=20)
         self.process = None
 
@@ -87,7 +97,7 @@ class Models:
             except ValueError:
                 continue
             path = self.root / 'models' / name
-            if item['model_id'] in MODELS and lx.complete(path) and lx.weights_ok(path, item):
+            if item['model_id'] in MODELS and lx.model_ready(path, item):
                 entries[item['model_id']] = (name, item)
         return entries
 
@@ -97,17 +107,19 @@ class Models:
         old = self.active
         previous = lx.validate_entry(old, reg['models'][old])
         try:
-            self.worker.stop()  # No overlapping MLX workers, even during rollback.
+            self.worker.stop()  # No overlapping workers, even during rollback.
         except WORKER_ERRORS:
             self.active = None
             self.unavailable = 'Model worker did not stop; operator recovery required'
             lx.journal(self.root, {'event': 'swap-stop-failed', 'from': old, 'to': name})
             raise RuntimeError(self.unavailable) from None
         try:
-            lx.point(self.root, name, entry)
+            if entry['model_id'] != lx.INKLING_ID:
+                lx.point(self.root, name, entry)
             self.worker.start(entry['model_id'])
             # Health verifies the worker identity; smoke verifies generation before commit.
-            smoke = json.dumps({'model': entry['model_id'], 'max_tokens': 8,
+            smoke = json.dumps({'model': entry['model_id'], 'temperature': 0,
+                                'max_tokens': 256 if entry['model_id'] == lx.INKLING_ID else 8,
                                 'messages': [{'role': 'user', 'content': 'Reply with one word: ready'}]})
             with self.worker.connection('POST', '/v1/chat/completions', smoke, lx.SMOKE_TIMEOUT_S) as res:
                 if res.status != 200 or not json.load(res)['choices'][0]['message'].get('content'):
@@ -116,7 +128,8 @@ class Models:
         except (*WORKER_ERRORS, KeyError, IndexError, TypeError):
             try:
                 self.worker.stop()
-                lx.point(self.root, old, previous)
+                if previous['model_id'] != lx.INKLING_ID:
+                    lx.point(self.root, old, previous)
                 self.worker.start(previous['model_id'])
             except WORKER_ERRORS:
                 self.active = None
@@ -178,8 +191,9 @@ def handler_for(models, key):
                 return self.reply(404, {'error': 'Not found'})
             reg = json.loads(models.reg_path.read_text())
             return self.reply(200, {'object': 'list', 'data': [
-                {'id': mid, 'object': 'model', 'owned_by': 'gimle', 'active': name == models.active}
-                for mid, (name, _) in models.entries(reg).items()]})
+                {'id': mid, 'object': 'model', 'owned_by': 'gimle', 'active': name == models.active,
+                 'context_length': entry['context'], 'max_completion_tokens': entry['max_output']}
+                for mid, (name, entry) in models.entries(reg).items()]})
 
         def do_POST(self):
             if not self.authorized():
@@ -207,9 +221,20 @@ def handler_for(models, key):
                     entries = models.entries(reg)
                     want = body.get('model') if isinstance(body, dict) else None
                     if want == 'default_model':
-                        want = lx.validate_entry(models.active, reg['models'][models.active])['model_id']
+                        want = lx.BUILTIN_ID
                     name, entry = entries[want]
-                    service.validate_request(body, model_id=want, max_output=entry['max_output'])
+                    validated = service.validate_request(body, model_id=want, max_output=entry['max_output'])
+                    if want == lx.INKLING_ID:
+                        if body.keys() - INKLING_CHAT_FIELDS:
+                            raise ValueError('Unsupported Inkling chat field')
+                        # Pi sends the previous reasoning alongside assistant tool calls.
+                        for message in validated['messages']:
+                            allowed = {'role', 'content', 'tool_calls', 'tool_call_id', 'name'}
+                            if message['role'] == 'assistant' and isinstance(message.get('reasoning_content'), str):
+                                allowed.add('reasoning_content')
+                            if message.keys() - allowed:
+                                raise ValueError('Unsupported Inkling message field')
+                    body = {**validated, 'model': want}
                 except (ValueError, TypeError, KeyError):
                     return self.reply(400, {'error': 'Invalid chat request or limit'})
                 try:
@@ -232,7 +257,12 @@ def main():
     worker = Worker(root, key)
     models = Models(root, worker)
     reg = json.loads(models.reg_path.read_text())
-    model_id = lx.validate_entry(models.active, reg['models'][models.active])['model_id']
+    # An explicit Inkling selection lasts for the running gateway, not the next boot.
+    default = lx.validate_entry(lx.BUILTIN_ID, reg['models'][lx.BUILTIN_ID])
+    lx.point(root, lx.BUILTIN_ID, default)
+    if models.active != lx.BUILTIN_ID:
+        lx.save_atomic(models.reg_path, {**reg, 'active': lx.BUILTIN_ID, 'previous': models.active})
+        models.active = lx.BUILTIN_ID
     server = ThreadingHTTPServer(('127.0.0.1', lx.PORT), handler_for(models, key))
 
     def stop(*_):
@@ -240,7 +270,7 @@ def main():
 
     signal.signal(signal.SIGTERM, stop)
     try:
-        worker.start(model_id)
+        worker.start(lx.BUILTIN_ID)
         server.serve_forever()
     except KeyboardInterrupt:
         pass

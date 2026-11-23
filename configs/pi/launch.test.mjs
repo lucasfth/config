@@ -321,7 +321,7 @@ test('optional Gimle provider uses private loopback access without changing role
     assert.equal(providers.gimle.baseUrl, env.GIMLE_QWEN_BASE_URL);
     assert.deepEqual(providers.gimle.models.map(model => [model.id, model.contextWindow]), [
       ['qwen3.5-9b-4bit', 139264],
-      ['qwen3.5-9b-8bit', 139264],
+      ['inkling-2-mini', 32768],
     ]);
     assert.equal(providers.gimle.apiKey, '!cat /private/gimle-key');
     assert.notEqual(roles.default.provider, 'gimle');

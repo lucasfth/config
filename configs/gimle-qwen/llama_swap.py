@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-"""llama-swap - model swapper for the dk.gimle.qwen MLX service.
+"""llama-swap - model swapper for the private dk.gimle.qwen service.
 
 Registry, state and weights live on the encrypted runtime volume under
-GIMLE_QWEN_ROOT. The supervised service reads swap-state.json at boot,
-including the memory guard; llama-swap atomically re-points the model
-symlink, writes the state, then restarts the LaunchAgent and verifies
-health plus a smoke completion. Any failed swap rolls back to the
-previous model automatically.
+GIMLE_QWEN_ROOT. Live switches go through the authenticated gateway, which
+owns the single worker slot, readiness and rollback.
 
 Commands:
   llama-swap init            one-time: registry around the existing 9B deploy
   llama-swap list            registered models
-  llama-swap status          active model, link, last exit, guard drift
+  llama-swap status          active model, link, configured budget, last worker exit
   llama-swap fetch <id>      download/check out weights only (service untouched)
   llama-swap add <id> <repo> <revision> <ctx> <mem-gb> <target-gb> <stop-gb> [weights-gb] [max-output]
                       register a model (validated; nothing is downloaded)
@@ -39,18 +36,34 @@ GUARD_MAX = 37_000_000_000  # 2026-11-19: raised 33->37G measurement envelope (L
 HEALTH_TIMEOUT_S = 300
 SMOKE_TIMEOUT_S = 180
 
-BUILTIN_ID = 'qwen3.5-9b-6bit'
+BUILTIN_ID = 'qwen3.5-9b-4bit'
 BUILTIN = {
-    'model_id': 'qwen3.5-9b-6bit',
-    'repo': 'mlx-community/Qwen3.5-9B-6bit',
-    'revision': '76fe4065e622cf34990d3c13ef80ec8531c9a0f7',
+    'model_id': BUILTIN_ID,
+    'repo': 'mlx-community/Qwen3.5-9B-4bit',
+    'revision': '8b2b98c00a6b4d291155e4890773ca8f769aee53',
     'context': 139264,
     'max_output': 4096,
     'memory_limit': 14_000_000_000,
     'prompt_cache_bytes': 2_500_000_000,
-    'guard_target': 15_000_000_000,
-    'guard_stop': 17_000_000_000,
+    'guard_target': 14_000_000_000,
+    'guard_stop': 16_000_000_000,
 }
+INKLING_ID = 'inkling-2-mini'
+INKLING_FILE = 'Inkling-2-Mini-UD-Q4_K_M.gguf'
+INKLING_SOURCE_FILE = 'Mainline_Support/' + INKLING_FILE + '_file'
+INKLING_SHA256 = '78fcedcf93c5d1bfe83e225513b71392bb52259be0eaa5f8899c856a2e5834ae'
+INKLING = {
+    **BUILTIN,
+    'model_id': INKLING_ID,
+    'repo': 'unsloth/Inkling-2-Mini-GGUF',
+    'revision': '45fd08764f2b0bf16b03a5483a80e5c7aaec8772',
+    'weights_bytes': 16_610_544_608,
+    'context': 32768,
+    'memory_limit': 24_000_000_000,
+    'guard_target': 24_000_000_000,
+    'guard_stop': 26_000_000_000,
+}
+WORKER_PORT = 18790
 
 INT_FIELDS = (('context', 4096, 139264),
               ('max_output', 1, 8192),
@@ -127,6 +140,8 @@ def validate_entry(name, entry):
     weights = entry.get('weights_bytes')
     if weights is not None and (not isinstance(weights, int) or isinstance(weights, bool) or weights < 1_000_000_000):
         raise ValueError('%s: weights_bytes must be an int >= 1000000000' % name)
+    if INKLING_ID in (name, model_id) and (name != INKLING_ID or entry != INKLING):
+        raise ValueError('Inkling requires the qualified artifact and serving profile')
     return entry
 
 
@@ -153,6 +168,14 @@ def weights_ok(weights_dir, entry):
     return total >= expected
 
 
+def model_ready(path, entry):
+    if entry['model_id'] == INKLING_ID:
+        file = path / INKLING_FILE
+        return (not path.is_symlink() and not file.is_symlink() and file.is_file()
+                and file.stat().st_size == entry['weights_bytes'])
+    return complete(path) and weights_ok(path, entry)
+
+
 def ensure_models_dir(root):
     models = root / 'models'
     models.mkdir(mode=0o700, exist_ok=True)
@@ -163,9 +186,11 @@ def ensure_models_dir(root):
 def checkout(name, entry, root):
     models = ensure_models_dir(root)
     dest = models / name
-    if complete(dest) and weights_ok(dest, entry):
+    if model_ready(dest, entry):
         print('llama-swap: %s already checked out' % name)
         return
+    if entry['model_id'] == INKLING_ID:
+        die('Provision %s (sha256 %s) as %s before serving' % (INKLING_SOURCE_FILE, INKLING_SHA256, dest / INKLING_FILE))
     venv_python = root / 'venv' / 'bin' / 'python'
     if not venv_python.is_file():
         die('missing venv python: %s' % venv_python)
@@ -210,7 +235,9 @@ def point(root, name, entry):
     if name is not None:
         entry = validate_entry(name, entry)
     models = ensure_models_dir(root)
-    if not complete(models / name):
+    if entry['model_id'] == INKLING_ID:
+        raise ValueError('Inkling cannot be linked as an MLX checkpoint')
+    if not model_ready(models / name, entry):
         raise ValueError('%s: weights missing; run fetch first' % name)
     nxt = models / ('.link-%d' % os.getpid())
     if os.path.lexists(nxt):
@@ -218,10 +245,6 @@ def point(root, name, entry):
     os.symlink(models / name, nxt)
     os.replace(nxt, root / 'model')
     save_atomic(root / 'swap-state.json', state_for(entry))
-
-
-def restart():
-    subprocess.run(['launchctl', 'kickstart', '-k', 'gui/%d/%s' % (UID, SERVICE)], check=False)
 
 
 def wait_health(api_key, timeout=HEALTH_TIMEOUT_S):
@@ -255,8 +278,8 @@ def api_key_of(root):
     return key
 
 
-def smoke(api_key, model_id):
-    body = json.dumps({'model': model_id, 'max_tokens': 64, 'temperature': 0,
+def smoke(api_key, model_id, max_tokens=64):
+    body = json.dumps({'model': model_id, 'max_tokens': max_tokens, 'temperature': 0,
                        'messages': [{'role': 'user',
                                      'content': 'What is the second prime number? Reply with only the digit.'}]}).encode()
     req = urllib.request.Request('http://127.0.0.1:%d/v1/chat/completions' % PORT, data=body,
@@ -268,8 +291,9 @@ def smoke(api_key, model_id):
     elapsed = max(time.time() - t0, 0.001)
     choices = data.get('choices') or []
     content = (choices[0].get('message') or {}).get('content') if choices else ''
-    if not content:
-        raise ValueError('empty completion')
+    served = data.get('model')
+    if not content or (served != model_id and not (served == 'default_model' and model_id != INKLING_ID)):
+        raise ValueError('missing completion or wrong serving model')
     tokens = (data.get('usage') or {}).get('completion_tokens') or 1
     return tokens / elapsed
 
@@ -346,10 +370,6 @@ def cmd_status(reg, root):
             print('last-exit: reason=%s peak=%.2fG stop_threshold_bytes=%s'
                   % (data.get('reason'), data.get('sampled_peak_bytes', 0) / 1e9,
                      data.get('stop_threshold_bytes')))
-            threshold = data.get('stop_threshold_bytes')
-            stop = entry.get('guard_stop')
-            if stop and threshold and threshold != stop:
-                print('WARNING:  guard drift - running threshold %d != registry guard_stop %d' % (threshold, stop))
         except ValueError:
             print('last-exit: unreadable')
     return 0
@@ -363,15 +383,26 @@ class SwapError(RuntimeError):
 def perform_switch(root, name, do_restart=True):
     """Switch the held model to `name` using validated registry state.
 
-    Returns (entry, tps) when a switch ran, (entry, None) when already active.
-    Raises SwapError on any failure (rollback handled before raising). With
-    do_restart=False the in-process caller must relaunch the service itself;
-    health/smoke are then the new process's boot verification."""
+    Live callers delegate to the gateway; the standalone MLX in-process path
+    below must relaunch its own worker and cannot select Inkling."""
     reg = private_json(root / 'swap-registry.json')
     models = reg.get('models', {})
     if name not in models:
         raise SwapError('unknown model %s; run llama-swap list' % name)
     entry = validate_entry(name, models[name])
+    if do_restart:
+        if not model_ready(root / 'models' / name, entry):
+            raise SwapError('%s: weights are not provisioned; run fetch first' % name)
+        # The gateway owns the worker slot and is the only writer of live swap state.
+        try:
+            return entry, smoke(api_key_of(root), entry['model_id'], max_tokens=256 if name == INKLING_ID else 64)
+        except urllib.error.HTTPError as exc:
+            exc.close()
+            raise SwapError('gateway switch to %s failed: HTTP %d' % (name, exc.code)) from exc
+        except (OSError, ValueError) as exc:
+            raise SwapError('gateway switch to %s failed: %s' % (name, exc)) from exc
+    if entry['model_id'] == INKLING_ID:
+        raise SwapError('Inkling requires the gateway')
     cur = reg.get('active')
     if cur == name:
         return entry, None
@@ -379,14 +410,10 @@ def perform_switch(root, name, do_restart=True):
         raise SwapError('registry has no active model; run llama-swap init or fix the registry')
     prev_entry = validate_entry(cur, models[cur])
     def fail(msg):
-        if do_restart:
-            if point_or_none(root, cur, prev_entry) is False:
-                raise SwapError(msg + '; and rollback failed; manual recovery needed')
-        else:
-            try:
-                point(root, cur, prev_entry)
-            except Exception:
-                raise SwapError(msg + '; and rollback failed; manual recovery needed')
+        try:
+            point(root, cur, prev_entry)
+        except Exception:
+            raise SwapError(msg + '; and rollback failed; manual recovery needed')
         journal(root, {'event': 'swap-failed', 'to': name, 'rolled_back': cur})
         raise SwapError(msg + '; rolled back to %s' % cur)
     try:
@@ -394,25 +421,11 @@ def perform_switch(root, name, do_restart=True):
         point(root, name, entry)
     except Exception as exc:
         fail('%s: switch interrupted' % name)
-    if do_restart:
-        try:
-            restart()
-            if not wait_health(api_key_of(root)):
-                raise SwapError('service did not become healthy')
-        except Exception as exc:
-            fail('%s: unhealthy after restart' % name)
-        try:
-            tps = smoke(api_key_of(root), entry['model_id'])
-        except Exception as exc:
-            journal(root, {'event': 'swap-failed-smoke', 'to': name, 'rolled_back': cur, 'error': str(exc)})
-            raise SwapError('%s: smoke check failed; rolled back to %s' % (name, cur)) from exc
-    else:
-        tps = None
     reg['active'] = name
     reg['previous'] = cur
     save_atomic(root / 'swap-registry.json', reg)
-    journal(root, {'event': 'swap', 'from': cur, 'to': name, 'tok_per_s': round(tps, 2) if tps else None})
-    return entry, tps
+    journal(root, {'event': 'swap', 'from': cur, 'to': name})
+    return entry, None
 
 def cmd_use(root, reg, name, dry):
     models = reg.get('models', {})
@@ -420,9 +433,6 @@ def cmd_use(root, reg, name, dry):
         die('unknown model %s; run llama-swap list' % name)
     entry = validate_entry(name, models[name])
     cur = reg.get('active')
-    if cur == name:
-        print('llama-swap: %s is already active' % name)
-        return 0
     if dry:
         print('llama-swap: would swap %s -> %s (ctx=%d memory_limit=%.0fG guard_stop=%.0fG)'
               % (cur, name, entry['context'], entry['memory_limit'] / 1e9, entry['guard_stop'] / 1e9))
@@ -431,17 +441,8 @@ def cmd_use(root, reg, name, dry):
         entry, tps = perform_switch(root, name, do_restart=True)
     except SwapError as exc:
         die(str(exc), 2)
-    print('llama-swap: active=%s smoke=%s tok/s' % (name, '%.1f' % tps if tps else 'n/a'))
+    print('llama-swap: active=%s smoke=%.1f tok/s' % (name, tps))
     return 0
-def point_or_none(root, name, entry):
-    try:
-        point(root, name, entry)
-        restart()
-        return wait_health(api_key_of(root))
-    except Exception:
-        return False
-
-
 def cmd_rollback(root, reg, dry):
     cur = reg.get('active')
     prev = reg.get('previous')
@@ -454,18 +455,7 @@ def cmd_rollback(root, reg, dry):
     if dry:
         print('llama-swap: would roll back %s -> %s' % (cur, prev))
         return 0
-    entry = validate_entry(prev, models[prev])
-    point(root, prev, entry)
-    restart()
-    if not wait_health(api_key_of(root)):
-        journal(root, {'event': 'rollback-failed', 'to': prev})
-        die('rollback to %s did not become healthy; manual recovery needed' % prev, 2)
-    reg['active'] = prev
-    reg['previous'] = cur
-    save_atomic(root / 'swap-registry.json', reg)
-    journal(root, {'event': 'rollback', 'to': prev})
-    print('llama-swap: rolled back to %s' % prev)
-    return 0
+    return cmd_use(root, reg, prev, dry=False)
 
 
 def cmd_add(root, reg, spec, rest, dry):

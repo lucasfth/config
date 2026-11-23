@@ -33,7 +33,7 @@ class ApplySwapStateTests(unittest.TestCase):
 
     def test_missing_file_keeps_baked_defaults(self):
         service.apply_swap_state(self.root)
-        self.assertEqual(service.MODEL_ID, 'qwen3.5-9b-6bit')
+        self.assertEqual(service.MODEL_ID, llama_swap.BUILTIN_ID)
         self.assertEqual(service.CONTEXT, 139264)
         self.assertEqual(service.MEMORY_LIMIT, 14_000_000_000)
 
@@ -50,7 +50,7 @@ class ApplySwapStateTests(unittest.TestCase):
     def test_empty_state_keeps_defaults(self):
         self.write_state({})
         service.apply_swap_state(self.root)
-        self.assertEqual(service.MODEL_ID, 'qwen3.5-9b-6bit')
+        self.assertEqual(service.MODEL_ID, llama_swap.BUILTIN_ID)
 
     def test_bool_rejected_as_int(self):
         self.write_state({'context': True})
@@ -117,8 +117,8 @@ class ValidateEntryTests(unittest.TestCase):
         return base
 
     def test_builtin_valid(self):
-        result = llama_swap.validate_entry('qwen3.5-9b-6bit', self.entry())
-        self.assertEqual(result['model_id'], 'qwen3.5-9b-6bit')
+        result = llama_swap.validate_entry(llama_swap.BUILTIN_ID, self.entry())
+        self.assertEqual(result['model_id'], llama_swap.BUILTIN_ID)
 
     def test_guard_at_cap_valid_above_cap_rejected(self):
         llama_swap.validate_entry('big', self.entry(guard_stop=37_000_000_000, guard_target=35_000_000_000))
@@ -140,10 +140,10 @@ class ValidateEntryTests(unittest.TestCase):
             llama_swap.validate_entry('x', entry)
 
     def test_state_for_roundtrip(self):
-        entry = llama_swap.validate_entry('qwen3.5-9b-6bit', self.entry())
+        entry = llama_swap.validate_entry(llama_swap.BUILTIN_ID, self.entry())
         state = llama_swap.state_for(entry)
-        self.assertEqual(state['guard_stop'], 17_000_000_000)
-        self.assertEqual(state['guard_target'], 15_000_000_000)
+        self.assertEqual(state['guard_stop'], 16_000_000_000)
+        self.assertEqual(state['guard_target'], 14_000_000_000)
         self.assertNotIn('repo', state)
         self.assertNotIn('weights_bytes', state)
 
@@ -214,8 +214,8 @@ class AddRegistryTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        self.reg = {'active': 'qwen3.5-9b-6bit', 'previous': None,
-                    'models': {'qwen3.5-9b-6bit': dict(llama_swap.BUILTIN)}}
+        self.reg = {'active': llama_swap.BUILTIN_ID, 'previous': None,
+                    'models': {llama_swap.BUILTIN_ID: dict(llama_swap.BUILTIN)}}
         llama_swap.save_atomic(self.root / 'swap-registry.json', self.reg)
 
     def tearDown(self):
@@ -238,7 +238,7 @@ class AddRegistryTests(unittest.TestCase):
         self.assertEqual(entry['max_output'], 4096)
         self.assertNotIn('__path__', saved)
         self.assertEqual(set(saved), {'active', 'previous', 'models'})
-        self.assertEqual(saved['active'], 'qwen3.5-9b-6bit')
+        self.assertEqual(saved['active'], llama_swap.BUILTIN_ID)
 
     def test_add_five_args_rejected(self):
         with self.assertRaises(SystemExit):
@@ -269,7 +269,7 @@ class AddRegistryTests(unittest.TestCase):
 
     def test_add_duplicate_rejected(self):
         with self.assertRaises(SystemExit):
-            llama_swap.cmd_add(self.root, self.load(), 'qwen3.5-9b-6bit',
+            llama_swap.cmd_add(self.root, self.load(), llama_swap.BUILTIN_ID,
                                ['org/repo', 'a' * 40, '32768', '14', '15', '17'], dry=False)
 
 
@@ -306,7 +306,7 @@ class SupervisorCapTests(unittest.TestCase):
         path = os.path.join(self.root, 'swap-state.json')
         full = {'revision': '76fe4065e622cf34990d3c13ef80ec8531c9a0f7', 'context': 139264,
                 'memory_limit': 14_000_000_000, 'guard_target': 15_000_000_000,
-                'guard_stop': 17_000_000_000, 'model_id': 'qwen3.5-9b-6bit',
+                'guard_stop': 17_000_000_000, 'model_id': llama_swap.BUILTIN_ID,
                 'max_output': 4096}
         full.update(state)
         with open(path, 'w') as f:
@@ -317,7 +317,7 @@ class SupervisorCapTests(unittest.TestCase):
         self.assertEqual(self.sp.guard_limit(llama_swap.Path(self.root)), 37_000_000_000)
     def test_above_ceiling_rejected_to_default(self):
         self._write({'guard_stop': 38_000_000_000, 'guard_target': 36_000_000_000})
-        self.assertEqual(self.sp.guard_limit(llama_swap.Path(self.root)), 17_000_000_000)
+        self.assertEqual(self.sp.guard_limit(llama_swap.Path(self.root)), 16_000_000_000)
 
     def test_running_supervisor_uses_updated_guard_and_records_it(self):
         from unittest.mock import Mock, patch

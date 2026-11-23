@@ -19,15 +19,26 @@ before = path.read_bytes()
 original = yaml.safe_load(before)
 entry = {'name': 'gimle-qwen', 'base_url': 'http://127.0.0.1:18789/v1',
          'api_key': (root / 'api-key').read_text().strip(), 'context_length': 139264,
-         'models': ['qwen3.5-9b-6bit'], 'api_mode': 'chat_completions', 'model': 'qwen3.5-9b-6bit'}
+         'models': {'qwen3.5-9b-4bit': {'context_length': 139264},
+                    'inkling-2-mini': {'context_length': 32768}},
+         'api_mode': 'chat_completions', 'model': 'qwen3.5-9b-4bit'}
 text = before.decode()
 existing = original.get('custom_providers', [])
 if existing:
     assert len(existing) == 1 and existing[0]['name'] == entry['name'], 'Inspect unrelated custom list before editing'
-    start = text.index('custom_providers:\n')
-    # Our previously generated list is the final top-level block.
-    assert yaml.safe_load(text[start:]) == {'custom_providers': existing}
-    text = text[:start] + yaml.safe_dump({'custom_providers': [entry]}, sort_keys=False)
+    fields = yaml.compose(text).value
+    node = next(value for key, value in fields if key.value == 'custom_providers')
+    assert len(node.value) == 1, 'Expected exactly one legacy provider'
+    start = node.value[0].start_mark.line
+    end = node.value[0].end_mark.line
+    lines = text.splitlines(keepends=True)
+    assert lines[start].lstrip().startswith('- '), 'Unexpected custom_providers layout'
+    # PyYAML's end mark can include trailing comments and blank lines; keep those verbatim.
+    while end > start and (not lines[end - 1].strip() or lines[end - 1].lstrip().startswith('#')):
+        end -= 1
+    dumped = yaml.safe_dump([entry], sort_keys=False)
+    indent = lines[start][:len(lines[start]) - len(lines[start].lstrip())]
+    text = ''.join(lines[:start]) + ''.join(indent + line for line in dumped.splitlines(keepends=True)) + ''.join(lines[end:])
 else:
     assert 'custom_providers:' not in text
     text = text.rstrip() + '\n\n' + yaml.safe_dump({'custom_providers': [entry]}, sort_keys=False)
