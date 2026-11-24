@@ -14,6 +14,19 @@
     fi
   '';
 in {
+  # Launch the pinned signed desktop bundle directly; separate from /Applications/Conduit.app.
+  launchd.user.agents.hermes-conduit-desktop = lib.mkIf (hostname == "lucas-macbook-pro") {
+    serviceConfig = {
+      ProgramArguments = [
+        "/usr/bin/open"
+        "-g"
+        "${pkgs.callPackage ./hermes-conduit-desktop.nix {}}/Applications/Conduit Desktop.app"
+      ];
+      RunAtLoad = true;
+      KeepAlive = false;
+    };
+  };
+
   # AeroSpace is Nix-installed, so macOS has no application login item for it.
   launchd.user.agents.aerospace = lib.mkIf (builtins.elem hostname ["lucas-macbook-pro" "gimle"]) {
     serviceConfig = {

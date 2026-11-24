@@ -35,7 +35,6 @@
       "postgresql@14"
       "postgrest"
       "python@3.12"
-      "redis"
       "remindctl"
       "sdkman/tap/sdkman-cli"
       "smudge/smudge/nightlight"

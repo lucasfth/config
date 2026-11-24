@@ -4,8 +4,13 @@
   lib,
   hostname,
   ...
-}: {
-  homebrew.casks = builtins.filter (name: hostname != "gimle" || !(builtins.elem name ["betterdisplay" "displaylink" "TheBoredTeam/boring-notch/boring-notch"])) [
+}: let
+  excluded = {
+    gimle = ["betterdisplay" "displaylink" "TheBoredTeam/boring-notch/boring-notch"];
+    lucas-macbook-pro = ["codexbar" "herdr-app" "signal"];
+  };
+in {
+  homebrew.casks = builtins.filter (name: !(builtins.elem name (excluded.${hostname} or []))) [
     # ── Development ─────────────────────────────────────────
     "temurin"
     "android-platform-tools"

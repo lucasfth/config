@@ -252,6 +252,18 @@ AeroSpace routes new Spotifast windows to workspace `M`. Its Home Manager-manage
 config is a Nix-store snapshot: repository edits need activation before a reload
 can use them. Existing windows must be moved separately.
 
+## Hermes Conduit Desktop (MacBook only)
+
+The MacBook pins the official `kaishi00/hermes-conduit-desktop` v1.0.2 DMG
+in `nix/darwin/hermes-conduit-desktop.nix` and preserves its upstream signed
+`Conduit Desktop.app` bundle in the Nix store. It runs separately from the iPhone wrapper
+at `/Applications/Conduit.app`. A MacBook-only LaunchAgent opens the desktop app
+at login without KeepAlive; AeroSpace places `dev.conduit.desktop` on workspace
+`A`, alongside Hermes. Homebrew no longer declares `redis`, `codexbar`,
+`herdr-app`, or `signal` on the MacBook; Gimle's Brew declarations are unchanged,
+and the `herdr` formula/CLI remains declared. Source changes require an approved
+activation; this declaration alone does not uninstall or launch anything.
+
 ## Where everything lives
 
 Repository files are source; deployment mechanisms differ by configuration.
@@ -691,7 +703,6 @@ gh auth login                              # GitHub CLI
 # Copy ~/.ssh from old machine
 # Transfer approved native Pi private credentials; do not copy credentials into Git
 brew services start postgresql@14          # if using postgres
-brew services start redis                  # if using redis
 ```
 
 ## Raycast config
@@ -781,11 +792,11 @@ Ignore rules do not untrack existing files; review the actual tracked inventory.
 
 **Brew (formulas):** Tools not in nixpkgs — multica, claude-code, cmux, minio-warp, mole, nightlight, `ykman` (YubiKey Manager), and others. See `nix/darwin/homebrew/brews.nix`.
 
-**Brew (casks):** GUI apps — ghostty, zed, vscode, discord, signal, slack, telegram, obsidian, notion, bitwarden, raycast, google-chrome, zen, betterdisplay, Electrum, and ~20 more. See `nix/darwin/homebrew/casks.nix`.
+**Brew (casks):** GUI apps — ghostty, zed, vscode, discord, slack, telegram, obsidian, notion, bitwarden, raycast, google-chrome, zen, betterdisplay, Electrum, and ~20 more. See `nix/darwin/homebrew/casks.nix`.
 
 The Electrum cask is Intel-only and requires Rosetta 2 on Apple Silicon. If Rosetta is missing, install it with `softwareupdate --install-rosetta --agree-to-license`.
 
-**Brew services:** postgresql@14, redis — Nix modules aren't mature on macOS yet.
+**Brew services:** postgresql@14 — the Nix module is not used on macOS.
 
 ## Caveats
 

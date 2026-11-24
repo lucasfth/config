@@ -286,6 +286,10 @@ shift-down = ['volume set 0', 'mode main']
   if.app-id = 'com.nousresearch.hermes'
   run = 'move-node-to-workspace A'
 
+[[on-window-detected]]
+  if.app-id = 'dev.conduit.desktop'
+  run = 'move-node-to-workspace A'
+
 # Slack
 [[on-window-detected]]
   if.app-id = 'com.tinyspeck.slackmacgap'
