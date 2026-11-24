@@ -14,13 +14,21 @@
     fi
   '';
 in {
-  # Launch the pinned signed desktop bundle directly; separate from /Applications/Conduit.app.
   launchd.user.agents.hermes-conduit-desktop = lib.mkIf (hostname == "lucas-macbook-pro") {
     serviceConfig = {
       ProgramArguments = [
-        "/usr/bin/open"
-        "-g"
-        "${pkgs.callPackage ./hermes-conduit-desktop.nix {}}/Applications/Conduit Desktop.app"
+        "${pkgs.writeShellScript "open-hermes-conduit-desktop" ''
+          # nix-darwin loads user agents before Home Manager updates the config.
+          for attempt in {1..60}; do
+            if /usr/bin/cmp -s "$HOME/.aerospace.toml" ${../../configs/aerospace/aerospace.toml} &&
+              ${pkgs.aerospace}/bin/aerospace reload-config --no-gui; then
+              exec /usr/bin/open -g "${pkgs.callPackage ./hermes-conduit-desktop.nix {}}/Applications/Conduit Desktop.app"
+            fi
+            sleep 1
+          done
+          echo 'Conduit Desktop: AeroSpace config not ready after 60 attempts' >&2
+          exit 1
+        ''}"
       ];
       RunAtLoad = true;
       KeepAlive = false;
