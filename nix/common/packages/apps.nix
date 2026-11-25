@@ -63,10 +63,10 @@
       })
       (stdenvNoCC.mkDerivation {
         pname = "superbacked";
-        version = "2.0.0-rc.3";
+        version = "2.1.3";
         src = fetchurl {
-          url = "https://github.com/superbacked/superbacked/releases/download/v2.0.0-rc.3/superbacked-arm64-2.0.0-rc.3.dmg";
-          hash = "sha256-zgVioSBxEw5enJlGkzroPgXjVM+jC7SvpiDD3pOSqvw=";
+          url = "https://github.com/superbacked/superbacked/releases/download/v2.1.3/superbacked-arm64-2.1.3.dmg";
+          hash = "sha256-9RtIYke7EZPJKbrEmtdaaHInCpA2uueDD6ZVaNipCH4=";
         };
         nativeBuildInputs = [undmg makeWrapper];
         sourceRoot = ".";
@@ -82,8 +82,8 @@
           runHook postInstall
         '';
         meta = {
-          description = "Encrypted backups (Superbacked 2 release candidate; testing only)";
-          homepage = "https://superbacked.com/v2";
+          description = "Encrypted backups";
+          homepage = "https://superbacked.com/";
           platforms = ["aarch64-darwin"];
         };
       })

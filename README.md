@@ -571,8 +571,9 @@ not the GUI's sandbox preferences. Reopen the app after applying.
 
 ### Superbacked 2
 
-Superbacked **2.0.0-rc.3** is pinned in `nix/common/packages/apps.nix` for
-Apple Silicon Macs, using the official DMG with a fixed SHA-256 hash.
+Superbacked [**2.1.3**](https://github.com/superbacked/superbacked/releases/tag/v2.1.3)
+is pinned in `nix/common/packages/apps.nix` for `lucas-macbook-pro` (Apple Silicon),
+using the official DMG with a fixed SHA-256 hash.
 Nix fixup is disabled to preserve the upstream app signature. Apply with `nrs`;
 the app is included in Home Manager's Applications, and the package exposes
 `superbacked` on the managed PATH without a shell alias or manual PATH entry.
@@ -580,9 +581,6 @@ The CLI launcher executes the absolute app-bundle binary so Electron can find
 its helper apps; a direct executable symlink breaks interactive commands.
 Run `superbacked --help` to list CLI commands or `superbacked --version` to
 check the installed release.
-
-This is a [testing-only release candidate](https://superbacked.com/v2).
-Do not use it to protect real secrets.
 
 ### Spotifast
 
